@@ -1,0 +1,167 @@
+# DisateQ™ Motor CPE v4.0 — Configuración del Proyecto
+
+[build-system]
+requires = ["setuptools>=69.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "disateq-motor-cpe"
+version = "4.0.0"
+description = "Generador y enrutador universal de comprobantes electrónicos"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Fernando Hernán Tejada Quevedo", email = "soporte@disateq.com"}
+]
+maintainers = [
+    {name = "Fernando Hernán Tejada Quevedo", email = "soporte@disateq.com"}
+]
+keywords = [
+    "facturacion-electronica",
+    "sunat",
+    "peru",
+    "cpe",
+    "comprobantes",
+    "ubl",
+    "pse",
+    "ose"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Office/Business :: Financial",
+    "Natural Language :: Spanish",
+]
+
+dependencies = [
+    "Eel>=0.16.0",
+    "openpyxl>=3.1.2",
+    "dbfread>=2.0.7",
+    "pyodbc>=5.0.1",
+    "PyYAML>=6.0.1",
+    "requests>=2.31.0",
+    "cryptography>=42.0.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.4",
+    "pytest-cov>=4.1.0",
+    "black>=24.2.0",
+    "flake8>=7.0.0",
+    "mypy>=1.8.0",
+    "PyInstaller>=6.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/fhertejadaDEV/disateq-motor-cpe-v4"
+Documentation = "https://github.com/fhertejadaDEV/disateq-motor-cpe-v4/blob/main/docs/"
+Repository = "https://github.com/fhertejadaDEV/disateq-motor-cpe-v4"
+Issues = "https://github.com/fhertejadaDEV/disateq-motor-cpe-v4/issues"
+
+# ================================================================
+# Black (Formateador)
+# ================================================================
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# ================================================================
+# isort (Ordenar imports)
+# ================================================================
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+# ================================================================
+# pytest
+# ================================================================
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--showlocals",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# ================================================================
+# Coverage
+# ================================================================
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/ui/frontend/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+# ================================================================
+# mypy (Type checking)
+# ================================================================
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+ignore_missing_imports = true
+
+# ================================================================
+# pylint
+# ================================================================
+[tool.pylint.messages_control]
+disable = [
+    "C0111",  # missing-docstring
+    "C0103",  # invalid-name
+    "R0903",  # too-few-public-methods
+]
+
+[tool.pylint.format]
+max-line-length = 100

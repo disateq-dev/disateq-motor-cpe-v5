@@ -1,0 +1,207 @@
+# DisateQ™ Motor CPE v4.0 — .gitignore
+
+# ================================================================
+# Python
+# ================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ================================================================
+# IDEs y Editores
+# ================================================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ================================================================
+# Sistema Operativo
+# ================================================================
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ================================================================
+# Proyecto Específico
+# ================================================================
+
+# Datos sensibles
+config/endpoints.yaml
+config/motor_config.yaml
+src/licenses/keys/disateq_private.pem
+*.lic
+
+# Base de datos
+data/*.db
+data/*.sqlite
+data/*.db-journal
+
+# Archivos de salida
+output/
+output/txt/*.txt
+output/json/*.json
+output/xml/*.xml
+output/cdr/*.json
+
+# Logs
+logs/*.log
+logs/*.txt
+
+# Backups
+backup/
+*.bak
+
+# Archivos temporales
+temp/
+tmp/
+*.tmp
+
+# Archivos de prueba con datos reales
+tests/fixtures/*.xlsx
+tests/fixtures/*.dbf
+tests/fixtures/*.mdb
+tests/fixtures/*.accdb
+
+# Archivos compilados
+*.exe
+*.dll
+*.pyd
+
+# Builds de PyInstaller
+builds/
+instaladores/
+
+# ================================================================
+# Datos de Desarrollo
+# ================================================================
+
+# Archivos de ejemplo con datos reales
+*_REAL.xlsx
+*_REAL.dbf
+*_produccion.*
+*_cliente_*
+
+# Credenciales
+*_credentials.yaml
+*_secrets.yaml
+api_keys.txt
+
+# Certificados digitales
+*.pfx
+*.p12
+*.pem
+!src/licenses/keys/disateq_public.pem
+
+# ================================================================
+# Documentación Temporal
+# ================================================================
+
+# Documentos de trabajo
+TODO.md
+NOTAS.md
+SCRATCH.md
+
+# ================================================================
+# Otros
+# ================================================================
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Node modules (si se usa en frontend)
+node_modules/
+package-lock.json
+
+# Archivos comprimidos
+*.zip
+*.rar
+*.7z
+*.tar.gz

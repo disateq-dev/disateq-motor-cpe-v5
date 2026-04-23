@@ -1,0 +1,54 @@
+# DisateQ™ Motor CPE v4.0 — Dependencias de Desarrollo
+
+# Incluir todas las de producción
+-r requirements.txt
+
+# ================================================================
+# Testing
+# ================================================================
+pytest==7.4.4                   # Framework de testing
+pytest-cov==4.1.0               # Cobertura de tests
+pytest-mock==3.12.0             # Mocking
+pytest-asyncio==0.23.5          # Tests async
+
+# ================================================================
+# Code Quality
+# ================================================================
+black==24.2.0                   # Formateador de código
+flake8==7.0.0                   # Linter
+mypy==1.8.0                     # Type checking
+pylint==3.0.3                   # Análisis estático
+isort==5.13.2                   # Ordenar imports
+
+# ================================================================
+# Documentation
+# ================================================================
+sphinx==7.2.6                   # Generador de docs
+sphinx-rtd-theme==2.0.0         # Tema Read the Docs
+myst-parser==2.0.0              # Markdown en Sphinx
+
+# ================================================================
+# Build & Deploy
+# ================================================================
+PyInstaller==6.5.0              # Empaquetado a .exe
+setuptools==69.1.1              # Packaging
+wheel==0.42.0                   # Distribución
+twine==5.0.0                    # Upload a PyPI (si aplica)
+
+# ================================================================
+# Development Tools
+# ================================================================
+ipython==8.21.0                 # Shell interactivo
+ipdb==0.13.13                   # Debugger
+watchdog==4.0.0                 # Auto-reload en desarrollo
+
+# ================================================================
+# Pre-commit Hooks
+# ================================================================
+pre-commit==3.6.2               # Git hooks
+
+# ================================================================
+# Performance & Profiling
+# ================================================================
+py-spy==0.3.14                  # Profiler
+memory-profiler==0.61.0         # Memory profiling
