@@ -20,7 +20,7 @@ RequestExecutionLevel admin
 
 ; Configuración MUI
 !define MUI_ABORTWARNING
-;!define MUI_ICON "assets\icon.ico"
+; !define MUI_ICON "assets\icon.ico"
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
 
 ; Páginas
@@ -74,7 +74,6 @@ Section "Motor CPE" SEC01
   ; Documentación
   SetOutPath "$INSTDIR\docs"
   File /nonfatal "docs\*.md"
-  File /nonfatal "docs\*.pdf"
   
   ; Licencias (carpeta vacía, usuario agregará su .lic)
   SetOutPath "$INSTDIR\licenses"
@@ -127,12 +126,6 @@ SectionEnd
 ; FUNCIONES
 ; ============================================================
 Function .onInit
-  ; Verificar Windows 10+
-  ${If} ${AtMostWin2008R2}
-    MessageBox MB_OK|MB_ICONSTOP "Motor CPE requiere Windows 10 o superior."
-    Abort
-  ${EndIf}
-  
   ; Verificar si ya está instalado
   ReadRegStr $R0 ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString"
   StrCmp $R0 "" done

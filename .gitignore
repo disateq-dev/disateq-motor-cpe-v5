@@ -205,3 +205,9 @@ package-lock.json
 *.rar
 *.7z
 *.tar.gz
+
+*.bak
+*.bak2
+*.bak3
+data/
+output/

@@ -1,0 +1,61 @@
+# config/clientes/farmacia_central.yaml
+# Motor CPE DisateQ™ v4.0
+
+empresa:
+  ruc: "10715460632"
+  razon_social: "FARMACIA CENTRAL S.A.C."
+  nombre_comercial: "Farmacia Central"
+  alias: "farmacia_central"
+
+fuente:
+  tipo: "dbf"
+  rutas:
+    - "D:/FFEESUNAT/test"
+
+series:
+  boleta:
+    - serie: "001"
+      correlativo_inicio: 16377
+      activa: true
+  factura:
+    - serie: "001"
+      correlativo_inicio: 0
+      activa: true
+  nota_credito: []
+  nota_debito: []
+
+envio:
+  modo: "api_tercero"
+  api_tercero:
+    nombre: "APIFAS"
+    url: "https://apifas.disateq.com/produccion_text.php"
+    formato: "txt"
+    credenciales:
+      usuario: ""
+      token: ""
+    timeout: 30
+  ose_pse:
+    nombre: ""
+    url: ""
+    formato: "json_ubl21"
+    credenciales:
+      usuario: ""
+      token: ""
+    timeout: 30
+  sunat_directo:
+    url: "https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService"
+    credenciales:
+      ruc_emisor: ""
+      usuario_sol: ""
+      clave_sol: ""
+    timeout: 45
+
+licencia:
+  clave: ""
+  endpoint_validacion: "https://licenses.disateq.com/v1/validate"
+
+observaciones: |
+  Cliente migrado desde sistema legacy FoxPro.
+  Serie B001 activa desde correlativo 16377.
+  Validar series con SUNAT antes de activar F001.
+

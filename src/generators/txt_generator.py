@@ -1,263 +1,123 @@
 """
-txt_generator.py
-================
-Generador de archivos TXT formato APIFAS — Motor CPE DisateQ™ v3.0
-
-Genera archivos de texto plano con el formato requerido por APIFAS.
+txt_generator.py — Motor CPE DisateQ™ v3.0
+Formato APIFAS: clave|valor| por linea + item|... al final
 """
-
 from decimal import Decimal
-from typing import Dict, List
 from pathlib import Path
 
+def _get(cpe, *keys):
+    for key in keys:
+        if key in cpe: return cpe[key]
+    for s in ('comprobante','cliente','totales'):
+        sub = cpe.get(s,{})
+        for key in keys:
+            if key in sub: return sub[key]
+    return None
+
+def _fmt_fecha(val):
+    if not val: return ''
+    v = str(val).strip()
+    if len(v)==10 and v[4]=='-': return f"{v[8:10]}-{v[5:7]}-{v[:4]}"
+    if len(v)==8 and v.isdigit(): return f"{v[6:8]}-{v[4:6]}-{v[:4]}"
+    return v
+
+def _fd(value, d=8):
+    try: return f"{float(value):.{d}f}"
+    except: return f"0.{'0'*d}"
+
+def _tipo_comp(tipo_doc):
+    return {'01':'1','03':'2','07':'3','08':'4'}.get(str(tipo_doc).zfill(2),'2')
+
+def _cli_tipo(tipo_doc, tipo_comp):
+    t = str(tipo_doc).strip()
+    if tipo_comp=='2' and t in ('','1','-'): return '-'
+    return t if t else '6'
 
 class TxtGenerator:
-    """
-    Genera archivos TXT en formato APIFAS.
-    
-    Formato:
-    - Línea 1: Cabecera del comprobante
-    - Líneas siguientes: Items del comprobante
-    - Separador: pipe (|)
-    """
-    
+
     @staticmethod
-    def generate(cpe: Dict, output_dir: str = "output") -> str:
-        """
-        Genera archivo TXT para un CPE normalizado.
-        
-        Args:
-            cpe: Comprobante normalizado (desde XlsxAdapter.normalize)
-            output_dir: Directorio donde guardar el archivo
-        
-        Returns:
-            Ruta del archivo generado
-        """
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        # Nombre del archivo: SERIE-NUMERO.txt
-        filename = f"{cpe['serie']}-{cpe['numero']:08d}.txt"
-        filepath = output_path / filename
-        
-        # Generar contenido
-        lines = []
-        
-        # LÍNEA 1: CABECERA
-        cabecera = TxtGenerator._generar_cabecera(cpe)
-        lines.append(cabecera)
-        
-        # LÍNEAS 2+: ITEMS
-        for item in cpe['items']:
-            item_line = TxtGenerator._generar_item(item)
-            lines.append(item_line)
-        
-        # Guardar archivo
-        content = "\n".join(lines)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(content)
-        
-        return str(filepath)
-    
+    def generate(cpe, output_dir="output"):
+        p = Path(output_dir)
+        p.mkdir(parents=True, exist_ok=True)
+        serie  = str(_get(cpe,'serie') or '')
+        numero = int(_get(cpe,'numero') or 0)
+        fp = p / f"{serie}-{numero:08d}.txt"
+        fp.write_text(TxtGenerator._contenido(cpe), encoding='utf-8')
+        return str(fp)
+
     @staticmethod
-    def _generar_cabecera(cpe: Dict) -> str:
-        """
-        Genera línea de cabecera del comprobante.
-        
-        Formato APIFAS (campos separados por |):
-        tipo_doc|serie|numero|fecha|moneda|cliente_tipo_doc|cliente_num_doc|
-        cliente_nombre|cliente_direccion|gravada|exonerada|inafecta|igv|
-        icbper|total|forma_pago
-        """
-        cliente = cpe['cliente']
-        totales = cpe['totales']
-        
-        campos = [
-            cpe['tipo_doc'],                           # 01=Factura, 03=Boleta
-            cpe['serie'],                              # F001, B001
-            str(cpe['numero']),                        # 1, 2, 3...
-            cpe['fecha_str'],                          # DD-MM-YYYY
-            cpe['moneda'],                             # PEN, USD
-            cliente['tipo_doc'],                       # 1=DNI, 6=RUC
-            cliente['numero_doc'],                     # 12345678, 20123456789
-            cliente['denominacion'],                   # CLIENTE S.A.C.
-            cliente.get('direccion', '-'),             # Dirección o -
-            TxtGenerator._format_decimal(totales['gravada']),      # 100.00
-            TxtGenerator._format_decimal(totales['exonerada']),    # 0.00
-            TxtGenerator._format_decimal(totales['inafecta']),     # 0.00
-            TxtGenerator._format_decimal(totales['igv']),          # 18.00
-            TxtGenerator._format_decimal(totales.get('icbper', 0)),  # 0.00
-            TxtGenerator._format_decimal(totales['total']),        # 118.00
-            cpe.get('forma_pago', 'Contado'),          # Contado, Credito
-        ]
-        
-        return "|".join(campos)
-    
+    def _contenido(cpe):
+        cl = cpe.get('cliente',{})
+        to = cpe.get('totales',{})
+        it = cpe.get('items',[])
+        td  = str(_get(cpe,'tipo_doc') or '03')
+        tc  = _tipo_comp(td)
+        ser = str(_get(cpe,'serie') or '')
+        num = int(_get(cpe,'numero') or 0)
+        mon = '1' if str(_get(cpe,'moneda') or 'PEN')=='PEN' else '2'
+        fec = _fmt_fecha(str(_get(cpe,'fecha_str','fecha_emision') or ''))
+        ct  = _cli_tipo(cl.get('tipo_doc',''), tc)
+        cd  = cl.get('numero_doc','00000000') or '00000000'
+        cn  = cl.get('denominacion','CLIENTE VARIOS') or 'CLIENTE VARIOS'
+        cdi = cl.get('direccion','-') or '-'
+        gr  = float(to.get('gravada',0) or 0)
+        ex  = float(to.get('exonerada',0) or 0)
+        ina = float(to.get('inafecta',0) or 0)
+        ig  = float(to.get('igv',0) or 0)
+        icb = float(to.get('icbper',0) or 0)
+        tot = float(to.get('total',0) or 0)
+        L = []
+        def l(k,v=''): L.append(f"{k}|{v}|")
+        l('operacion','generar_comprobante')
+        l('tipo_de_comprobante',tc)
+        l('serie',ser); l('numero',str(num))
+        l('sunat_transaction','1')
+        l('cliente_tipo_de_documento',ct)
+        l('cliente_numero_de_documento',cd)
+        l('cliente_denominacion',cn)
+        l('cliente_direccion',cdi)
+        l('cliente_email'); l('cliente_email_1'); l('cliente_email_2')
+        l('fecha_de_emision',fec); l('fecha_de_vencimiento')
+        l('moneda',mon); l('tipo_de_cambio')
+        l('porcentaje_de_igv','18.00')
+        l('descuento_global'); l('total_descuento'); l('total_anticipo')
+        l('total_gravada',_fd(gr))
+        l('total_inafecta',_fd(ina) if ina else '')
+        l('total_exonerada',_fd(ex))
+        l('total_igv',_fd(ig))
+        l('total_impuestos_bolsas',_fd(icb))
+        l('total_gratuita','0.00000000'); l('total_otros_cargos')
+        l('total',_fd(tot))
+        l('percepcion_tipo'); l('percepcion_base_imponible')
+        l('total_percepcion'); l('total_incluido_percepcion')
+        l('detraccion','false'); l('observaciones')
+        l('documento_que_se_modifica_tipo'); l('documento_que_se_modifica_serie')
+        l('documento_que_se_modifica_numero')
+        l('tipo_de_nota_de_credito'); l('tipo_de_nota_de_debito')
+        l('enviar_automaticamente_a_la_sunat','false')
+        l('enviar_automaticamente_al_cliente','false')
+        l('condiciones_de_pago'); l('medio_de_pago'); l('placa_vehiculo')
+        l('orden_compra_servicio'); l('detraccion_tipo'); l('detraccion_total')
+        l('ubigeo_origen'); l('direccion_origen')
+        l('ubigeo_destino'); l('direccion_destino')
+        l('detalle_viaje'); l('val_ref_serv_trans')
+        l('val_ref_carga_efec'); l('val_ref_carga_util')
+        l('formato_de_pdf'); l('generado_por_contingencia')
+        for i in it:
+            u  = i.get('unidad','NIU')
+            co = i.get('codigo','')
+            de = i.get('descripcion','')
+            ca = float(i.get('cantidad',0) or 0)
+            ps = float(i.get('precio_sin_igv') or i.get('valor_unitario') or 0)
+            pc = float(i.get('precio_con_igv') or i.get('precio_unitario') or 0)
+            su = float(i.get('subtotal_sin_igv',0) or 0)
+            af = i.get('afectacion_igv','10')
+            ig2= float(i.get('igv',0) or 0)
+            ti = float(i.get('total',0) or 0)
+            un = i.get('unspsc','10000000')
+            L.append(f"item|{u}|{co}|{de}|{_fd(ca)}|{_fd(ps)}|{_fd(pc)}||{_fd(su)}|{af}|{_fd(ig2)}|{_fd(ti)}|false|||{un}|||||")
+        return "\n".join(L)+"\n"
+
     @staticmethod
-    def _generar_item(item: Dict) -> str:
-        """
-        Genera línea de item del comprobante.
-        
-        Formato APIFAS (campos separados por |):
-        codigo|descripcion|unspsc|unidad|cantidad|precio_sin_igv|
-        precio_con_igv|subtotal_sin_igv|igv|total|afectacion_igv
-        """
-        campos = [
-            item['codigo'],                                    # PROD001
-            item['descripcion'],                               # Producto X
-            item.get('unspsc', '10000000'),                   # Código UNSPSC
-            item['unidad'],                                    # NIU, ZZ
-            TxtGenerator._format_decimal(item['cantidad']),    # 2.00
-            TxtGenerator._format_decimal(item['precio_sin_igv']),  # 10.00
-            TxtGenerator._format_decimal(item['precio_con_igv']),  # 11.80
-            TxtGenerator._format_decimal(item['subtotal_sin_igv']),  # 20.00
-            TxtGenerator._format_decimal(item['igv']),         # 3.60
-            TxtGenerator._format_decimal(item['total']),       # 23.60
-            item.get('afectacion_igv', '10'),                 # 10=Gravado
-        ]
-        
-        return "|".join(campos)
-    
-    @staticmethod
-    def _format_decimal(value) -> str:
-        """
-        Formatea valores decimales a 2 decimales.
-        
-        Args:
-            value: Decimal, float, int o string
-        
-        Returns:
-            String con formato "0.00"
-        """
-        if isinstance(value, (Decimal, float, int)):
-            return f"{float(value):.2f}"
-        return "0.00"
-
-
-# ========================================
-# LECTOR DE TXT (para pruebas)
-# ========================================
-
-class TxtReader:
-    """Lee archivos TXT formato APIFAS (útil para debugging)"""
-    
-    @staticmethod
-    def read(filepath: str) -> Dict:
-        """
-        Lee un archivo TXT APIFAS y retorna estructura normalizada.
-        
-        Args:
-            filepath: Ruta al archivo .txt
-        
-        Returns:
-            Dict con estructura similar a XlsxAdapter.normalize()
-        """
-        with open(filepath, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        if not lines:
-            raise ValueError("Archivo TXT vacío")
-        
-        # Línea 1: Cabecera
-        cabecera = lines[0].strip().split('|')
-        
-        cpe = {
-            'tipo_doc': cabecera[0],
-            'serie': cabecera[1],
-            'numero': int(cabecera[2]),
-            'fecha_str': cabecera[3],
-            'moneda': cabecera[4],
-            'cliente': {
-                'tipo_doc': cabecera[5],
-                'numero_doc': cabecera[6],
-                'denominacion': cabecera[7],
-                'direccion': cabecera[8] if len(cabecera) > 8 else '-',
-            },
-            'totales': {
-                'gravada': Decimal(cabecera[9]),
-                'exonerada': Decimal(cabecera[10]),
-                'inafecta': Decimal(cabecera[11]),
-                'igv': Decimal(cabecera[12]),
-                'icbper': Decimal(cabecera[13]) if len(cabecera) > 13 else Decimal('0'),
-                'total': Decimal(cabecera[14]) if len(cabecera) > 14 else Decimal('0'),
-            },
-            'forma_pago': cabecera[15] if len(cabecera) > 15 else 'Contado',
-            'items': []
-        }
-        
-        # Líneas 2+: Items
-        for line in lines[1:]:
-            if not line.strip():
-                continue
-            
-            campos = line.strip().split('|')
-            item = {
-                'codigo': campos[0],
-                'descripcion': campos[1],
-                'unspsc': campos[2] if len(campos) > 2 else '10000000',
-                'unidad': campos[3] if len(campos) > 3 else 'NIU',
-                'cantidad': float(campos[4]) if len(campos) > 4 else 0,
-                'precio_sin_igv': Decimal(campos[5]) if len(campos) > 5 else Decimal('0'),
-                'precio_con_igv': Decimal(campos[6]) if len(campos) > 6 else Decimal('0'),
-                'subtotal_sin_igv': Decimal(campos[7]) if len(campos) > 7 else Decimal('0'),
-                'igv': Decimal(campos[8]) if len(campos) > 8 else Decimal('0'),
-                'total': Decimal(campos[9]) if len(campos) > 9 else Decimal('0'),
-                'afectacion_igv': campos[10] if len(campos) > 10 else '10',
-            }
-            cpe['items'].append(item)
-        
-        return cpe
-
-
-# ========================================
-# CLI
-# ========================================
-
-def main():
-    """CLI para generar TXT desde Excel"""
-    import argparse
-    import sys
-    
-    parser = argparse.ArgumentParser(
-        description="Generador TXT APIFAS desde Excel DisateQ POS™"
-    )
-    parser.add_argument('excel_file', help='Archivo Excel de entrada')
-    parser.add_argument('-o', '--output', default='output', help='Directorio de salida')
-    
-    args = parser.parse_args()
-    
-    try:
-        # Importar adapter
-        sys.path.insert(0, str(Path(__file__).parent))
-        from adapters.xlsx_adapter import XlsxAdapter
-        
-        # Leer Excel
-        print(f"📖 Leyendo Excel: {args.excel_file}")
-        adapter = XlsxAdapter(args.excel_file)
-        adapter.connect()
-        
-        comprobantes = adapter.read_pending()
-        print(f"   ✅ {len(comprobantes)} comprobantes encontrados\n")
-        
-        # Generar TXT para cada comprobante
-        for comp in comprobantes:
-            items = adapter.read_items(comp)
-            cpe = adapter.normalize(comp, items)
-            
-            filepath = TxtGenerator.generate(cpe, args.output)
-            print(f"   ✅ {cpe['serie']}-{cpe['numero']:08d}.txt → {filepath}")
-        
-        adapter.disconnect()
-        
-        print(f"\n✅ {len(comprobantes)} archivos TXT generados en: {args.output}\n")
-    
-    except Exception as e:
-        print(f"\n❌ Error: {e}\n")
-        return 1
-    
-    return 0
-
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main())
+    def _format_decimal(value):
+        return _fd(value, 2)

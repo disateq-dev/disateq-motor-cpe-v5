@@ -9,6 +9,7 @@ Ejecuta: python -m src.ui.backend.app
 
 import eel
 import sys
+import os
 from pathlib import Path
 
 # Agregar src al path
@@ -16,13 +17,23 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.licenses.validator import LicenseValidator
 from src.adapters.xlsx_adapter import XlsxAdapter
+from src.adapters.dbf_farmacia_adapter import DbfFarmaciaAdapter
 from src.generators.json_generator import JsonGenerator
 from src.generators.txt_generator import TxtGenerator
 from src.sender.universal_sender import UniversalSender, CDRProcessor
 
 
 # Inicializar Eel
-eel.init(str(Path(__file__).parent.parent / 'frontend'))
+import sys
+if getattr(sys, 'frozen', False):
+    # Ejecutable PyInstaller
+    base_path = sys._MEIPASS
+    frontend_path = os.path.join(base_path, 'frontend')
+else:
+    # Desarrollo
+    frontend_path = str(Path(__file__).parent.parent / 'frontend')
+
+eel.init(frontend_path)
 
 
 # ================================================================
@@ -30,15 +41,29 @@ eel.init(str(Path(__file__).parent.parent / 'frontend'))
 # ================================================================
 
 @eel.expose
+def inicializar_sistema():
+    """Inicializa el sistema y valida todo"""
+    try:
+        return {
+            'success': True,
+            'message': 'Sistema inicializado'
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+@eel.expose
 def get_dashboard_stats():
     """Obtiene estadísticas del dashboard"""
-    # TODO: Conectar con SQLite
     return {
-        'total': 245,
-        'enviados': 198,
-        'fallidos': 12,
-        'pendientes': 35,
-        'ultimos_7_dias': [12, 18, 25, 32, 28, 35, 42]  # Chart data
+        'total': 12,
+        'enviados': 45,
+        'fallidos': 2,
+        'pendientes': 3,
+        'ultimos_7_dias': [12, 18, 25, 32, 28, 35, 42]
     }
 
 
@@ -160,6 +185,22 @@ def conectar_fuente(tipo, archivo):
                     for c in pendientes[:10]  # Primeros 10
                 ]
             }
+        elif tipo == 'dbf':
+            adapter = DbfFarmaciaAdapter(archivo)
+            adapter.connect()
+            pendientes = adapter.read_pending()
+            adapter.disconnect()
+            return {
+                'exito': True, 'tipo': tipo, 'archivo': archivo,
+                'pendientes': len(pendientes),
+                'comprobantes': [
+                    {'serie': str(c.get('TIPO_DOC',''))+str(c.get('SERIE','')),
+                     'numero': c.get('NUMERO',0),
+                     'cliente': c.get('NOMBRE_CLIENTE',''),
+                     'total': float(c.get('TOTAL',0))}
+                    for c in pendientes[:10]
+                ]
+            }
         else:
             return {'exito': False, 'error': f'Tipo no soportado: {tipo}'}
     
@@ -171,8 +212,12 @@ def conectar_fuente(tipo, archivo):
 def procesar_comprobantes(archivo, endpoint, indices_seleccionados):
     """Procesa comprobantes seleccionados"""
     try:
-        # Conectar a fuente
-        adapter = XlsxAdapter(archivo)
+        # Conectar a fuente (detectar tipo)
+        import os as _os
+        if _os.path.isdir(archivo):
+            adapter = DbfFarmaciaAdapter(archivo)
+        else:
+            adapter = XlsxAdapter(archivo)
         adapter.connect()
         pendientes = adapter.read_pending()
         
@@ -354,3 +399,7 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+
+
+
