@@ -1,0 +1,372 @@
+/**
+ * layout.css — Motor CPE DisateQ™ v4.0
+ * Layout híbrido desktop-first
+ * Sin sidebar, con tabs horizontales
+ */
+
+/* ============================================
+   ESTRUCTURA PRINCIPAL
+   ============================================ */
+#app {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ============================================
+   HEADER (Oscuro tipo POS)
+   ============================================ */
+.app-header {
+  background: var(--bg-header);
+  color: var(--text-white);
+  padding: var(--space-4) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: var(--text-lg);
+}
+
+.app-title h1 {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin: 0;
+}
+
+.app-title .version {
+  font-size: var(--text-xs);
+  color: var(--slate-500);
+  font-weight: 400;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--slate-500);
+}
+
+.header-info .divider {
+  width: 1px;
+  height: 20px;
+  background: var(--slate-600);
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.header-btn {
+  background: transparent;
+  border: 1px solid var(--slate-600);
+  color: var(--text-white);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.header-btn:hover {
+  background: var(--slate-700);
+  border-color: var(--slate-500);
+}
+
+.header-btn.primary {
+  background: var(--blue-500);
+  border-color: var(--blue-500);
+}
+
+.header-btn.primary:hover {
+  background: var(--blue-600);
+}
+
+/* ============================================
+   TABS (Navegación horizontal)
+   ============================================ */
+.nav-tabs {
+  background: var(--bg-topbar);
+  display: flex;
+  gap: 0;
+  padding: 0 var(--space-6);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.tab-item {
+  padding: var(--space-4) var(--space-6);
+  background: transparent;
+  border: none;
+  color: var(--slate-500);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: var(--transition-fast);
+  position: relative;
+}
+
+.tab-item:hover {
+  color: var(--text-white);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-item.active {
+  color: var(--text-white);
+  border-bottom-color: var(--blue-500);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tab-item .badge {
+  background: var(--error);
+  color: white;
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: var(--space-2);
+  font-weight: 600;
+}
+
+/* ============================================
+   MAIN CONTENT
+   ============================================ */
+.main-content {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-6);
+  background: var(--bg-app);
+}
+
+.content-page {
+  display: none;
+  max-width: 1400px;
+  margin: 0 auto;
+  animation: fadeIn 0.2s ease;
+}
+
+.content-page.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   FOOTER (Barra de estado)
+   ============================================ */
+.app-footer {
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-light);
+  padding: var(--space-2) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.footer-left,
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.footer-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.status-dot.warning {
+  background: var(--warning);
+}
+
+.status-dot.error {
+  background: var(--error);
+}
+
+/* ============================================
+   GRID DE STATS (Dashboard)
+   ============================================ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  transition: var(--transition-base);
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-medium);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon.primary {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.stat-icon.success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.stat-icon.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.stat-icon.error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.stat-value {
+  display: block;
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ============================================
+   CARDS/PANELS
+   ============================================ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header h3 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.card-body {
+  padding: var(--space-5);
+}
+
+.card-footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-hover);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  .app-header {
+    padding: var(--space-3) var(--space-4);
+  }
+  
+  .header-info {
+    display: none;
+  }
+  
+  .nav-tabs {
+    overflow-x: auto;
+    padding: 0 var(--space-4);
+  }
+  
+  .main-content {
+    padding: var(--space-4);
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
