@@ -74,19 +74,12 @@ class Motor:
         else:
             raise ValueError(f"Tipo de fuente no soportado: {tipo}")
 
-    def _get_sender(self):
-        """Instancia el sender segun modo."""
+    def _get_sender(self, tipo_comprobante: str = 'boleta'):
+        """Instancia el sender con endpoints para el tipo de comprobante."""
         if self.modo_sender == 'mock':
             return UniversalSender(mode='mock')
-
-        modo   = self.config.modo_envio
-        config = self.config.config_envio
-        url    = config.get('url', '')
-        creds  = config.get('credenciales', {})
-
-        # Inyectar credenciales del cliente al endpoints.yaml temporal
-        # Por ahora usar config directo
-        return UniversalSender(mode=self.modo_sender)
+        endpoints = self.config.get_endpoints_para(tipo_comprobante)
+        return UniversalSender(endpoints=endpoints)
 
     def procesar(self, limit: int = None) -> Dict:
         """
@@ -110,7 +103,6 @@ class Motor:
 
         print(f"📋 Pendientes: {len(pendientes)}")
 
-        sender  = self._get_sender()
         results = {'procesados': 0, 'enviados': 0, 'errores': 0, 'ignorados': 0}
 
         for comp in pendientes:
@@ -145,9 +137,13 @@ class Motor:
                 path = TxtGenerator.generate(cpe, self.output_dir)
                 self.log.generado(ruc, alias, tipo_str, serie, numero, path)
 
-                # Enviar
-                endpoint_nombre = self.config.config_envio.get('nombre', 'mock')
-                exito, respuesta = sender.enviar(path)
+                # Sender para este tipo de comprobante
+                tipo_str_ep = TIPO_DOC_MAP.get(tipo_doc, 'boleta')
+                sender      = self._get_sender(tipo_str_ep)
+                endpoint_nombre = ','.join([ep.get('nombre','') for ep in self.config.get_endpoints_para(tipo_str_ep)]) or 'mock'
+                resultados_envio = sender.enviar(path, tipo_str_ep)
+                exito    = all(r[0] for r in resultados_envio)
+                respuesta = resultados_envio[0][1] if resultados_envio else {}
                 duracion = int((time.time() - t0) * 1000)
 
                 if exito:

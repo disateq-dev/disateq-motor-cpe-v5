@@ -317,12 +317,13 @@ def verificar_conexion_api():
     try:
         import requests
         if _client_config:
-            cfg    = _client_config.config_envio
-            url    = cfg.get('url', '')
-            nombre = cfg.get('nombre', 'API')
-            if url:
-                resp = requests.head(url, timeout=5)
-                return {'conectado': resp.status_code < 500, 'nombre': nombre}
+            eps = _client_config.endpoints_activos
+            if eps:
+                url    = eps[0].get('url', '')
+                nombre = ', '.join([e.get('nombre','') for e in eps])
+                if url:
+                    resp = requests.head(url, timeout=5)
+                    return {'conectado': resp.status_code < 500, 'nombre': nombre}
         return {'conectado': False, 'nombre': 'Sin configurar'}
     except:
         return {'conectado': False, 'nombre': 'Sin conexion'}
@@ -385,6 +386,86 @@ def get_historial(limit=200):
         }
     except Exception as e:
         return {'exito': False, 'error': str(e), 'total': 0, 'comprobantes': []}
+
+
+# ================================================================
+# CONFIGURACION
+# ================================================================
+
+@eel.expose
+def verificar_clave_instalador(clave: str):
+    try:
+        if _client_config:
+            return {'valida': clave == _client_config.clave_instalador}
+        return {'valida': False}
+    except:
+        return {'valida': False}
+
+
+@eel.expose
+def get_config_cliente():
+    try:
+        if not _client_config:
+            return {'exito': False, 'error': 'Sin cliente'}
+        return {
+            'exito':     True,
+            'empresa':   _client_config.empresa,
+            'fuente': {
+                'tipo':  _client_config.tipo_fuente,
+                'rutas': _client_config.rutas_fuente
+            },
+            'series':    _client_config.series,
+            'endpoints': _client_config.endpoints,
+            'envio':     _client_config.envio
+        }
+    except Exception as e:
+        return {'exito': False, 'error': str(e)}
+
+
+@eel.expose
+def guardar_config(payload):
+    try:
+        import yaml
+        cfg_path = None
+        loader = ClientLoader()
+        for alias in loader.listar():
+            cfg_path = loader.clientes_dir / f"{alias}.yaml"
+            break
+        if not cfg_path:
+            return {"exito": False, "error": "No hay cliente configurado"}
+
+        with open(cfg_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        # Campos editables empresa
+        if payload.get("nombre_comercial"):
+            data["empresa"]["nombre_comercial"] = payload["nombre_comercial"]
+        if payload.get("alias"):
+            data["empresa"]["alias"] = payload["alias"]
+
+        # Credenciales API
+        if "api_tercero" not in data.get("envio", {}):
+            data.setdefault("envio", {})["api_tercero"] = {}
+        if payload.get("url"):
+            data["envio"]["api_tercero"]["url"] = payload["url"]
+        data["envio"]["api_tercero"].setdefault("credenciales", {})
+        if payload.get("usuario") is not None:
+            data["envio"]["api_tercero"]["credenciales"]["usuario"] = payload["usuario"]
+        if payload.get("token"):
+            data["envio"]["api_tercero"]["credenciales"]["token"] = payload["token"]
+
+        # Clave instalador
+        if payload.get("clave_nueva"):
+            data.setdefault("instalador", {})["clave"] = payload["clave_nueva"]
+
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+
+        # Recargar cliente
+        _cargar_cliente()
+        return {"exito": True}
+    except Exception as e:
+        return {"exito": False, "error": str(e)}
 
 # ================================================================
 # MAIN

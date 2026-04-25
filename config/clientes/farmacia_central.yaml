@@ -1,62 +1,47 @@
-# config/clientes/farmacia_central.yaml
-# Motor CPE DisateQ™ v4.0
-
 empresa:
-  ruc: "10715460632"
-  razon_social: "FARMACIA CENTRAL S.A.C."
-  nombre_comercial: "Farmacia Central"
-  alias: "LOCAL PRINCIPAL"
-
-fuente:
-  tipo: "dbf"
-  rutas:
-    - "D:/FFEESUNAT/test"
-
-series:
-  boleta:
-    - serie: "B001"
-      correlativo_inicio: 16377
-      activa: true
-  factura:
-    - serie: "B001"
-      correlativo_inicio: 0
-      activa: true
-  nota_credito: []
-  nota_debito: []
-
+  alias: LOCAL PRINCIPAL
+  nombre_comercial: Farmacia Central
+  razon_social: FARMACIA CENTRAL S.A.C.
+  ruc: '10715460632'
 envio:
-  modo: "api_tercero"
-  api_tercero:
-    nombre: "APIFAS"
-    url: "https://apifas.disateq.com/produccion_text.php"
-    formato: "txt"
+  endpoints:
+  - activo: true
     credenciales:
-      usuario: ""
-      token: ""
+      token: ''
+      usuario: ''
+    formato: txt
+    nombre: APIFAS
     timeout: 30
-  ose_pse:
-    nombre: ""
-    url: ""
-    formato: "json_ubl21"
-    credenciales:
-      usuario: ""
-      token: ""
-    timeout: 30
-  sunat_directo:
-    url: "https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService"
-    credenciales:
-      ruc_emisor: ""
-      usuario_sol: ""
-      clave_sol: ""
-    timeout: 45
-
+    tipo_comprobante:
+    - boleta
+    - factura
+    - nota_credito
+    - nota_debito
+    url: https://apifas.disateq.com/produccion_text.php
+fuente:
+  rutas:
+  - D:/FFEESUNAT/test
+  tipo: dbf
+instalador:
+  clave: '1234'
 licencia:
-  clave: ""
-  endpoint_validacion: "https://licenses.disateq.com/v1/validate"
+  clave: ''
+  endpoint_validacion: https://licenses.disateq.com/v1/validate
+observaciones: 'Cliente migrado desde sistema legacy FoxPro.
 
-observaciones: |
-  Cliente migrado desde sistema legacy FoxPro.
   Serie B001 activa desde correlativo 16377.
+
   Validar series con SUNAT antes de activar F001.
 
-
+  '
+series:
+  boleta:
+  - activa: true
+    correlativo_inicio: 16377
+    serie: B001
+  factura:
+  - activa: true
+    correlativo_inicio: 0
+    serie: B001
+  nota_credito: []
+  nota_debito: []

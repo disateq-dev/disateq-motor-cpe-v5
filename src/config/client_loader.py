@@ -26,6 +26,10 @@ class ClientConfig:
         return self.empresa.get('ruc', '')
 
     @property
+    def clave_instalador(self) -> str:
+        return str(self.data.get('instalador', {}).get('clave', '1234'))
+
+    @property
     def razon_social(self) -> str:
         return self.empresa.get('razon_social', '')
 
@@ -42,12 +46,37 @@ class ClientConfig:
         return self.fuente.get('rutas', [])
 
     @property
+    def endpoints(self) -> list:
+        """Lista de endpoints configurados."""
+        return self.envio.get('endpoints', [])
+
+    @property
+    def endpoints_activos(self) -> list:
+        """Solo endpoints activos."""
+        return [e for e in self.endpoints if e.get('activo', False)]
+
+    def get_endpoints_para(self, tipo_comprobante: str) -> list:
+        """
+        Retorna endpoints activos para un tipo de comprobante.
+        tipo_comprobante: 'boleta', 'factura', 'nota_credito', 'nota_debito'
+        """
+        result = []
+        for ep in self.endpoints_activos:
+            tipos = ep.get('tipo_comprobante', ['todos'])
+            if 'todos' in tipos or tipo_comprobante in tipos:
+                result.append(ep)
+        return result
+
+    # Compatibilidad legacy
+    @property
     def modo_envio(self) -> str:
-        return self.envio.get('modo', 'api_tercero')
+        eps = self.endpoints_activos
+        return eps[0].get('nombre', 'api_tercero') if eps else 'sin_configurar'
 
     @property
     def config_envio(self) -> Dict:
-        return self.envio.get(self.modo_envio, {})
+        eps = self.endpoints_activos
+        return eps[0] if eps else {}
 
     def get_series_activas(self, tipo: str) -> List[Dict]:
         """

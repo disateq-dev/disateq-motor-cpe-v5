@@ -360,3 +360,147 @@ async function cerrarApp() {
 
 
 
+
+
+// ================================================================
+// CONFIGURACION
+// ================================================================
+
+let _configDesbloqueada = false;
+
+async function initConfig() {
+    if (_configDesbloqueada) {
+        await mostrarConfigCompleta();
+    } else {
+        mostrarLockConfig();
+    }
+}
+
+function mostrarLockConfig() {
+    const page = document.getElementById('page-config');
+    page.querySelector('.card-body').innerHTML = `
+        <div style="max-width:320px;margin:2rem auto;text-align:center;">
+            <div style="font-size:3rem;margin-bottom:1rem;">&#128274;</div>
+            <h3 style="margin-bottom:0.5rem;">Acceso Restringido</h3>
+            <p style="color:var(--text-muted);margin-bottom:1.5rem;font-size:0.875rem;">
+                Esta seccion requiere clave del tecnico instalador.
+            </p>
+            <div style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:1rem;">
+                ${[0,1,2,3].map(i => '<input type="password" maxlength="1" id="pin-'+i+'" style="width:48px;height:48px;text-align:center;font-size:1.5rem;border:2px solid var(--border-medium);border-radius:var(--radius-md);outline:none;" oninput="onPinInput('+i+', this)" onkeydown="onPinKey(event, '+i+')">').join('')}
+            </div>
+            <button class="btn btn-primary" onclick="verificarPin()" style="width:100%;">Acceder</button>
+            <div id="pin-error" style="color:var(--error);margin-top:0.75rem;font-size:0.875rem;display:none;">Clave incorrecta</div>
+        </div>
+    `;
+    setTimeout(() => document.getElementById('pin-0')?.focus(), 100);
+}
+
+function onPinInput(idx, input) {
+    input.value = input.value.replace(/[^0-9]/g, '');
+    if (input.value && idx < 3) document.getElementById('pin-' + (idx+1))?.focus();
+    if (idx === 3 && input.value) verificarPin();
+}
+
+function onPinKey(e, idx) {
+    if (e.key === 'Backspace' && !e.target.value && idx > 0)
+        document.getElementById('pin-' + (idx-1))?.focus();
+}
+
+async function verificarPin() {
+    const clave = [0,1,2,3].map(i => document.getElementById('pin-'+i)?.value || '').join('');
+    if (clave.length < 4) return;
+    const result = await eel.verificar_clave_instalador(clave)();
+    if (result.valida) {
+        _configDesbloqueada = true;
+        await mostrarConfigCompleta();
+    } else {
+        document.getElementById('pin-error').style.display = 'block';
+        [0,1,2,3].forEach(i => { const el = document.getElementById('pin-'+i); if (el) { el.value = ''; el.style.borderColor = 'var(--error)'; } });
+        setTimeout(() => { document.getElementById('pin-0')?.focus(); [0,1,2,3].forEach(i => { const el = document.getElementById('pin-'+i); if (el) el.style.borderColor = 'var(--border-medium)'; }); }, 1000);
+    }
+}
+
+async function mostrarConfigCompleta() {
+    const page = document.getElementById('page-config');
+    const result = await eel.get_config_cliente()();
+    if (!result.exito) { page.querySelector('.card-body').innerHTML = '<p style="color:var(--error)">Error</p>'; return; }
+    const d = result;
+    const series = d.series || {};
+    const creds = d.envio?.api_tercero?.credenciales || {};
+
+    const renderSeries = (tipo, lista) => {
+        if (!lista || !lista.length) return '<span style="color:var(--text-muted);font-size:0.85rem;">Sin series</span>';
+        return lista.map((s, i) => '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem;background:' + (s.activa ? '#f0fdf4' : '#f9fafb') + ';border:1px solid ' + (s.activa ? '#86efac' : '#e5e7eb') + ';border-radius:var(--radius-md);margin-bottom:0.4rem;"><strong style="min-width:60px;">' + s.serie + '</strong><span style="color:var(--text-muted);font-size:0.8rem;">desde:</span><input type="number" value="' + s.correlativo_inicio + '" id="serie-' + tipo + '-' + i + '-corr" style="width:80px;padding:0.25rem 0.5rem;border:1px solid var(--border-medium);border-radius:4px;font-size:0.85rem;"><label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;font-size:0.85rem;"><input type="checkbox" id="serie-' + tipo + '-' + i + '-activa" ' + (s.activa ? 'checked' : '') + '> Activa</label></div>').join('');
+    };
+
+    page.querySelector('.card-body').innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">' +
+        '<span style="color:var(--success);font-size:0.875rem;">Modo tecnico activo</span>' +
+        '<button class="btn btn-secondary" onclick="bloquearConfig()" style="font-size:0.8rem;">Bloquear</button></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>Empresa</h3><span style="font-size:0.75rem;color:var(--text-muted);background:#f3f4f6;padding:2px 8px;border-radius:10px;">Solo lectura parcial</span></div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
+        '<div><label style="font-size:0.75rem;color:var(--text-muted);">RUC</label><p style="font-weight:600;font-family:monospace;">' + d.empresa.ruc + '</p></div>' +
+        '<div><label style="font-size:0.75rem;color:var(--text-muted);">Razon Social</label><p style="font-weight:600;">' + d.empresa.razon_social + '</p></div>' +
+        '<div><label style="font-size:0.75rem;color:var(--text-muted);">Nombre Comercial</label><input type="text" id="cfg-nombre-comercial" value="' + (d.empresa.nombre_comercial||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;"></div>' +
+        '<div><label style="font-size:0.75rem;color:var(--text-muted);">Alias / Local</label><input type="text" id="cfg-alias" value="' + (d.empresa.alias||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;"></div>' +
+        '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>Fuente de Datos</h3><span style="font-size:0.75rem;color:var(--text-muted);background:#f3f4f6;padding:2px 8px;border-radius:10px;">Solo lectura</span></div><div class="card-body"><div style="display:grid;grid-template-columns:120px 1fr;gap:1rem;align-items:start;">' +
+        '<div><label style="font-size:0.75rem;color:var(--text-muted);">Tipo</label><p style="font-weight:700;text-transform:uppercase;color:var(--blue-600);">' + (d.fuente.tipo||'-') + '</p></div>' +
+        '<div><label style="font-size:0.75rem;color:var(--text-muted);">Ruta(s)</label>' + (d.fuente.rutas||[]).map(r => '<p style="font-family:monospace;font-size:0.82rem;background:#f8fafc;padding:0.3rem 0.6rem;border-radius:4px;margin-top:0.25rem;">' + r + '</p>').join('') + '</div>' +
+        '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>Series y Correlativos</h3><span style="font-size:0.75rem;color:var(--success);background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span></div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
+        '<div><label style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Boletas</label>' + renderSeries('boleta', series.boleta) + '</div>' +
+        '<div><label style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Facturas</label>' + renderSeries('factura', series.factura) + '</div>' +
+        '<div><label style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Credito</label>' + renderSeries('nota_credito', series.nota_credito) + '</div>' +
+        '<div><label style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Debito</label>' + renderSeries('nota_debito', series.nota_debito) + '</div>' +
+        '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>Configuracion de Envio</h3><span style="font-size:0.75rem;color:var(--success);background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span></div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
+        '<div style="grid-column:span 2;"><label style="font-size:0.75rem;color:var(--text-muted);">URL Endpoint</label><input type="text" id="cfg-url" value="' + (d.envio?.api_tercero?.url||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.85rem;font-family:monospace;"></div>' +
+        '<div><label style="font-size:0.75rem;color:var(--text-muted);">Usuario API</label><input type="text" id="cfg-usuario" value="' + (creds.usuario||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;"></div>' +
+        '<div><label style="font-size:0.75rem;color:var(--text-muted);">Token / Clave API</label><input type="password" id="cfg-token" value="' + (creds.token||'') + '" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;"></div>' +
+        '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>Clave del Instalador</h3><span style="font-size:0.75rem;color:var(--success);background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span></div><div class="card-body"><div style="display:flex;gap:1rem;align-items:flex-end;max-width:400px;">' +
+        '<div style="flex:1;"><label style="font-size:0.75rem;color:var(--text-muted);">Nueva clave (4 digitos)</label><input type="password" id="cfg-clave-nueva" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:1rem;letter-spacing:0.5rem;"></div>' +
+        '<div style="flex:1;"><label style="font-size:0.75rem;color:var(--text-muted);">Confirmar clave</label><input type="password" id="cfg-clave-confirma" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:1rem;letter-spacing:0.5rem;"></div>' +
+        '</div></div></div>' +
+
+        '<div style="display:flex;gap:0.75rem;justify-content:flex-end;padding-top:0.5rem;">' +
+        '<button class="btn btn-secondary" onclick="bloquearConfig()">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="guardarConfig()">Guardar Cambios</button></div>' +
+        '<div id="cfg-mensaje" style="text-align:right;margin-top:0.5rem;font-size:0.85rem;display:none;"></div>';
+}
+
+async function guardarConfig() {
+    const nueva    = document.getElementById('cfg-clave-nueva')?.value || '';
+    const confirma = document.getElementById('cfg-clave-confirma')?.value || '';
+    const msg      = document.getElementById('cfg-mensaje');
+    if (nueva && nueva !== confirma) { msg.style.display='block'; msg.style.color='var(--error)'; msg.textContent='Las claves no coinciden'; return; }
+    if (nueva && !/^\d{4}$/.test(nueva)) { msg.style.display='block'; msg.style.color='var(--error)'; msg.textContent='La clave debe ser 4 digitos'; return; }
+    const payload = {
+        nombre_comercial: document.getElementById('cfg-nombre-comercial')?.value || '',
+        alias:            document.getElementById('cfg-alias')?.value || '',
+        url:              document.getElementById('cfg-url')?.value || '',
+        usuario:          document.getElementById('cfg-usuario')?.value || '',
+        token:            document.getElementById('cfg-token')?.value || '',
+        clave_nueva:      nueva || null
+    };
+    const result = await eel.guardar_config(payload)();
+    msg.style.display = 'block';
+    if (result.exito) {
+        msg.style.color = 'var(--success)';
+        msg.textContent = 'Configuracion guardada correctamente';
+        setTimeout(() => mostrarConfigCompleta(), 1500);
+    } else {
+        msg.style.color = 'var(--error)';
+        msg.textContent = 'Error: ' + result.error;
+    }
+}
+
+function bloquearConfig() {
+    _configDesbloqueada = false;
+    mostrarLockConfig();
+}
