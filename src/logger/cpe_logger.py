@@ -45,6 +45,8 @@ class CpeLogger:
                     tipo_doc          TEXT,
                     serie             TEXT,
                     numero            INTEGER,
+                    cliente_nombre    TEXT,
+                    total             REAL,
                     archivo_generado  TEXT,
                     estado            TEXT NOT NULL,
                     detalle           TEXT,
@@ -75,6 +77,8 @@ class CpeLogger:
                   tipo_doc: str = '',
                   serie: str = '',
                   numero: int = 0,
+                  cliente_nombre: str = '',
+                  total: float = 0.0,
                   archivo_generado: str = '',
                   detalle: str = '',
                   endpoint: str = '',
@@ -89,8 +93,8 @@ class CpeLogger:
             cur = conn.execute("""
                 INSERT INTO log_envios
                 (fecha, ruc_emisor, alias_cliente, tipo_doc, serie, numero,
-                 archivo_generado, estado, detalle, endpoint, duracion_ms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 cliente_nombre, total, archivo_generado, estado, detalle, endpoint, duracion_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 datetime.now().isoformat(),
                 ruc_emisor,
@@ -98,6 +102,8 @@ class CpeLogger:
                 tipo_doc,
                 serie,
                 numero,
+                cliente_nombre,
+                total,
                 archivo_generado,
                 estado,
                 detalle,
@@ -113,8 +119,10 @@ class CpeLogger:
         return self.registrar(ruc, 'GENERADO', alias, tipo, serie, numero, archivo_generado=archivo)
 
     def enviado(self, ruc: str, alias: str, tipo: str, serie: str, numero: int,
-                archivo: str, endpoint: str, duracion_ms: int = 0) -> int:
+                archivo: str, endpoint: str, duracion_ms: int = 0,
+                cliente_nombre: str = '', total: float = 0.0) -> int:
         return self.registrar(ruc, 'ENVIADO', alias, tipo, serie, numero,
+                              cliente_nombre=cliente_nombre, total=total,
                               archivo_generado=archivo, endpoint=endpoint, duracion_ms=duracion_ms)
 
     def error(self, ruc: str, alias: str, tipo: str, serie: str, numero: int,
@@ -175,3 +183,5 @@ class CpeLogger:
     def pendientes_error(self, ruc: str = None) -> List[Dict]:
         """Retorna comprobantes con ERROR para reintento manual."""
         return self.consultar(ruc=ruc, estado='ERROR')
+
+

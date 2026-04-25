@@ -5,7 +5,7 @@ empresa:
   ruc: "10715460632"
   razon_social: "FARMACIA CENTRAL S.A.C."
   nombre_comercial: "Farmacia Central"
-  alias: "farmacia_central"
+  alias: "LOCAL PRINCIPAL"
 
 fuente:
   tipo: "dbf"
@@ -58,4 +58,5 @@ observaciones: |
   Cliente migrado desde sistema legacy FoxPro.
   Serie B001 activa desde correlativo 16377.
   Validar series con SUNAT antes de activar F001.
+
 

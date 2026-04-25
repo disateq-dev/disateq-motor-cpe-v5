@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" type="image/x-icon" href="assets/icons/DisateQ_Favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Motor CPE DisateQ™ v4.0</title>
     
@@ -19,7 +20,7 @@
         <header class="app-header">
             <div class="header-left">
                 <div class="app-logo">
-                    <div class="logo-icon">D</div>
+                    <img src="assets/icons/cpe_disateq.ico" style="width:36px;height:36px;object-fit:contain;">
                     <div class="app-title">
                         <h1>Motor CPE DisateQ™</h1>
                         <span class="version">v4.0.0</span>
@@ -33,19 +34,23 @@
                     <span class="divider"></span>
                     <span>RUC: <strong id="empresa-ruc">20123456789</strong></span>
                     <span class="divider"></span>
+                    <span id="empresa-alias" style="color:#94a3b8;font-size:var(--text-sm);">-</span>
+                    <span class="divider"></span>
                     <span id="fecha-hora">20/04/2026 14:35</span>
                 </div>
                 
                 <div class="header-actions">
-                    <button class="header-btn primary" onclick="procesarPendientes()">
+                    <button class="header-btn btn-procesar" onclick="procesarPendientes()" data-tooltip="Procesar comprobantes">
                         <i data-feather="play-circle"></i>
-                        Procesar
                     </button>
-                    <button class="header-btn" onclick="sincronizar()">
+                    <button class="header-btn btn-sync" onclick="sincronizar()" data-tooltip="Sincronizar">
                         <i data-feather="refresh-cw"></i>
                     </button>
-                    <button class="header-btn" onclick="abrirConfig()">
+                    <button class="header-btn btn-config" onclick="abrirConfig()" data-tooltip="Configuración">
                         <i data-feather="settings"></i>
+                    </button>
+                    <button class="header-btn btn-salir" onclick="cerrarApp()" data-tooltip="Cerrar">
+                        <i data-feather="power"></i>
                     </button>
                 </div>
             </div>
@@ -245,6 +250,8 @@
                 <span>Última sincronización: <strong id="ultima-sync">14:35</strong></span>
                 <span class="divider">|</span>
                 <span>DisateQ™ Motor CPE v4.0</span>
+                <span class="divider">|</span>
+                <span style="color:var(--text-muted);">@fhertejada™</span>
             </div>
         </footer>
     </div>
@@ -265,3 +272,9 @@
     </script>
 </body>
 </html>
+
+
+
+
+
+

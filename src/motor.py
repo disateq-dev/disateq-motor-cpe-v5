@@ -134,6 +134,8 @@ class Motor:
                     results['ignorados'] += 1
                     continue
 
+                cli_nombre = cpe.get('cliente', {}).get('denominacion', '-')
+                total_cpe  = cpe.get('totales', {}).get('total', 0.0)
                 self.log.leido(ruc, alias, tipo_str, serie, numero)
 
                 # Generar TXT
@@ -148,7 +150,8 @@ class Motor:
 
                 if exito:
                     self.log.enviado(ruc, alias, tipo_str, serie, numero,
-                                     path, endpoint_nombre, duracion)
+                                     path, endpoint_nombre, duracion,
+                                     cli_nombre, total_cpe)
                     results['enviados'] += 1
                     print(f"   ✅ {serie}-{numero:08d} ({duracion}ms)")
                 else:
@@ -171,3 +174,4 @@ class Motor:
 
         print(f"\n📊 Resumen: {results}")
         return results
+
