@@ -42,6 +42,6 @@ series:
   factura:
   - activa: true
     correlativo_inicio: 0
-    serie: B001
+    serie: F001
   nota_credito: []
   nota_debito: []

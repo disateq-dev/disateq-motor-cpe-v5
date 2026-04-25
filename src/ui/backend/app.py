@@ -443,16 +443,23 @@ def guardar_config(payload):
         if payload.get("alias"):
             data["empresa"]["alias"] = payload["alias"]
 
-        # Credenciales API
-        if "api_tercero" not in data.get("envio", {}):
-            data.setdefault("envio", {})["api_tercero"] = {}
-        if payload.get("url"):
-            data["envio"]["api_tercero"]["url"] = payload["url"]
-        data["envio"]["api_tercero"].setdefault("credenciales", {})
-        if payload.get("usuario") is not None:
-            data["envio"]["api_tercero"]["credenciales"]["usuario"] = payload["usuario"]
-        if payload.get("token"):
-            data["envio"]["api_tercero"]["credenciales"]["token"] = payload["token"]
+        # Endpoints
+        if payload.get("endpoints") is not None:
+            data["envio"] = {"endpoints": [
+                {
+                    "nombre": ep.get("nombre",""),
+                    "activo": ep.get("activo", False),
+                    "tipo_comprobante": ep.get("tipo_comprobante", ["todos"]),
+                    "formato": ep.get("formato","txt"),
+                    "url": ep.get("url",""),
+                    "credenciales": {
+                        "usuario": ep.get("usuario",""),
+                        "token":   ep.get("token","")
+                    },
+                    "timeout": ep.get("timeout", 30)
+                }
+                for ep in payload["endpoints"]
+            ]}
 
         # Clave instalador
         if payload.get("clave_nueva"):

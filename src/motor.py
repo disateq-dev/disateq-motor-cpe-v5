@@ -13,6 +13,7 @@ from typing import Dict, List, Tuple
 
 from src.config.client_loader import ClientLoader, ClientConfig
 from src.generators.txt_generator import TxtGenerator
+from src.generators.anulacion_generator import AnulacionGenerator
 from src.sender.universal_sender import UniversalSender
 from src.logger.cpe_logger import CpeLogger
 
@@ -80,6 +81,62 @@ class Motor:
             return UniversalSender(mode='mock')
         endpoints = self.config.get_endpoints_para(tipo_comprobante)
         return UniversalSender(endpoints=endpoints)
+
+    def procesar_anulaciones(self, limit: int = None) -> Dict:
+        """Procesa anulaciones pendientes desde notacredito.dbf."""
+        ruc   = self.config.ruc
+        alias = self.config.alias
+
+        adapter = self._get_adapter()
+        adapter.connect()
+        pendientes = adapter.read_pending_anulaciones()
+        if limit:
+            pendientes = pendientes[:limit]
+
+        print(f"📋 Anulaciones pendientes: {len(pendientes)}")
+        results = {'procesados': 0, 'enviados': 0, 'errores': 0}
+
+        for rec in pendientes:
+            try:
+                cpe  = adapter.normalize_anulacion(rec)
+                cab  = cpe['comprobante']
+                serie  = cab['serie']
+                numero = int(cab['numero'])
+
+                # Generar TXT
+                path = AnulacionGenerator.generate(cpe, ruc,
+                       output_dir=self.output_dir + '/anulaciones')
+
+                self.log.generado(ruc, alias, 'anulacion', serie, numero, path)
+
+                # Enviar
+                sender = self._get_sender('anulacion')
+                endpoint_nombre = ','.join([ep.get('nombre','') for ep in self.config.get_endpoints_para('anulacion')]) or 'mock'
+                resultados_envio = sender.enviar(path, 'anulacion')
+                exito    = all(r[0] for r in resultados_envio)
+                respuesta = resultados_envio[0][1] if resultados_envio else {}
+
+                if exito:
+                    self.log.enviado(ruc, alias, 'anulacion', serie, numero,
+                                     path, endpoint_nombre)
+                    results['enviados'] += 1
+                    print(f"   ✅ ANULACION {serie}-{numero:08d}")
+                else:
+                    detalle = respuesta.get('error', str(respuesta))
+                    self.log.error(ruc, alias, 'anulacion', serie, numero, detalle)
+                    results['errores'] += 1
+                    print(f"   ❌ ANULACION {serie}-{numero:08d} — {detalle}")
+
+                results['procesados'] += 1
+
+            except Exception as e:
+                self.log.error(ruc, alias, 'anulacion', '', 0, str(e))
+                results['errores'] += 1
+                print(f"   ❌ Error anulacion: {e}")
+
+        adapter.disconnect()
+        print(f"\n📊 Anulaciones: {results}")
+        return results
 
     def procesar(self, limit: int = None) -> Dict:
         """

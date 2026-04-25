@@ -179,7 +179,9 @@ class DbfFarmaciaAdapter(BaseAdapter):
     def _fmt_fecha(self, val: str) -> str:
         v = val.strip()
         if len(v) == 8 and v.isdigit():
-            return f"{v[:4]}-{v[4:6]}-{v[6:]}"
+            return f"{v[6:8]}-{v[4:6]}-{v[:4]}"
+        if len(v) == 10 and v[4] == '-':
+            return f"{v[8:10]}-{v[5:7]}-{v[:4]}"
         return v
 
     def _safe_str(self, val) -> str:
@@ -190,6 +192,68 @@ class DbfFarmaciaAdapter(BaseAdapter):
             return int(self._decode(val)) if val else 0
         except:
             return 0
+
+
+    def read_pending_anulaciones(self):
+        anulaciones_path = self.data_path / 'notacredito.dbf'
+        if not anulaciones_path.exists():
+            print("Advertencia: notacredito.dbf no encontrado")
+            return []
+        motivos = {}
+        try:
+            mot_path = self.data_path / 'motivonota.dbf'
+            if mot_path.exists():
+                from dbfread import DBF as _DBF
+                for r in _DBF(str(mot_path), encoding='latin1', ignore_missing_memofile=True, raw=True):
+                    codigo = self._decode(r.get('CODIGO','')).strip()
+                    motivo = self._decode(r.get('MOTIVO','')).strip()
+                    motivos[codigo] = motivo
+        except:
+            pass
+        motivos.setdefault('01', 'Anulacion de la operacion')
+        from dbfread import DBF as _DBF2
+        dbf = _DBF2(str(anulaciones_path), encoding='latin1', ignore_missing_memofile=True, raw=True)
+        pendientes = []
+        for record in dbf:
+            try:
+                pendiente = self._decode(record.get('PENDIENTE_', b'0'))
+                tipo_mov  = self._decode(record.get('TIPO_MOVIM',  b'0'))
+                if pendiente == '2' and tipo_mov == '2':
+                    dec = {k: self._decode(v) for k, v in record.items()}
+                    codigo_motivo = dec.get('TIPO_MOTIV','01').strip()
+                    dec['_motivo_desc'] = motivos.get(codigo_motivo, 'Anulacion de la operacion')
+                    pendientes.append(dec)
+            except:
+                continue
+        print(f"Anulaciones pendientes: {len(pendientes)}")
+        return pendientes
+
+    def normalize_anulacion(self, record) -> dict:
+        tipo_dbf  = record.get('TIPO_FACTU','B').strip().upper()
+        tipo_cpe  = '03' if tipo_dbf == 'B' else '01'
+        serie_raw = record.get('SERIE_NOTA','').strip()
+        prefijo   = {'01':'F','03':'B'}.get(tipo_cpe, 'B')
+        serie     = prefijo + serie_raw
+        numero    = self._safe_int(record.get('NUMERO_NOT','0'))
+        fecha_raw = record.get('FECHA_NOTA','').strip()
+        fecha     = self._fmt_fecha(fecha_raw)
+        motivo    = record.get('_motivo_desc','Anulacion de la operacion')
+        serie_orig  = record.get('SERIE_FACT','').strip()
+        numero_orig = self._safe_int(record.get('NUMERO_FAC','0'))
+        from datetime import date
+        return {
+            'tipo': 'anulacion',
+            'comprobante': {
+                'tipo_doc':        tipo_cpe,
+                'serie':           serie,
+                'numero':          numero,
+                'fecha_emision':   fecha,
+                'fecha_anulacion': date.today().strftime('%d-%m-%Y'),
+                'motivo':          motivo,
+                'serie_original':  serie_orig,
+                'numero_original': numero_orig,
+            }
+        }
 
     def _safe_float(self, val) -> float:
         try:
