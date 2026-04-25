@@ -66,6 +66,7 @@ function navegarA(page) {
     if (page === 'procesar')  initProcesar();
     if (page === 'logs')      cargarLogs();
     if (page === 'historial') cargarHistorial();
+    if (page === 'config')    initConfig();
 }
 
 // RELOJ
@@ -281,35 +282,66 @@ async function filtrarLogs(estado) {
     `).join('');
 }
 
-// HISTORIAL
+// HISTORIAL CONSOLIDADO
 async function cargarHistorial() {
-    const result = await eel.get_logs('ENVIADO', 200)();
-    const page   = document.getElementById('page-historial');
+    const page = document.getElementById('page-historial');
+    page.querySelector('.card-body').innerHTML = '<p style="color:var(--text-muted)">Cargando...</p>';
 
-    if (!result.exito) return;
+    const result = await eel.get_historial(200)();
+    if (!result.exito) {
+        page.querySelector('.card-body').innerHTML = '<p style="color:var(--error)">Error cargando historial</p>';
+        return;
+    }
+
+    const estadoColor = {
+        'remitido':'#22c55e','error':'#ef4444',
+        'ignorado':'#f59e0b','generado':'#3b82f6','leido':'#94a3b8'
+    };
 
     page.querySelector('.card-body').innerHTML = `
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Serie-Número</th>
-                    <th>Archivo</th>
-                    <th>Duración</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${result.logs.map(r => `
+        <div style="margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.85rem;color:var(--text-muted);">Total: <strong>${result.total}</strong> comprobantes</span>
+            <div style="display:flex;gap:0.5rem;">
+                <input type="text" id="hist-search" placeholder="Buscar serie o número..."
+                    style="padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.85rem;"
+                    oninput="filtrarHistorial(this.value)">
+            </div>
+        </div>
+        <div style="max-height:500px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-md);">
+            <table class="table" id="tabla-historial" style="margin:0;">
+                <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
                     <tr>
-                        <td>${r.fecha ? r.fecha.substring(0,19).replace('T',' ') : '-'}</td>
-                        <td><strong>${r.serie}-${String(r.numero).padStart(8,'0')}</strong></td>
-                        <td>${r.archivo_generado ? r.archivo_generado.split('\\').pop() : '-'}</td>
-                        <td>${r.duracion_ms ? r.duracion_ms+'ms' : '-'}</td>
+                        <th>Comprobante</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                        <th>Endpoint</th>
                     </tr>
-                `).join('')}
-            </tbody>
-        </table>
+                </thead>
+                <tbody id="historial-tbody">
+                    ${result.comprobantes.map(c => `
+                        <tr>
+                            <td><strong>${c.serie}-${String(c.numero).padStart(8,'0')}</strong></td>
+                            <td>${c.fecha}</td>
+                            <td>${c.cliente}</td>
+                            <td>S/ ${Number(c.total).toFixed(2)}</td>
+                            <td><span class="badge badge-${getBadgeClass(c.estado)}">${c.estado}</span></td>
+                            <td>${c.endpoint}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
     `;
+}
+
+function filtrarHistorial(query) {
+    const rows = document.querySelectorAll('#historial-tbody tr');
+    const q = query.toLowerCase();
+    rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
 }
 
 function getBadgeClass(estado) {
