@@ -63,6 +63,7 @@ function navegarA(page) {
     appState.currentPage = page;
 
     if (page === 'dashboard') cargarDashboard();
+    if (page === 'procesar')  initProcesar();
     if (page === 'logs')      cargarLogs();
     if (page === 'historial') cargarHistorial();
 }
@@ -324,5 +325,6 @@ async function cerrarApp() {
         window.close();
     }
 }
+
 
 

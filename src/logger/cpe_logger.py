@@ -19,7 +19,7 @@ ESTADOS = {
     'LEIDO':       'Comprobante leido desde fuente',
     'NORMALIZADO': 'Normalizado a estructura CPE',
     'GENERADO':    'Archivo TXT/JSON generado',
-    'ENVIADO':     'Enviado al endpoint exitosamente',
+    'REMITIDO':     'Enviado al endpoint exitosamente',
     'ERROR':       'Error en el flujo',
     'IGNORADO':    'Serie/correlativo no permitido por config',
 }
@@ -121,7 +121,7 @@ class CpeLogger:
     def enviado(self, ruc: str, alias: str, tipo: str, serie: str, numero: int,
                 archivo: str, endpoint: str, duracion_ms: int = 0,
                 cliente_nombre: str = '', total: float = 0.0) -> int:
-        return self.registrar(ruc, 'ENVIADO', alias, tipo, serie, numero,
+        return self.registrar(ruc, 'REMITIDO', alias, tipo, serie, numero,
                               cliente_nombre=cliente_nombre, total=total,
                               archivo_generado=archivo, endpoint=endpoint, duracion_ms=duracion_ms)
 

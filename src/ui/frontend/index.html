@@ -22,8 +22,8 @@
                 <div class="app-logo">
                     <img src="assets/icons/cpe_disateq.ico" style="width:36px;height:36px;object-fit:contain;">
                     <div class="app-title">
-                        <h1>Motor CPE DisateQ™</h1>
-                        <span class="version">v4.0.0</span>
+                        <h1>DisateQ CPE™</h1>
+                        <span class="version">Motor generador y de envío de formato de comprobantes SUNAT</span>
                     </div>
                 </div>
             </div>
@@ -86,44 +86,42 @@
             <!-- Dashboard Page -->
             <div class="content-page active" id="page-dashboard">
                 <!-- Stats Cards -->
+                <!-- Stats Cards -->
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon primary">
                             <i data-feather="clock"></i>
                         </div>
                         <div class="stat-content">
-                            <span class="stat-label">Pendientes</span>
-                            <span class="stat-value" id="stat-pendientes">12</span>
+                            <span class="stat-label">Pendientes en Fuente</span>
+                            <span class="stat-value" id="stat-pendientes">0</span>
                         </div>
                     </div>
-                    
                     <div class="stat-card">
                         <div class="stat-icon success">
-                            <i data-feather="check-circle"></i>
+                            <i data-feather="send"></i>
                         </div>
                         <div class="stat-content">
-                            <span class="stat-label">Aceptados Hoy</span>
-                            <span class="stat-value" id="stat-aceptados">45</span>
+                            <span class="stat-label">Remitidos al API</span>
+                            <span class="stat-value" id="stat-remitidos">0</span>
                         </div>
                     </div>
-                    
                     <div class="stat-card">
                         <div class="stat-icon error">
-                            <i data-feather="x-circle"></i>
+                            <i data-feather="alert-circle"></i>
                         </div>
                         <div class="stat-content">
-                            <span class="stat-label">Rechazados Hoy</span>
-                            <span class="stat-value" id="stat-rechazados">2</span>
+                            <span class="stat-label">Errores de Envio</span>
+                            <span class="stat-value" id="stat-errores">0</span>
                         </div>
                     </div>
-                    
                     <div class="stat-card">
                         <div class="stat-icon warning">
-                            <i data-feather="alert-triangle"></i>
+                            <i data-feather="skip-forward"></i>
                         </div>
                         <div class="stat-content">
-                            <span class="stat-label">Con Errores</span>
-                            <span class="stat-value" id="stat-errores">3</span>
+                            <span class="stat-label">Ignorados</span>
+                            <span class="stat-value" id="stat-ignorados">0</span>
                         </div>
                     </div>
                 </div>
@@ -170,27 +168,54 @@
                 <div class="card">
                     <div class="card-header">
                         <h3>Procesamiento de Comprobantes</h3>
+                        <span id="proc-cliente-info" style="font-size:0.8rem;color:var(--text-muted);"></span>
                     </div>
                     <div class="card-body">
-                        <!-- Selector de archivo -->
-                        <div class="form-group">
-                            <label>Fuente de Datos</label>
-                            <div class="input-group">
-                                <input type="text" 
-                                       id="archivo-seleccionado" 
-                                       placeholder="Seleccionar archivo..." 
-                                       readonly>
-                                <button class="btn btn-secondary" onclick="seleccionarArchivo()">
-                                    <i data-feather="folder"></i>
-                                    Examinar
+                        <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:end;margin-bottom:1rem;">
+                            <div>
+                                <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Fuente de Datos (DBF)</label>
+                                <div style="display:flex;gap:0.5rem;margin-top:0.25rem;">
+                                    <input type="text" id="archivo-seleccionado"
+                                           placeholder="Seleccionar carpeta DBF..."
+                                           readonly
+                                           style="flex:1;padding:0.5rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;background:var(--bg-input-disabled);">
+                                    <button class="btn btn-secondary" onclick="seleccionarArchivo()">
+                                        <i data-feather="folder"></i> Examinar
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="cargarPendientes()" id="btn-cargar">
+                                <i data-feather="refresh-cw"></i> Cargar
+                            </button>
+                        </div>
+                        <div id="proc-status" style="display:none;padding:0.5rem 0.75rem;border-radius:var(--radius-md);margin-bottom:1rem;font-size:0.875rem;"></div>
+                        <div id="preview-container" style="display:none;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                                <div style="display:flex;align-items:center;gap:1rem;">
+                                    <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;">
+                                        <input type="checkbox" id="select-all" onchange="toggleAll(this)"> Seleccionar todos
+                                    </label>
+                                    <span id="proc-count" style="font-size:0.8rem;color:var(--text-muted);"></span>
+                                </div>
+                                <button class="btn btn-primary" onclick="procesarConMotor()" id="btn-procesar">
+                                    <i data-feather="play-circle"></i> Procesar con Motor
                                 </button>
                             </div>
+                            <div style="max-height:400px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-md);">
+                                <table class="table" style="margin:0;">
+                                    <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
+                                        <tr>
+                                            <th style="width:40px;"></th>
+                                            <th>Comprobante</th>
+                                            <th>Cliente</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="preview-tbody"></tbody>
+                                </table>
+                            </div>
                         </div>
-                        
-                        <!-- Preview -->
-                        <div id="preview-container" style="display: none;">
-                            <!-- Contenido dinámico -->
-                        </div>
+                        <div id="proc-resultado" style="display:none;"></div>
                     </div>
                 </div>
             </div>
@@ -241,6 +266,11 @@
                 </div>
                 <span class="divider">|</span>
                 <div class="footer-status">
+                    <span class="status-dot" id="api-status-dot" style="background:#94a3b8;"></span>
+                    <span id="api-status-label" style="color:var(--text-muted);">API: verificando...</span>
+                </div>
+                <span class="divider">|</span>
+                <div class="footer-status">
                     <i data-feather="shield"></i>
                     <span>Licencia Válida</span>
                 </div>
@@ -265,6 +295,7 @@
     <script src="js/utils.js"></script>
     <script src="js/app.js"></script>
     <script src="js/dashboard.js"></script>
+    <script src="js/processor.js"></script>
     
     <!-- Inicializar Feather Icons -->
     <script>
@@ -272,6 +303,10 @@
     </script>
 </body>
 </html>
+
+
+
+
 
 
 

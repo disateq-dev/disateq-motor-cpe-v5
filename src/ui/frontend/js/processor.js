@@ -1,289 +1,223 @@
-// processor.js - DisateQ™ Motor CPE v4.0
+/**
+ * processor.js — Motor CPE DisateQ™ v4.0
+ * Página Procesar — conectada al Motor orquestador
+ */
 
-// ============================================================
-// VARIABLES GLOBALES
-// ============================================================
+let _pendientesData = [];
 
-let comprobantesPreview = [];
-let archivoSeleccionado = null;
+// Cargar info cliente al entrar a la página
+async function initProcesar() {
+    const empresa = await eel.get_empresa_info()();
+    const info = document.getElementById('proc-cliente-info');
+    if (info && empresa) {
+        info.textContent = `${empresa.nombre} — RUC: ${empresa.ruc}`;
+    }
 
-// ============================================================
-// SELECCIONAR ARCHIVO
-// ============================================================
+    // Auto-cargar pendientes desde config cliente
+    await cargarPendientesDesdeMotor();
+}
 
 async function seleccionarArchivo() {
-    try {
-        const archivo = await eel.seleccionar_archivo()();
-        
-        if (!archivo) {
-            return;
-        }
-        
-        archivoSeleccionado = archivo;
-        document.getElementById('fuente-archivo').value = archivo;
-        
-        // Conectar y obtener preview
-        await conectarYPreview();
-        
-    } catch (error) {
-        console.error('Error seleccionando archivo:', error);
-        showToast('Error al seleccionar archivo', 'error');
+    const carpeta = await eel.seleccionar_carpeta()();
+    if (carpeta) {
+        document.getElementById('archivo-seleccionado').value = carpeta;
+        appState.archivoSeleccionado = carpeta;
+        await cargarPendientes();
     }
 }
 
-// ============================================================
-// CONECTAR Y MOSTRAR PREVIEW
-// ============================================================
+async function cargarPendientes() {
+    const archivo = document.getElementById('archivo-seleccionado').value;
+    const status  = document.getElementById('proc-status');
+    const preview = document.getElementById('preview-container');
 
-async function conectarYPreview() {
-    const tipo = document.getElementById('fuente-tipo').value;
-    const archivo = document.getElementById('fuente-archivo').value;
-    
-    if (!archivo) {
-        showToast('Selecciona un archivo primero', 'warning');
+    if (!archivo || archivo === 'Configurado en cliente YAML') {
+        // Usar config del cliente directamente
+        await cargarPendientesDesdeMotor();
         return;
     }
-    
-    const statusDiv = document.getElementById('fuente-status');
-    statusDiv.innerHTML = '<p>⏳ Conectando...</p>';
-    statusDiv.className = 'alert alert-info';
-    statusDiv.style.display = 'block';
-    
-    try {
-        const resultado = await eel.conectar_fuente(tipo, archivo)();
-        
-        if (resultado.exito) {
-            statusDiv.innerHTML = `
-                <p>✅ Conectado exitosamente</p>
-                <p><strong>${resultado.pendientes}</strong> comprobantes pendientes encontrados</p>
-            `;
-            statusDiv.className = 'alert alert-success';
-            
-            // Guardar y mostrar preview
-            comprobantesPreview = resultado.comprobantes;
-            mostrarPreview(comprobantesPreview);
-            
-            showToast(`${resultado.pendientes} comprobantes encontrados`, 'success');
-        } else {
-            statusDiv.innerHTML = `<p>❌ Error: ${resultado.error}</p>`;
-            statusDiv.className = 'alert alert-error';
-            
-            document.getElementById('preview-container').style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('Error conectando:', error);
-        statusDiv.innerHTML = `<p>❌ Error: ${error}</p>`;
-        statusDiv.className = 'alert alert-error';
+
+    status.style.display = 'block';
+    status.style.background = '#dbeafe';
+    status.style.color = '#1e40af';
+    status.textContent = '⏳ Conectando a fuente de datos...';
+    preview.style.display = 'none';
+
+    const result = await eel.conectar_fuente('dbf', archivo)();
+
+    if (result.exito) {
+        status.style.background = '#dcfce7';
+        status.style.color = '#166534';
+        status.textContent = `✅ ${result.pendientes} comprobantes pendientes encontrados`;
+        _pendientesData = result.comprobantes;
+        mostrarTabla(result.comprobantes, result.pendientes);
+    } else {
+        status.style.background = '#fee2e2';
+        status.style.color = '#991b1b';
+        status.textContent = `❌ ${result.error}`;
     }
+
+    feather.replace();
 }
 
-// ============================================================
-// MOSTRAR PREVIEW
-// ============================================================
+async function cargarPendientesDesdeMotor() {
+    const status = document.getElementById('proc-status');
+    status.style.display = 'block';
+    status.style.background = '#dbeafe';
+    status.style.color = '#1e40af';
+    status.textContent = '⏳ Leyendo fuente configurada...';
 
-function mostrarPreview(comprobantes) {
-    const previewList = document.getElementById('preview-list');
-    const container = document.getElementById('preview-container');
-    
-    if (!comprobantes || comprobantes.length === 0) {
-        container.style.display = 'none';
+    const clientes = await eel.get_clientes_disponibles()();
+    if (!clientes.exito || !clientes.clientes.length) {
+        status.style.background = '#fee2e2';
+        status.style.color = '#991b1b';
+        status.textContent = '❌ No hay cliente configurado';
         return;
     }
-    
-    previewList.innerHTML = comprobantes.map((comp, index) => `
-        <div class="preview-item">
-            <input type="checkbox" 
-                   id="check-${index}" 
-                   value="${index}" 
-                   checked>
-            <div class="preview-item-content">
-                <div class="preview-item-serie">${comp.serie}-${String(comp.numero).padStart(8, '0')}</div>
-                <div class="preview-item-cliente">${escapeHtml(comp.cliente)}</div>
-                <div class="preview-item-total">${formatCurrency(comp.total)}</div>
-            </div>
-        </div>
+
+    const cfg = clientes.clientes[0];
+
+    // Obtener ruta real desde config
+    const rutaResult = await eel.get_ruta_fuente(cfg.alias)();
+    const input = document.getElementById('archivo-seleccionado');
+    if (input && rutaResult.ruta) input.value = rutaResult.ruta;
+
+    const result = await eel.conectar_fuente(cfg.tipo_fuente, rutaResult.ruta || cfg.alias)();
+
+    if (result.exito) {
+        status.style.background = '#dcfce7';
+        status.style.color = '#166534';
+        status.textContent = `✅ ${result.pendientes} comprobantes pendientes encontrados`;
+        _pendientesData = result.comprobantes;
+        mostrarTabla(result.comprobantes, result.pendientes);
+    } else {
+        status.style.background = '#fee2e2';
+        status.style.color = '#991b1b';
+        status.textContent = `❌ ${result.error}`;
+    }
+    feather.replace();
+}
+
+function mostrarTabla(comprobantes, total) {
+    const tbody   = document.getElementById('preview-tbody');
+    const counter = document.getElementById('proc-count');
+    const preview = document.getElementById('preview-container');
+
+    counter.textContent = `Mostrando ${comprobantes.length} de ${total} pendientes`;
+
+    tbody.innerHTML = comprobantes.map((c, i) => `
+        <tr>
+            <td><input type="checkbox" class="comp-check" data-index="${i}" checked></td>
+            <td><strong>${c.serie}-${String(c.numero).padStart(8,'0')}</strong></td>
+            <td>${c.cliente || 'CLIENTES VARIOS'}</td>
+            <td>S/ ${Number(c.total || 0).toFixed(2)}</td>
+        </tr>
     `).join('');
-    
-    container.style.display = 'block';
-    
-    // Evento para "Seleccionar todos"
-    const selectAll = document.getElementById('select-all');
-    selectAll.checked = true;
-    selectAll.onchange = (e) => {
-        document.querySelectorAll('.preview-item input[type="checkbox"]').forEach(cb => {
-            cb.checked = e.target.checked;
-        });
-    };
+
+    preview.style.display = 'block';
+    feather.replace();
 }
 
-// ============================================================
-// PROCESAR SELECCIONADOS
-// ============================================================
+function toggleAll(cb) {
+    document.querySelectorAll('.comp-check').forEach(c => c.checked = cb.checked);
+}
 
-async function procesarSeleccionados() {
-    const archivo = document.getElementById('fuente-archivo').value;
-    const endpoint = document.querySelector('input[name="endpoint"]:checked').value;
-    
-    // Obtener índices seleccionados
-    const checkboxes = document.querySelectorAll('.preview-item input[type="checkbox"]:checked');
-    const indicesSeleccionados = Array.from(checkboxes).map(cb => parseInt(cb.value));
-    
-    if (indicesSeleccionados.length === 0) {
+async function procesarConMotor() {
+    if (!appState.clienteAlias) {
+        showToast('No hay cliente configurado', 'error');
+        return;
+    }
+
+    const checks = document.querySelectorAll('.comp-check:checked');
+    if (checks.length === 0) {
         showToast('Selecciona al menos un comprobante', 'warning');
         return;
     }
-    
-    if (!confirm(`¿Procesar ${indicesSeleccionados.length} comprobante(s)?`)) {
-        return;
-    }
-    
-    // Ocultar preview, mostrar progress
-    document.getElementById('preview-container').style.display = 'none';
-    document.getElementById('progress-container').style.display = 'block';
-    
-    try {
-        const resultado = await eel.procesar_comprobantes(archivo, endpoint, indicesSeleccionados)();
-        
-        if (resultado.exito) {
-            showToast(
-                `Procesamiento completado: ${resultado.exitosos} exitosos, ${resultado.fallidos} fallidos`,
-                resultado.fallidos > 0 ? 'warning' : 'success'
-            );
-            
-            // Mostrar resultados
-            mostrarResultados(resultado);
-        } else {
-            showToast(`Error: ${resultado.error}`, 'error');
-        }
-        
-    } catch (error) {
-        console.error('Error procesando:', error);
-        showToast('Error durante el procesamiento', 'error');
-    } finally {
-        document.getElementById('progress-container').style.display = 'none';
-        
-        // Refrescar dashboard
-        if (typeof cargarDashboard === 'function') {
-            cargarDashboard();
-        }
+
+    if (!confirm(`¿Procesar ${checks.length} comprobante(s) con el Motor?`)) return;
+
+    const btnProcesar = document.getElementById('btn-procesar');
+    btnProcesar.disabled = true;
+    btnProcesar.innerHTML = '<i data-feather="loader"></i> Procesando...';
+    feather.replace();
+
+    showToast('Procesando comprobantes...', 'info');
+
+    const result = await eel.procesar_motor(appState.clienteAlias, null, 'mock')();
+
+    btnProcesar.disabled = false;
+    btnProcesar.innerHTML = '<i data-feather="play-circle"></i> Procesar con Motor';
+    feather.replace();
+
+    if (result.exito) {
+        const r = result.resultados;
+        mostrarResultado(r);
+        await cargarDashboard();
+    } else {
+        showToast(result.error, 'error');
     }
 }
 
-// ============================================================
-// MOSTRAR RESULTADOS
-// ============================================================
+function mostrarResultado(r) {
+    const div = document.getElementById('proc-resultado');
+    div.style.display = 'block';
+    document.getElementById('preview-container').style.display = 'none';
 
-function mostrarResultados(resultado) {
-    const html = `
-        <div class="card">
-            <div class="card-header">
-                <h3>✅ Procesamiento Completado</h3>
+    const color_env  = r.enviados > 0 ? '#166534' : '#6b7280';
+    const color_err  = r.errores  > 0 ? '#991b1b' : '#6b7280';
+    const color_ign  = r.ignorados> 0 ? '#92400e' : '#6b7280';
+
+    div.innerHTML = `
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:1.5rem;">
+            <h4 style="margin:0 0 1rem 0;color:#166534;">✅ Procesamiento completado</h4>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;">
+                <div style="text-align:center;">
+                    <div style="font-size:2rem;font-weight:700;color:#1e293b;">${r.procesados}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">Procesados</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:2rem;font-weight:700;color:${color_env};">${r.enviados}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">Enviados</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:2rem;font-weight:700;color:${color_err};">${r.errores}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">Errores</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:2rem;font-weight:700;color:${color_ign};">${r.ignorados}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">Ignorados</div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
-                    <div class="stat-card">
-                        <div class="stat-content">
-                            <div class="stat-label">Total Procesados</div>
-                            <div class="stat-value">${resultado.procesados}</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-content">
-                            <div class="stat-label">Exitosos</div>
-                            <div class="stat-value" style="color: var(--success);">${resultado.exitosos}</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-content">
-                            <div class="stat-label">Fallidos</div>
-                            <div class="stat-value" style="color: var(--error);">${resultado.fallidos}</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <h4 class="mb-2">Detalle:</h4>
-                <div style="max-height: 300px; overflow-y: auto;">
-                    ${resultado.resultados.map(r => `
-                        <div class="alert ${r.exito ? 'alert-success' : 'alert-error'}" style="margin-bottom: 0.5rem;">
-                            <strong>${r.comprobante}</strong>: ${r.mensaje}
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                    <button class="btn btn-primary" onclick="volverAProcesar()">
-                        Procesar Más
-                    </button>
-                    <button class="btn btn-secondary" onclick="navigateTo('dashboard')">
-                        Volver al Dashboard
-                    </button>
-                </div>
+            <div style="display:flex;gap:0.75rem;">
+                <button class="btn btn-primary" onclick="volverAProcesar()">
+                    <i data-feather="refresh-cw"></i> Procesar más
+                </button>
+                <button class="btn btn-secondary" onclick="navegarA('logs')">
+                    <i data-feather="list"></i> Ver logs
+                </button>
+                <button class="btn btn-secondary" onclick="navegarA('dashboard')">
+                    <i data-feather="activity"></i> Dashboard
+                </button>
             </div>
         </div>
     `;
-    
-    document.getElementById('progress-container').innerHTML = html;
-    document.getElementById('progress-container').style.display = 'block';
+    feather.replace();
 }
-
-// ============================================================
-// VOLVER A PROCESAR
-// ============================================================
 
 function volverAProcesar() {
-    document.getElementById('progress-container').style.display = 'none';
-    document.getElementById('progress-container').innerHTML = `
-        <div class="card">
-            <div class="card-body">
-                <h4>Procesando...</h4>
-                <div class="progress">
-                    <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
-                </div>
-                <p id="progress-text">0/0 (0%)</p>
-            </div>
-        </div>
-    `;
-    
-    // Reconectar
-    if (archivoSeleccionado) {
-        conectarYPreview();
-    }
+    document.getElementById('proc-resultado').style.display = 'none';
+    document.getElementById('proc-status').style.display = 'none';
+    document.getElementById('preview-container').style.display = 'none';
+    _pendientesData = [];
+    cargarPendientesDesdeMotor();
 }
 
-// ============================================================
-// UPDATE PROGRESS (llamado desde Python)
-// ============================================================
-
+// Exponer función de progreso a Python
 eel.expose(update_progress);
 function update_progress(current, total) {
-    const percentage = Math.round((current / total) * 100);
-    const progressBar = document.getElementById('progress-bar');
-    const progressText = document.getElementById('progress-text');
-    
-    if (progressBar) {
-        progressBar.style.width = `${percentage}%`;
-        progressBar.textContent = `${percentage}%`;
-    }
-    
-    if (progressText) {
-        progressText.textContent = `${current}/${total} (${percentage}%)`;
-    }
+    const pct = Math.round((current / total) * 100);
+    showToast(`Procesando ${current}/${total} (${pct}%)`, 'info');
 }
 
-// ============================================================
-// EVENTOS
-// ============================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Evento cambio de tipo
-    const fuenteTipo = document.getElementById('fuente-tipo');
-    if (fuenteTipo) {
-        fuenteTipo.addEventListener('change', () => {
-            document.getElementById('fuente-archivo').value = '';
-            archivoSeleccionado = null;
-            document.getElementById('preview-container').style.display = 'none';
-            document.getElementById('fuente-status').style.display = 'none';
-        });
-    }
-});
+

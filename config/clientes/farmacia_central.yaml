@@ -14,11 +14,11 @@ fuente:
 
 series:
   boleta:
-    - serie: "001"
+    - serie: "B001"
       correlativo_inicio: 16377
       activa: true
   factura:
-    - serie: "001"
+    - serie: "B001"
       correlativo_inicio: 0
       activa: true
   nota_credito: []

@@ -123,7 +123,9 @@ class Motor:
                 cab = cpe.get('comprobante', cpe)
 
                 tipo_doc = cab.get('tipo_doc', '')
-                serie    = cab.get('serie', '')
+                serie_raw = cab.get('serie', '')
+                prefijo   = {'01':'F','03':'B','07':'BC','08':'BD'}.get(tipo_doc, '')
+                serie     = prefijo + serie_raw
                 numero   = int(cab.get('numero', 0))
                 tipo_str = TIPO_DOC_MAP.get(tipo_doc, 'boleta')
 
