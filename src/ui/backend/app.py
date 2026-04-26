@@ -684,11 +684,13 @@ def wz_explorar_fuente(params: dict):
     def _explorar():
         try:
             from src.tools.source_explorer import SourceExplorer
-            explorer = SourceExplorer()
+            from src.tools.smart_mapper import SmartMapper
 
+            explorer = SourceExplorer()
             tipo = params.get('tipo', 'dbf')
+
             if tipo in ('dbf', 'xlsx', 'csv'):
-                reporte = explorer.explorar(tipo=tipo, ruta=params.get('ruta', ''))
+                reporte = explorer.explorar_rapido(tipo=tipo, ruta=params.get('ruta', ''))
             else:
                 reporte = explorer.explorar(
                     tipo=tipo,
@@ -699,34 +701,49 @@ def wz_explorar_fuente(params: dict):
                     puerto=params.get('puerto', 1433)
                 )
 
-            # Extraer info resumida para el frontend
-            tablas = reporte.get('tablas', [])
+            # SmartMapper: detectar tablas y generar mapeo
+            mapper  = SmartMapper()
+            mapeo   = mapper.mapear(reporte)
+            contrato_motor = mapper.generar_contrato_motor(mapeo, {
+                'tipo': tipo,
+                'ruta': params.get('ruta', ''),
+                'servidor': params.get('servidor', '')
+            })
+
+            tablas = reporte.get('tablas', {})
             tablas_info = [
                 {
-                    'nombre':    t.get('nombre', ''),
-                    'campos':    len(t.get('campos', [])),
-                    'registros': t.get('total_registros', 0)
+                    'nombre':    t,
+                    'campos':    len(tablas[t].get('campos', [])),
+                    'registros': tablas[t].get('total_registros', 0)
                 }
                 for t in tablas
             ]
 
             resultado_q.put({
-                'exito':             True,
-                'tablas':            len(tablas),
+                'exito':              True,
+                'tablas':             len(tablas),
                 'tablas_encontradas': tablas_info,
-                'campos_detectados': reporte.get('campos_cpe_detectados', {}),
-                'advertencias':      reporte.get('advertencias', []),
-                'contrato':          reporte.get('contrato_sugerido', None)
+                'metodo_mapeo':       mapeo.get('metodo', 'heuristica'),
+                'confianza':          mapeo.get('confianza', 0),
+                'mapeo_comprobantes': mapeo.get('comprobantes', {}),
+                'mapeo_items':        mapeo.get('items', {}),
+                'mapeo_anulaciones':  mapeo.get('anulaciones', {}),
+                'transformaciones':   mapeo.get('transformaciones', {}),
+                'tabla_comp':         mapeo.get('tablas', {}).get('comprobantes', ''),
+                'tabla_items':        mapeo.get('tablas', {}).get('items', ''),
+                'tabla_anulaciones':  mapeo.get('tablas', {}).get('anulaciones', ''),
+                'advertencias':       mapeo.get('advertencias', []),
+                'contrato':           contrato_motor,
             })
         except Exception as e:
             resultado_q.put({'exito': False, 'error': str(e)})
-
     t = threading.Thread(target=_explorar, daemon=True)
     t.start()
-    t.join(timeout=30)  # Max 30 segundos
+    t.join(timeout=120)  # Max 120 segundos
 
     if resultado_q.empty():
-        return {'exito': False, 'error': 'Timeout al analizar la fuente (>30s)'}
+        return {'exito': False, 'error': 'Timeout al analizar la fuente (>120s). La fuente tiene muchos archivos.'}
     return resultado_q.get()
 
 

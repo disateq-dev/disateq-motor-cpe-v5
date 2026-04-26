@@ -89,6 +89,46 @@ class SourceExplorer:
         self._imprimir_reporte(reporte)
         return reporte
 
+
+    TABLAS_CPE_CANDIDATAS = [
+        'enviosffee', 'factura', 'facturas', 'ventas', 'venta',
+        'documento', 'comprobante', 'cabecera', 'tmpfactura',
+        'detalleventa', 'detalle', 'items', 'det_venta',
+        'notacredito', 'anulaciones', 'bajas',
+        'cliente', 'producto', 'productox', 'serie',
+    ]
+
+    def explorar_rapido(self, tipo, ruta=None):
+        if tipo != 'dbf':
+            return self.explorar(tipo=tipo, ruta=ruta)
+        from dbfread import DBF
+        from pathlib import Path
+        from datetime import datetime
+        path = Path(ruta)
+        todos = list(path.glob('*.dbf'))
+        nombres = [t.lower() for t in self.TABLAS_CPE_CANDIDATAS]
+        candidatos = [f for f in todos if f.stem.lower() in nombres]
+        if not candidatos:
+            candidatos = sorted(todos, key=lambda f: f.stat().st_size, reverse=True)[:15]
+        print(f'Total DBFs: {len(todos)} - Analizando {len(candidatos)} relevantes')
+        tablas = {}
+        for dbf_path in sorted(candidatos):
+            nombre = dbf_path.stem.lower()
+            try:
+                dbf = DBF(str(dbf_path), encoding='latin1', ignore_missing_memofile=True, raw=True)
+                campos = [{'nombre': f.name, 'tipo': f.type, 'longitud': f.length, 'decimales': getattr(f, 'decimal_count', 0)} for f in dbf.fields]
+                total = 0
+                muestra = []
+                for i, record in enumerate(dbf):
+                    total += 1
+                    if i < 3:
+                        muestra.append({k: v.decode('latin1').strip() if isinstance(v, bytes) else str(v) for k, v in record.items()})
+                tablas[nombre] = {'archivo': dbf_path.name, 'campos': campos, 'total_registros': total, 'muestra': muestra}
+                print(f'OK {dbf_path.name}')
+            except Exception as e:
+                print(f'ERR {dbf_path.name}: {e}')
+        self._imprimir_reporte({'tablas': tablas})
+        return {'tipo': 'dbf', 'ruta': str(ruta), 'tablas': tablas, 'meta': {'tipo': 'dbf', 'fecha_analisis': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'version_explorer': '4.0', 'modo': 'rapido'}}
     # ================================================================
     # DBF
     # ================================================================

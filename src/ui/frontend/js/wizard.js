@@ -176,6 +176,32 @@ async function seleccionarCarpeta() {
     } catch(e) { toast('No se pudo abrir el explorador'); }
 }
 
+
+function getFuenteParams() {
+    var esSql = (_tipoActual === 'sqlserver' || _tipoActual === 'mysql' || _tipoActual === 'postgres');
+    if (esSql) {
+        var servidor = document.getElementById('sql-servidor').value.trim();
+        var db       = document.getElementById('sql-db').value.trim();
+        if (!servidor || !db) {
+            showAlert('fuente-alert', 'error', 'Servidor y base de datos son obligatorios.'); return null;
+        }
+        return {
+            tipo:       _tipoActual,
+            servidor:   servidor,
+            base_datos: db,
+            usuario:    document.getElementById('sql-usuario').value.trim(),
+            clave:      document.getElementById('sql-clave').value,
+            puerto:     parseInt(document.getElementById('sql-puerto').value) || 1433
+        };
+    } else {
+        var ruta = document.getElementById('fuente-ruta-input').value.trim();
+        if (!ruta) {
+            showAlert('fuente-alert', 'error', 'Selecciona la ruta de los datos.'); return null;
+        }
+        return { tipo: _tipoActual, ruta: ruta };
+    }
+}
+
 async function explorarFuente() {
     var status = document.getElementById('explorer-status');
     var result_div = document.getElementById('explorer-result');
@@ -185,7 +211,7 @@ async function explorarFuente() {
     if (!params) return;
 
     status.style.display = 'block';
-    status.innerHTML = '<span class="spinner"></span> Analizando fuente de datos...';
+    status.innerHTML = '<span class="spinner"></span> Analizando fuente de datos... (puede tardar hasta 2 minutos en fuentes grandes)';
     result_div.style.display = 'none';
     btn.disabled = true;
 
@@ -212,51 +238,156 @@ async function explorarFuente() {
     }
 }
 
+// ================================================================
+// REEMPLAZAR en wizard.js:
+// La función formatExplorerResult y la sección de resultado del explorer
+// ================================================================
+
+// NUEVA función formatExplorerResult — tabla visual de mapeo
 function formatExplorerResult(result) {
     var html = '';
-    if (result.tablas_encontradas) {
-        result.tablas_encontradas.forEach(function(t) {
-            html += '<span class="ok">✓ ' + t.nombre + '</span> — ' + (t.campos || 0) + ' campos, ' + (t.registros || 0) + ' registros\n';
+    var confianza = Math.round((result.confianza || 0) * 100);
+    var metodo = result.metodo_mapeo === 'ia' ? '🤖 IA' : '🔍 Heurísticas';
+    var colorConf = confianza >= 80 ? '#7ee787' : confianza >= 50 ? '#e3b341' : '#ff7b72';
+
+    // Header
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
+        '<span style="font-size:0.8rem;color:var(--muted);">' + metodo + '</span>' +
+        '<span style="font-size:0.8rem;font-weight:700;color:' + colorConf + ';">Confianza: ' + confianza + '%</span>' +
+        '</div>';
+
+    // Tabla de mapeo comprobantes
+    var comp = result.mapeo_comprobantes || {};
+    var items = result.mapeo_items || {};
+
+    html += '<div style="font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:0.4rem;">Comprobantes — ' + (result.tabla_comp || '') + '</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:0.8rem;">';
+    html += '<thead><tr style="border-bottom:1px solid var(--border);">' +
+        '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Campo CPE</th>' +
+        '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Campo en sistema</th>' +
+        '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Estado</th>' +
+        '</tr></thead><tbody>';
+
+    var camposCpe = ['tipo_doc','serie','numero','fecha','total','ruc_cliente','nombre_cliente','estado_pendiente'];
+    var etiquetas = {
+        'tipo_doc': 'Tipo comprobante',
+        'serie': 'Serie',
+        'numero': 'Número',
+        'fecha': 'Fecha emisión',
+        'total': 'Total',
+        'ruc_cliente': 'RUC/DNI cliente',
+        'nombre_cliente': 'Nombre cliente',
+        'estado_pendiente': 'Estado pendiente'
+    };
+    var requeridos = ['tipo_doc','serie','numero','fecha','total','estado_pendiente'];
+
+    camposCpe.forEach(function(campo) {
+        var valorDetectado = comp[campo];
+        var esRequerido = requeridos.indexOf(campo) >= 0;
+        var estado = valorDetectado
+            ? '<span style="color:#7ee787;">✓ Auto</span>'
+            : (esRequerido ? '<span style="color:#ff7b72;">⚠ Req.</span>' : '<span style="color:var(--muted);">- Opcional</span>');
+
+        html += '<tr style="border-bottom:1px solid rgba(48,54,61,0.5);">' +
+            '<td style="padding:0.35rem 0.5rem;">' + (etiquetas[campo] || campo) + '</td>' +
+            '<td style="padding:0.35rem 0.5rem;">' +
+            '<input type="text" id="map-comp-' + campo + '" value="' + (valorDetectado || '') + '" ' +
+            'placeholder="[campo del sistema]" ' +
+            'style="background:var(--input-bg);border:1px solid ' + (valorDetectado ? 'var(--accent)' : 'var(--border)') + ';' +
+            'border-radius:4px;color:var(--text);padding:0.2rem 0.4rem;font-size:0.78rem;width:160px;">' +
+            '</td>' +
+            '<td style="padding:0.35rem 0.5rem;">' + estado + '</td>' +
+            '</tr>';
+    });
+    html += '</tbody></table>';
+
+    // Tabla items si hay
+    if (result.tabla_items) {
+        html += '<div style="font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:0.4rem;">Items / Detalle — ' + result.tabla_items + '</div>';
+        html += '<table style="width:100%;border-collapse:collapse;margin-bottom:0.75rem;font-size:0.8rem;">';
+        html += '<thead><tr style="border-bottom:1px solid var(--border);">' +
+            '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Campo CPE</th>' +
+            '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Campo en sistema</th>' +
+            '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Estado</th>' +
+            '</tr></thead><tbody>';
+
+        var camposItems = ['descripcion','cantidad','precio','total','codigo','campo_union'];
+        var etiqItems = {
+            'descripcion': 'Descripción producto',
+            'cantidad': 'Cantidad',
+            'precio': 'Precio unitario',
+            'total': 'Total item',
+            'codigo': 'Código producto',
+            'campo_union': 'Campo unión (JOIN)'
+        };
+        var reqItems = ['descripcion','cantidad','precio','total','campo_union'];
+
+        camposItems.forEach(function(campo) {
+            var valorDetectado = items[campo];
+            var esRequerido = reqItems.indexOf(campo) >= 0;
+            var estado = valorDetectado
+                ? '<span style="color:#7ee787;">✓ Auto</span>'
+                : (esRequerido ? '<span style="color:#ff7b72;">⚠ Req.</span>' : '<span style="color:var(--muted);">- Opcional</span>');
+
+            html += '<tr style="border-bottom:1px solid rgba(48,54,61,0.5);">' +
+                '<td style="padding:0.35rem 0.5rem;">' + (etiqItems[campo] || campo) + '</td>' +
+                '<td style="padding:0.35rem 0.5rem;">' +
+                '<input type="text" id="map-items-' + campo + '" value="' + (valorDetectado || '') + '" ' +
+                'placeholder="[campo del sistema]" ' +
+                'style="background:var(--input-bg);border:1px solid ' + (valorDetectado ? 'var(--accent)' : 'var(--border)') + ';' +
+                'border-radius:4px;color:var(--text);padding:0.2rem 0.4rem;font-size:0.78rem;width:160px;">' +
+                '</td>' +
+                '<td style="padding:0.35rem 0.5rem;">' + estado + '</td>' +
+                '</tr>';
         });
+        html += '</tbody></table>';
     }
-    if (result.campos_detectados) {
-        html += '\n<span class="ok">Campos CPE detectados:</span>\n';
-        Object.keys(result.campos_detectados).forEach(function(k) {
-            html += '  ' + k + ' → ' + result.campos_detectados[k] + '\n';
-        });
-    }
+
+    // Advertencias
     if (result.advertencias && result.advertencias.length) {
-        result.advertencias.forEach(function(w) {
-            html += '<span class="warn">⚠ ' + w + '</span>\n';
+        html += '<div style="margin-top:0.5rem;">';
+        result.advertencias.forEach(function(a) {
+            html += '<div style="font-size:0.75rem;color:#e3b341;margin-bottom:0.25rem;">⚠ ' + a + '</div>';
         });
+        html += '</div>';
     }
-    return html || '<span class="ok">Estructura analizada correctamente</span>';
+
+    // Guardar mapeo en WZ para usar al continuar
+    WZ.mapeo_detectado = result;
+
+    return html;
 }
 
-function getFuenteParams() {
-    var esSql = (_tipoActual === 'sqlserver' || _tipoActual === 'mysql' || _tipoActual === 'postgres');
-    if (esSql) {
-        var servidor = document.getElementById('sql-servidor').value.trim();
-        var db       = document.getElementById('sql-db').value.trim();
-        if (!servidor || !db) {
-            showAlert('fuente-alert', 'error', '❌ Servidor y base de datos son obligatorios.'); return null;
-        }
-        return {
-            tipo:       _tipoActual,
-            servidor:   servidor,
-            base_datos: db,
-            usuario:    document.getElementById('sql-usuario').value.trim(),
-            clave:      document.getElementById('sql-clave').value,
-            puerto:     parseInt(document.getElementById('sql-puerto').value) || 1433
-        };
-    } else {
-        var ruta = document.getElementById('fuente-ruta-input').value.trim();
-        if (!ruta) {
-            showAlert('fuente-alert', 'error', '❌ Selecciona la ruta de los datos.'); return null;
-        }
-        return { tipo: _tipoActual, ruta: ruta };
-    }
+// NUEVA función leerMapeoVisual — lee los inputs de la tabla visual
+function leerMapeoVisual() {
+    if (!WZ.mapeo_detectado) return null;
+
+    var camposComp  = ['tipo_doc','serie','numero','fecha','total','ruc_cliente','nombre_cliente','estado_pendiente'];
+    var camposItems = ['descripcion','cantidad','precio','total','codigo','campo_union'];
+
+    var comp = {};
+    camposComp.forEach(function(c) {
+        var el = document.getElementById('map-comp-' + c);
+        if (el && el.value) comp[c] = el.value;
+    });
+
+    var items = {};
+    camposItems.forEach(function(c) {
+        var el = document.getElementById('map-items-' + c);
+        if (el && el.value) items[c] = el.value;
+    });
+
+    return {
+        comprobantes:   comp,
+        items:          items,
+        anulaciones:    WZ.mapeo_detectado.mapeo_anulaciones || {},
+        transformaciones: WZ.mapeo_detectado.transformaciones || {},
+        tabla_comp:     WZ.mapeo_detectado.tabla_comp,
+        tabla_items:    WZ.mapeo_detectado.tabla_items,
+        tabla_anulaciones: WZ.mapeo_detectado.tabla_anulaciones
+    };
 }
+
 
 function validarFuente() {
     var params = getFuenteParams();
@@ -269,6 +400,11 @@ function validarFuente() {
     }
 
     WZ.fuente = params;
+    // Incluir mapeo detectado en el contrato
+    var mapeoVisual = leerMapeoVisual();
+    if (mapeoVisual) {
+        WZ.contrato = Object.assign(WZ.contrato || {}, { mapeo: mapeoVisual });
+    }
     hideAlert('fuente-alert');
     irPaso(4);
 }
