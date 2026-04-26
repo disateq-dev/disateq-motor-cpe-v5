@@ -4,7 +4,20 @@ empresa:
   razon_social: FARMACIA CENTRAL S.A.C.
   ruc: '10715460632'
 envio:
-  endpoints: []
+  endpoints:
+  - activo: true
+    credenciales:
+      token: ''
+      usuario: ''
+    formato: txt
+    nombre: APIFAS
+    timeout: 30
+    tipo_comprobante:
+    - boleta
+    - factura
+    - nota_credito
+    - nota_debito
+    url: https://apifas.disateq.com/produccion_text.php
 fuente:
   rutas:
   - D:/FFEESUNAT/test
@@ -14,13 +27,14 @@ instalador:
 licencia:
   clave: ''
   endpoint_validacion: https://licenses.disateq.com/v1/validate
-observaciones: 'Cliente migrado desde sistema legacy FoxPro.
-
-  Serie B001 activa desde correlativo 16377.
-
-  Validar series con SUNAT antes de activar F001.
+observaciones: 'Cliente migrado desde sistema legacy FoxPro. Serie B001 activa desde
+  correlativo 16377. Validar series con SUNAT antes de activar F001.
 
   '
+scheduler:
+  activo: true
+  intervalo_boletas: 5
+  modo: automatico
 series:
   boleta:
   - activa: true

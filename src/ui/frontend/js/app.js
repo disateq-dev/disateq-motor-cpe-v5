@@ -429,7 +429,7 @@ async function cargarHistorial() {
         '<div style="max-height:460px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;">' +
         '<table class="table" id="tabla-historial" style="margin:0;">' +
         '<thead style="position:sticky;top:0;background:#fff;z-index:1;"><tr>' +
-        '<th>Comprobante</th><th>Tipo</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Endpoint</th>' +
+        '<th>Comprobante</th><th>Tipo</th><th>Fecha</th><th>Cliente</th><th>Total</th><th style="text-align:right;">Estado</th><th>Endpoint</th>' +
         '</tr></thead>' +
         '<tbody id="historial-tbody"></tbody>' +
         '</table></div>';
@@ -514,7 +514,7 @@ function renderHistorialTabla(data) {
             '<td>' + c.fecha + '</td>' +
             '<td>' + (c.cliente || 'CLIENTES VARIOS') + '</td>' +
             '<td>S/ ' + Number(c.total || 0).toFixed(2) + '</td>' +
-            '<td><span class="badge badge-' + getBadgeClass(c.estado) + '">' + c.estado + '</span></td>' +
+            '<td style="text-align:right;"><span class="badge badge-' + getBadgeClass(c.estado) + '">' + c.estado + '</span></td>' +
             '<td>' + (c.endpoint || '-') + '</td>' +
             '</tr>';
     }).join('');
@@ -526,6 +526,67 @@ function getBadgeClass(estado) {
 }
 
 function verTodos() { navegarA('historial'); }
+
+
+// ================================================================
+// SCHEDULER CONFIG
+// ================================================================
+
+async function cargarSchedulerConfig() {
+    try {
+        var result = await eel.get_scheduler_status()();
+        if (!result.exito) return;
+        var s = result.status;
+
+        var modoManual = document.getElementById('sched-modo-manual');
+        var modoAuto   = document.getElementById('sched-modo-auto');
+        var intervalBox = document.getElementById('sched-intervalo-box');
+        var intervalo  = document.getElementById('sched-intervalo');
+
+        if (!modoManual) return;
+
+        if (s.modo === 'automatico') {
+            modoAuto.checked = true;
+            if (intervalBox) intervalBox.style.display = 'block';
+            document.getElementById('lbl-modo-auto').style.borderColor = '#22c55e';
+            document.getElementById('lbl-modo-manual').style.borderColor = '#d1d5db';
+        } else {
+            modoManual.checked = true;
+            if (intervalBox) intervalBox.style.display = 'none';
+            document.getElementById('lbl-modo-manual').style.borderColor = '#22c55e';
+            document.getElementById('lbl-modo-auto').style.borderColor = '#d1d5db';
+        }
+
+        if (intervalo) {
+            intervalo.value = String(s.intervalo_minutos || 10);
+        }
+    } catch(e) { console.error('Error cargando scheduler:', e); }
+}
+
+function onSchedModoChange() {
+    var modo = document.querySelector('input[name="sched-modo"]:checked');
+    if (!modo) return;
+    var intervalBox = document.getElementById('sched-intervalo-box');
+    var lblManual = document.getElementById('lbl-modo-manual');
+    var lblAuto   = document.getElementById('lbl-modo-auto');
+
+    if (modo.value === 'automatico') {
+        if (intervalBox) intervalBox.style.display = 'block';
+        if (lblAuto)   lblAuto.style.borderColor   = '#22c55e';
+        if (lblManual) lblManual.style.borderColor = '#d1d5db';
+    } else {
+        if (intervalBox) intervalBox.style.display = 'none';
+        if (lblManual) lblManual.style.borderColor = '#22c55e';
+        if (lblAuto)   lblAuto.style.borderColor   = '#d1d5db';
+    }
+}
+
+// Exponer callback del scheduler para notificaciones de ciclo
+eel.expose(scheduler_ciclo_completado);
+function scheduler_ciclo_completado(resultados) {
+    showToast('⏱️ Ciclo automático: ' + resultados.enviados + ' enviados, ' + resultados.errores + ' errores', 'info');
+    cargarDashboard();
+}
 
 // ================================================================
 // CONFIGURACION
@@ -689,6 +750,33 @@ async function mostrarConfigCompleta() {
         '<span style="font-size:0.72rem;color:#22c55e;background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span>' +
         '</div><div class="card-body"><div id="endpoints-container">' + _renderEndpoints(endpoints) + '</div></div></div>' +
 
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header">' +
+        '<h3>&#9201; Procesamiento Automático</h3>' +
+        '<span style="font-size:0.72rem;color:#22c55e;background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span>' +
+        '</div><div class="card-body">' +
+        '<div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;">' +
+        '<div>' +
+        '<label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.35rem;">MODO</label>' +
+        '<div style="display:flex;gap:0.5rem;">' +
+        '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid #d1d5db;border-radius:6px;" id="lbl-modo-manual">' +
+        '<input type="radio" name="sched-modo" id="sched-modo-manual" value="manual" onchange="onSchedModoChange()"> Manual</label>' +
+        '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid #d1d5db;border-radius:6px;" id="lbl-modo-auto">' +
+        '<input type="radio" name="sched-modo" id="sched-modo-auto" value="automatico" onchange="onSchedModoChange()"> Automático</label>' +
+        '</div></div>' +
+        '<div id="sched-intervalo-box" style="display:none;">' +
+        '<label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.35rem;">INTERVALO BOLETAS</label>' +
+        '<select id="sched-intervalo" style="padding:0.45rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;">' +
+        '<option value="5">Cada 5 minutos</option>' +
+        '<option value="10">Cada 10 minutos</option>' +
+        '<option value="15">Cada 15 minutos</option>' +
+        '<option value="30">Cada 30 minutos</option>' +
+        '</select></div>' +
+        '</div>' +
+        '<div style="font-size:0.78rem;color:#6b7280;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:0.75rem;">' +
+        '&#8505; <strong>Manual:</strong> el operador presiona "Procesar" cuando desea enviar. ' +
+        '<strong>Automático:</strong> el Motor envía boletas cada X minutos y facturas de forma inmediata, sin intervención.' +
+        '</div></div></div>' +
         '<div class="card" style="margin-bottom:1rem;"><div class="card-header">' +
         '<h3>&#128273; Clave del Instalador</h3>' +
         '<span style="font-size:0.72rem;color:#22c55e;background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span>' +
@@ -705,6 +793,8 @@ async function mostrarConfigCompleta() {
         '<div id="cfg-mensaje" style="text-align:right;margin-top:0.5rem;font-size:0.85rem;display:none;"></div>';
 
     page.querySelector('.card-body').innerHTML = html;
+    // Cargar estado actual del scheduler
+    setTimeout(cargarSchedulerConfig, 100);
 }
 
 function agregarSerie(tipo) {
@@ -799,6 +889,17 @@ async function guardarConfig() {
         series[tipo] = items;
     });
 
+    // Leer config scheduler
+    var schedModo = document.querySelector('input[name="sched-modo"]:checked');
+    var schedIntervalo = document.getElementById('sched-intervalo');
+    var schedulerPayload = null;
+    if (schedModo) {
+        schedulerPayload = {
+            modo: schedModo.value,
+            intervalo_boletas: schedIntervalo ? parseInt(schedIntervalo.value) : 10
+        };
+    }
+
     var payload = {
         nombre_comercial: document.getElementById('cfg-nombre-comercial') ? document.getElementById('cfg-nombre-comercial').value : '',
         alias:            document.getElementById('cfg-alias')             ? document.getElementById('cfg-alias').value             : '',
@@ -806,6 +907,11 @@ async function guardarConfig() {
         series:           series,
         clave_nueva:      nueva || null
     };
+    // Guardar scheduler si hay cambios
+    if (schedulerPayload) {
+        await eel.guardar_config_scheduler(schedulerPayload)();
+    }
+
     var result = await eel.guardar_config(payload)();
     msg.style.display = 'block';
     if (result.exito) {

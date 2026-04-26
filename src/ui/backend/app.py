@@ -501,6 +501,155 @@ PATCH: agregar al final de src/ui/backend/app.py (antes del bloque MAIN)
 Endpoints Eel para el wizard de instalacion — DisateQ CPE™ v4.0
 """
 
+"""
+PATCH: agregar al final de src/ui/backend/app.py (antes del bloque MAIN)
+
+Endpoints Eel para el scheduler — DisateQ CPE™ v4.0
+También reemplazar _cargar_cliente() y cerrar_sistema() para integrar scheduler.
+"""
+
+# ================================================================
+# SCHEDULER
+# ================================================================
+
+_scheduler = None
+
+
+def _iniciar_scheduler():
+    """Inicia el scheduler si el cliente está configurado y modo=automatico."""
+    global _scheduler
+    try:
+        if not _client_config:
+            return
+        from src.scheduler import CpeScheduler
+
+        def _on_ciclo(resultados):
+            """Notifica a la UI cuando termina un ciclo."""
+            try:
+                eel.scheduler_ciclo_completado(resultados)
+            except Exception:
+                pass
+
+        # Usar nombre del archivo YAML, no el alias interno
+        from src.config.client_loader import ClientLoader
+        loader = ClientLoader()
+        alias_archivo = loader.listar()[0] if loader.listar() else _client_config.alias
+        _scheduler = CpeScheduler(
+            cliente_alias=alias_archivo,
+            on_ciclo=_on_ciclo
+        )
+        _scheduler.iniciar()
+    except Exception as e:
+        print(f"⚠️  No se pudo iniciar scheduler: {e}")
+
+
+@eel.expose
+def get_scheduler_status():
+    """Retorna estado actual del scheduler para la UI."""
+    if _scheduler:
+        return {'exito': True, 'status': _scheduler.get_status()}
+    return {
+        'exito': True,
+        'status': {
+            'modo': 'manual',
+            'activo': False,
+            'procesando': False,
+            'intervalo_minutos': 10,
+            'ciclos_ejecutados': 0,
+            'ultimo_ciclo': None,
+            'proximo_ciclo': None,
+            'ultimo_resultado': {}
+        }
+    }
+
+
+@eel.expose
+def scheduler_iniciar():
+    """Inicia el scheduler desde la UI."""
+    global _scheduler
+    try:
+        if _scheduler:
+            ok = _scheduler.iniciar()
+            return {'exito': ok, 'mensaje': 'Scheduler iniciado' if ok else 'Modo manual — no aplica'}
+        return {'exito': False, 'error': 'Scheduler no inicializado'}
+    except Exception as e:
+        return {'exito': False, 'error': str(e)}
+
+
+@eel.expose
+def scheduler_detener():
+    """Detiene el scheduler desde la UI."""
+    try:
+        if _scheduler:
+            _scheduler.detener()
+            return {'exito': True}
+        return {'exito': False, 'error': 'Scheduler no inicializado'}
+    except Exception as e:
+        return {'exito': False, 'error': str(e)}
+
+
+@eel.expose
+def scheduler_ejecutar_ahora():
+    """Fuerza un ciclo inmediato desde la UI."""
+    try:
+        if _scheduler:
+            result = _scheduler.ejecutar_ahora()
+            return {'exito': True, 'resultado': result}
+        # Si no hay scheduler, procesar directamente
+        if _client_config:
+            alias = _client_config.alias.lower().replace(' ', '_')
+            motor = Motor(cliente_alias=alias, output_dir='output', modo_sender=None)
+            resultados = motor.procesar()
+            return {'exito': True, 'resultado': resultados}
+        return {'exito': False, 'error': 'Sin cliente configurado'}
+    except Exception as e:
+        return {'exito': False, 'error': str(e)}
+
+
+@eel.expose
+def guardar_config_scheduler(payload: dict):
+    """
+    Guarda configuración del scheduler en el YAML del cliente.
+    payload: {modo, intervalo_boletas}
+    """
+    try:
+        import yaml
+        from pathlib import Path
+
+        loader = ClientLoader()
+        clientes = loader.listar()
+        if not clientes:
+            return {'exito': False, 'error': 'Sin cliente configurado'}
+
+        cfg_path = loader.clientes_dir / f"{clientes[0]}.yaml"
+        with open(cfg_path, encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+
+        data['scheduler'] = {
+            'modo':              payload.get('modo', 'manual'),
+            'intervalo_boletas': int(payload.get('intervalo_boletas', 10)),
+            'activo':            True
+        }
+
+        with open(cfg_path, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+        # Recargar cliente y scheduler
+        _cargar_cliente()
+        if _scheduler:
+            _scheduler.recargar_config()
+            # Si cambió a automático, iniciar
+            if payload.get('modo') == 'automatico' and not _scheduler.esta_activo:
+                _scheduler.iniciar()
+            # Si cambió a manual, detener
+            elif payload.get('modo') == 'manual' and _scheduler.esta_activo:
+                _scheduler.detener()
+
+        return {'exito': True}
+    except Exception as e:
+        return {'exito': False, 'error': str(e)}
+
+
 # ================================================================
 # WIZARD DE INSTALACION
 # ================================================================
@@ -759,6 +908,7 @@ def main():
     print("=" * 60)
 
     _cargar_cliente()
+    _iniciar_scheduler()
 
     if _client_config:
         print(f"✅ Cliente: {_client_config.razon_social} ({_client_config.ruc})")
