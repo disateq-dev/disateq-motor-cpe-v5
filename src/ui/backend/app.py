@@ -500,6 +500,260 @@ def guardar_config(payload):
     except Exception as e:
         return {"exito": False, "error": str(e)}
 
+"""
+PATCH: agregar al final de src/ui/backend/app.py (antes del bloque MAIN)
+
+Endpoints Eel para el wizard de instalacion — DisateQ CPE™ v4.0
+"""
+
+# ================================================================
+# WIZARD DE INSTALACION
+# ================================================================
+
+@eel.expose
+def wz_validar_licencia(codigo: str):
+    """Valida un codigo de licencia contra el servidor DisateQ."""
+    try:
+        from src.licenses.validator import LicenseValidator
+        v = LicenseValidator()
+        ok, status = v.validate_code(codigo)
+        if ok:
+            info = v.get_license_info()
+            return {'valida': True, 'tipo': info.get('license_type', 'Full')}
+        return {'valida': False, 'error': status}
+    except Exception as e:
+        # Si el servidor no responde, no bloqueamos
+        return {'valida': False, 'error': str(e)}
+
+
+@eel.expose
+def wz_explorar_fuente(params: dict):
+    """
+    Ejecuta source_explorer en un thread separado (no bloquea UI).
+    params: {tipo, ruta} o {tipo, servidor, base_datos, usuario, clave, puerto}
+    """
+    import threading
+    import queue
+
+    resultado_q = queue.Queue()
+
+    def _explorar():
+        try:
+            from src.tools.source_explorer import SourceExplorer
+            explorer = SourceExplorer()
+
+            tipo = params.get('tipo', 'dbf')
+            if tipo in ('dbf', 'xlsx', 'csv'):
+                reporte = explorer.explorar(tipo=tipo, ruta=params.get('ruta', ''))
+            else:
+                reporte = explorer.explorar(
+                    tipo=tipo,
+                    servidor=params.get('servidor', ''),
+                    base_datos=params.get('base_datos', ''),
+                    usuario=params.get('usuario', ''),
+                    clave=params.get('clave', ''),
+                    puerto=params.get('puerto', 1433)
+                )
+
+            # Extraer info resumida para el frontend
+            tablas = reporte.get('tablas', [])
+            tablas_info = [
+                {
+                    'nombre':    t.get('nombre', ''),
+                    'campos':    len(t.get('campos', [])),
+                    'registros': t.get('total_registros', 0)
+                }
+                for t in tablas
+            ]
+
+            resultado_q.put({
+                'exito':             True,
+                'tablas':            len(tablas),
+                'tablas_encontradas': tablas_info,
+                'campos_detectados': reporte.get('campos_cpe_detectados', {}),
+                'advertencias':      reporte.get('advertencias', []),
+                'contrato':          reporte.get('contrato_sugerido', None)
+            })
+        except Exception as e:
+            resultado_q.put({'exito': False, 'error': str(e)})
+
+    t = threading.Thread(target=_explorar, daemon=True)
+    t.start()
+    t.join(timeout=30)  # Max 30 segundos
+
+    if resultado_q.empty():
+        return {'exito': False, 'error': 'Timeout al analizar la fuente (>30s)'}
+    return resultado_q.get()
+
+
+@eel.expose
+def wz_guardar_config(payload: dict):
+    """
+    Guarda la configuracion completa generada por el wizard.
+    Crea o sobreescribe config/clientes/{alias}.yaml
+    """
+    try:
+        import yaml
+        from pathlib import Path
+
+        empresa  = payload.get('empresa', {})
+        fuente   = payload.get('fuente', {})
+        series   = payload.get('series', {})
+        endpoint = payload.get('endpoint', {})
+        licencia = payload.get('licencia', {})
+        contrato = payload.get('contrato')
+        modo     = payload.get('modo', 'nuevo')
+
+        alias = empresa.get('alias', '').lower().replace(' ', '_')
+        if not alias:
+            return {'exito': False, 'error': 'Alias de empresa vacío'}
+
+        # Estructura del YAML cliente
+        data = {
+            'empresa': {
+                'ruc':              empresa.get('ruc', ''),
+                'razon_social':     empresa.get('razon_social', ''),
+                'nombre_comercial': empresa.get('nombre_comercial', empresa.get('razon_social', '')),
+                'alias':            empresa.get('alias', alias)
+            },
+            'fuente': {
+                'tipo':  fuente.get('tipo', 'dbf'),
+                'rutas': [fuente.get('ruta', '')] if fuente.get('ruta') else []
+            },
+            'series': {
+                'boleta':       _normalizar_series(series.get('boleta', [])),
+                'factura':      _normalizar_series(series.get('factura', [])),
+                'nota_credito': _normalizar_series(series.get('nota_credito', [])),
+                'nota_debito':  _normalizar_series(series.get('nota_debito', []))
+            },
+            'envio': {
+                'endpoints': [
+                    {
+                        'nombre':  endpoint.get('nombre', 'APIFAS'),
+                        'activo':  True,
+                        'tipo_comprobante': ['boleta', 'factura', 'nota_credito', 'nota_debito'],
+                        'formato': 'txt',
+                        'url':     endpoint.get('url', ''),
+                        'credenciales': {
+                            'usuario': endpoint.get('usuario', ''),
+                            'token':   endpoint.get('token', '')
+                        },
+                        'timeout': 30
+                    }
+                ]
+            },
+            'licencia': {
+                'tipo':   licencia.get('tipo', 'Trial'),
+                'codigo': licencia.get('codigo', ''),
+                'endpoint_validacion': 'https://licenses.disateq.com/v1/validate'
+            },
+            'instalador': {
+                'clave': '1234'
+            }
+        }
+
+        # Si hay fuente SQL, guardar datos de conexion
+        if fuente.get('servidor'):
+            data['fuente']['servidor']   = fuente.get('servidor', '')
+            data['fuente']['base_datos'] = fuente.get('base_datos', '')
+            data['fuente']['usuario']    = fuente.get('usuario', '')
+            data['fuente']['puerto']     = fuente.get('puerto', 1433)
+
+        # Si hay contrato generado por source_explorer, guardarlo
+        if contrato:
+            contrato_path = Path('config/contratos') / (alias + '.yaml')
+            contrato_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(contrato_path, 'w', encoding='utf-8') as f:
+                yaml.dump(contrato, f, allow_unicode=True, default_flow_style=False)
+            data['fuente']['contrato_path'] = str(contrato_path)
+
+        # Guardar YAML del cliente
+        cliente_path = Path('config/clientes') / (alias + '.yaml')
+        cliente_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(cliente_path, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+        # Recargar cliente en memoria
+        _cargar_cliente()
+        return {'exito': True, 'path': str(cliente_path)}
+
+    except Exception as e:
+        return {'exito': False, 'error': str(e)}
+
+
+def _normalizar_series(lista):
+    return [
+        {
+            'serie':              s.get('serie', ''),
+            'correlativo_inicio': int(s.get('correlativo_inicio', 0)),
+            'activa':             bool(s.get('activa', True))
+        }
+        for s in lista if s.get('serie')
+    ]
+
+
+@eel.expose
+def wz_ejecutar_prueba(cliente_alias: str):
+    """Ejecuta Motor en modo mock con limit=3 para prueba del wizard."""
+    try:
+        motor = Motor(
+            cliente_alias=cliente_alias,
+            output_dir='output',
+            modo_sender='mock'
+        )
+        resultados = motor.procesar(limit=3)
+        return {'exito': True, 'resultados': resultados}
+    except Exception as e:
+        return {'exito': False, 'error': str(e)}
+
+
+@eel.expose
+def wz_enviar_real(cliente_alias: str):
+    """Envía 1 comprobante real a SUNAT (con confirmación previa en frontend)."""
+    try:
+        motor = Motor(
+            cliente_alias=cliente_alias,
+            output_dir='output',
+            modo_sender=None  # Envío real
+        )
+        resultados = motor.procesar(limit=1)
+        exito = resultados.get('enviados', 0) > 0
+        return {'exito': exito, 'resultados': resultados}
+    except Exception as e:
+        return {'exito': False, 'error': str(e)}
+
+
+@eel.expose
+def wz_abrir_motor():
+    """Cierra el wizard y abre la UI principal."""
+    import threading
+    def _reabrir():
+        import time
+        time.sleep(0.5)
+        # Re-lanzar con index.html
+        try:
+            eel.start('index.html', size=(1280, 800), port=8080, mode='chrome',
+                      cmdline_args=[f'--app={url}', '--disable-infobars'])
+        except Exception:
+            pass
+    threading.Thread(target=_reabrir, daemon=True).start()
+    return True
+
+
+@eel.expose
+def wz_detectar_modo():
+    """
+    Retorna si debe mostrar wizard o UI principal.
+    Llamado desde main() al iniciar.
+    """
+    try:
+        loader = ClientLoader()
+        clientes = loader.listar()
+        return {'wizard': len(clientes) == 0}
+    except Exception:
+        return {'wizard': True}
+
+
 # ================================================================
 # MAIN
 # ================================================================
@@ -519,12 +773,16 @@ def main():
     print("\n🌐 Abriendo interfaz...\n")
 
     try:
+        modo = wz_detectar_modo()
+        pagina = 'wizard.html' if modo['wizard'] else 'index.html'
+        print(f'Pagina: {pagina}')
+        url = f'http://localhost:8080/{pagina}'
         eel.start(
-            'index.html',
+            pagina,
             size=(1280, 800),
             port=8080,
             mode='chrome',
-            cmdline_args=['--app=http://localhost:8080/index.html', '--disable-infobars'],
+            cmdline_args=[f'--app={url}', '--disable-infobars'],
             close_callback=lambda *a: print("\n👋 Cerrado\n")
         )
     except EnvironmentError:

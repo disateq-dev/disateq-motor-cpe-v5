@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DisateQ CPE™ — Asistente de Instalación</title>
+<script src="/eel.js"></script>
+<style>
+:root {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --border:    #30363d;
+  --accent:    #2ea043;
+  --accent2:   #238636;
+  --warn:      #d29922;
+  --error:     #da3633;
+  --text:      #e6edf3;
+  --muted:     #8b949e;
+  --input-bg:  #0d1117;
+  --radius:    8px;
+  --step-w:    640px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+/* HEADER */
+.wz-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.wz-logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.wz-title {
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+/* STEPPER */
+.wz-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 2rem;
+  width: 100%;
+  max-width: var(--step-w);
+}
+.wz-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+  cursor: default;
+}
+.wz-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  transition: all 0.3s;
+  z-index: 1;
+}
+.wz-step.active .wz-step-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(46,160,67,0.2);
+}
+.wz-step.done .wz-step-dot {
+  background: var(--accent2);
+  border-color: var(--accent2);
+  color: #fff;
+}
+.wz-step-label {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  text-align: center;
+  white-space: nowrap;
+}
+.wz-step.active .wz-step-label { color: var(--accent); }
+.wz-step-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin-top: -14px;
+  transition: background 0.3s;
+}
+.wz-step-line.done { background: var(--accent2); }
+
+/* CARD */
+.wz-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: var(--step-w);
+  padding: 2rem;
+}
+.wz-card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.wz-card-title .step-num {
+  font-size: 0.7rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-weight: 700;
+}
+.wz-card-sub {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* FORM */
+.wz-field { margin-bottom: 1.1rem; }
+.wz-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wz-label .req { color: var(--error); margin-left: 2px; }
+.wz-input {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.55rem 0.85rem;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+.wz-input:focus { border-color: var(--accent); }
+.wz-input.mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; }
+.wz-input[readonly] { color: var(--muted); cursor: default; }
+
+.wz-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+/* BUTTONS */
+.wz-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.btn {
+  padding: 0.55rem 1.4rem;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+.btn-warn { background: var(--warn); color: #000; }
+.btn-danger { background: var(--error); color: #fff; }
+
+/* ALERT */
+.wz-alert {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  line-height: 1.5;
+}
+.wz-alert.info    { background: rgba(46,160,67,0.1);  border: 1px solid rgba(46,160,67,0.3);  color: #7ee787; }
+.wz-alert.warn    { background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.3); color: #e3b341; }
+.wz-alert.error   { background: rgba(218,54,51,0.1);  border: 1px solid rgba(218,54,51,0.3);  color: #ff7b72; }
+.wz-alert.neutral { background: rgba(139,148,158,0.1);border: 1px solid var(--border);        color: var(--muted); }
+
+/* LICENCIA PIN */
+.pin-row {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+.pin-input {
+  width: 56px; height: 64px;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  background: var(--input-bg);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.pin-input:focus { border-color: var(--accent); }
+.pin-input.error  { border-color: var(--error); }
+
+/* FUENTE TIPO SELECTOR */
+.tipo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.tipo-card {
+  background: var(--input-bg);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 0.75rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tipo-card:hover { border-color: var(--muted); }
+.tipo-card.selected { border-color: var(--accent); background: rgba(46,160,67,0.08); }
+.tipo-card .tipo-icon { font-size: 1.6rem; margin-bottom: 0.35rem; }
+.tipo-card .tipo-name { font-size: 0.8rem; font-weight: 600; }
+.tipo-card .tipo-desc { font-size: 0.68rem; color: var(--muted); margin-top: 0.2rem; }
+
+/* EXPLORER RESULT */
+.explorer-result {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  font-size: 0.8rem;
+  font-family: 'Consolas', monospace;
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.explorer-result .ok   { color: #7ee787; }
+.explorer-result .warn { color: #e3b341; }
+.explorer-result .err  { color: #ff7b72; }
+
+/* SPINNER */
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* SERIES */
+.serie-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.4rem;
+}
+.serie-row input[type=number] {
+  width: 90px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.82rem;
+  outline: none;
+}
+.serie-row input[type=number]:focus { border-color: var(--accent); }
+.serie-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  min-width: 50px;
+  color: var(--accent);
+  font-family: monospace;
+}
+.serie-muted { font-size: 0.72rem; color: var(--muted); }
+
+/* PRUEBA RESULTADO */
+.prueba-box {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+.prueba-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.prueba-stat:last-child { border-bottom: none; }
+.prueba-stat .val { font-weight: 700; color: var(--accent); }
+.prueba-stat .val.err { color: var(--error); }
+
+/* CHECKBOX toggle */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+.toggle-row input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+/* STEP PAGES */
+.wz-page { display: none; }
+.wz-page.active { display: block; }
+
+/* FINAL */
+.final-icon { font-size: 4rem; text-align: center; margin: 1rem 0; }
+.final-list { list-style: none; }
+.final-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  display: flex;
+  gap: 0.75rem;
+}
+.final-list li:last-child { border-bottom: none; }
+.final-list .check { color: var(--accent); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="wz-header">
+  <div class="wz-logo">DisateQ CPE™</div>
+  <div class="wz-title">Asistente de Instalación v4.0</div>
+</div>
+
+<!-- STEPPER -->
+<div class="wz-stepper" id="stepper"></div>
+
+<!-- CARD -->
+<div class="wz-card">
+
+  <!-- PASO 1: LICENCIA -->
+  <div class="wz-page active" id="page-1">
+    <div class="wz-card-title"><span class="step-num">01</span> Licencia</div>
+    <div class="wz-card-sub">Ingresa el código de activación proporcionado por DisateQ™. Si no tienes uno, puedes continuar en modo Trial por 30 días.</div>
+    <div id="lic-alert" class="wz-alert neutral" style="display:none"></div>
+    <div class="wz-field">
+      <label class="wz-label">Código de activación</label>
+      <input type="text" id="lic-codigo" class="wz-input mono" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19"
+             oninput="formatLicCode(this)" style="text-transform:uppercase;letter-spacing:0.1em;">
+    </div>
+    <div id="lic-estado" style="display:none;"></div>
+    <div class="wz-actions">
+      <button class="btn btn-ghost" onclick="usarTrial()">Continuar en Trial (30 días)</button>
+      <button class="btn btn-primary" onclick="validarLicencia()">Validar y Continuar →</button>
+    </div>
+  </div>
+
+  <!-- PASO 2: EMPRESA -->
+  <div class="wz-page" id="page-2">
+    <div class="wz-card-title"><span class="step-num">02</span> Datos de la Empresa</div>
+    <div class="wz-card-sub">Ingresa los datos del cliente donde se instalará el Motor CPE.</div>
+    <div class="wz-grid2">
+      <div class="wz-field">
+        <label class="wz-label">RUC <span class="req">*</span></label>
+        <input type="text" id="emp-ruc" class="wz-input mono" placeholder="20123456789" maxlength="11" oninput="this.value=this.value.replace(/\D/g,'')">
+      </div>
+      <div class="wz-field">
+        <label class="wz-label">Alias / Local <span class="req">*</span></label>
+        <input type="text" id="emp-alias" class="wz-input" placeholder="farmacia_central">
+      </div>
+      <div class="wz-field" style="grid-column:span 2">
+        <label class="wz-label">Razón Social <span class="req">*</span></label>
+        <input type="text" id="emp-razon" class="wz-input" placeholder="FARMACIA CENTRAL S.A.C.">
+      </div>
+      <div class="wz-field" style="grid-column:span 2">
+        <label class="wz-label">Nombre Comercial</label>
+        <input type="text" id="emp-nombre" class="wz-input" placeholder="Farmacia Central">
+      </div>
+    </div>
+    <div id="emp-alert" class="wz-alert error" style="display:none"></div>
+    <div class="wz-actions">
+      <button class="btn btn-ghost" onclick="irPaso(1)">← Atrás</button>
+      <button class="btn btn-primary" onclick="validarEmpresa()">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- PASO 3: FUENTE DE DATOS -->
+  <div class="wz-page" id="page-3">
+    <div class="wz-card-title"><span class="step-num">03</span> Fuente de Datos</div>
+    <div class="wz-card-sub">Selecciona el tipo de sistema de ventas del cliente y apunta a sus datos.</div>
+
+    <div class="tipo-grid">
+      <div class="tipo-card selected" onclick="selTipo('dbf')" id="tipo-dbf">
+        <div class="tipo-icon">🗄️</div>
+        <div class="tipo-name">DBF / FoxPro</div>
+        <div class="tipo-desc">Sistemas legacy</div>
+      </div>
+      <div class="tipo-card" onclick="selTipo('xlsx')" id="tipo-xlsx">
+        <div class="tipo-icon">📊</div>
+        <div class="tipo-name">Excel / XLSX</div>
+        <div class="tipo-desc">DisateQ POS™</div>
+      </div>
+      <div class="tipo-card" onclick="selTipo('sqlserver')" id="tipo-sqlserver">
+        <div class="tipo-icon">🔷</div>
+        <div class="tipo-name">SQL Server</div>
+        <div class="tipo-desc">Sistemas .NET/ERP</div>
+      </div>
+    </div>
+
+    <!-- DBF / XLSX: ruta carpeta -->
+    <div id="fuente-ruta" class="wz-field">
+      <label class="wz-label">Ruta de datos <span class="req">*</span></label>
+      <div style="display:flex;gap:0.5rem;">
+        <input type="text" id="fuente-ruta-input" class="wz-input mono" placeholder="D:/SISTEMA/datos/">
+        <button class="btn btn-ghost" onclick="seleccionarCarpeta()" style="white-space:nowrap;">📁 Explorar</button>
+      </div>
+    </div>
+
+    <!-- SQL: servidor / base / credenciales -->
+    <div id="fuente-sql" style="display:none;">
+      <div class="wz-grid2">
+        <div class="wz-field">
+          <label class="wz-label">Servidor <span class="req">*</span></label>
+          <input type="text" id="sql-servidor" class="wz-input mono" placeholder="192.168.1.10\SQLEXPRESS">
+        </div>
+        <div class="wz-field">
+          <label class="wz-label">Puerto</label>
+          <input type="text" id="sql-puerto" class="wz-input mono" placeholder="1433">
+        </div>
+        <div class="wz-field" style="grid-column:span 2">
+          <label class="wz-label">Base de datos <span class="req">*</span></label>
+          <input type="text" id="sql-db" class="wz-input mono" placeholder="ventas_db">
+        </div>
+        <div class="wz-field">
+          <label class="wz-label">Usuario</label>
+          <input type="text" id="sql-usuario" class="wz-input" placeholder="sa">
+        </div>
+        <div class="wz-field">
+          <label class="wz-label">Contraseña</label>
+          <input type="password" id="sql-clave" class="wz-input">
+        </div>
+      </div>
+    </div>
+
+    <div id="explorer-status" style="display:none;margin-bottom:0.75rem;"></div>
+    <div id="explorer-result" class="explorer-result" style="display:none;"></div>
+    <div id="fuente-manual" style="display:none;margin-top:0.75rem;">
+      <div class="wz-alert warn">⚠️ No se pudo analizar automáticamente. El contrato YAML se generará con campos por completar manualmente.</div>
+    </div>
+
+    <div id="fuente-alert" class="wz-alert error" style="display:none"></div>
+    <div class="wz-actions">
+      <button class="btn btn-ghost" onclick="irPaso(2)">← Atrás</button>
+      <div style="display:flex;gap:0.6rem;">
+        <button class="btn btn-ghost" id="btn-explorar" onclick="explorarFuente()">🔍 Analizar fuente</button>
+        <button class="btn btn-primary" id="btn-sig-3" onclick="validarFuente()">Siguiente →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 4: SERIES -->
+  <div class="wz-page" id="page-4">
+    <div class="wz-card-title"><span class="step-num">04</span> Series y Correlativos</div>
+    <div class="wz-card-sub">Configura las series habilitadas y el correlativo de inicio para cada tipo de comprobante.</div>
+    <div id="modo-reconf-aviso" class="wz-alert warn" style="display:none;">
+      ⚠️ Modo reconfiguración — series actuales cargadas. Activa el toggle para editar.
+      <label class="toggle-row" style="margin-top:0.5rem;margin-bottom:0;">
+        <input type="checkbox" id="toggle-editar-series" onchange="toggleEditarSeries(this.checked)"> Permitir edición de series
+      </label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" id="series-container">
+      <div>
+        <div class="wz-label" style="margin-bottom:0.5rem;">BOLETAS</div>
+        <div id="series-boleta"></div>
+        <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem;margin-top:0.35rem;" onclick="addSerie('boleta','B')">+ Agregar</button>
+      </div>
+      <div>
+        <div class="wz-label" style="margin-bottom:0.5rem;">FACTURAS</div>
+        <div id="series-factura"></div>
+        <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem;margin-top:0.35rem;" onclick="addSerie('factura','F')">+ Agregar</button>
+      </div>
+      <div>
+        <div class="wz-label" style="margin-bottom:0.5rem;">NOTAS CRÉDITO</div>
+        <div id="series-nota_credito"></div>
+        <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem;margin-top:0.35rem;" onclick="addSerie('nota_credito','BC')">+ Agregar</button>
+      </div>
+      <div>
+        <div class="wz-label" style="margin-bottom:0.5rem;">NOTAS DÉBITO</div>
+        <div id="series-nota_debito"></div>
+        <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem;margin-top:0.35rem;" onclick="addSerie('nota_debito','BD')">+ Agregar</button>
+      </div>
+    </div>
+    <div class="wz-actions">
+      <button class="btn btn-ghost" onclick="irPaso(3)">← Atrás</button>
+      <button class="btn btn-primary" onclick="irPaso(5)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- PASO 5: ENDPOINT -->
+  <div class="wz-page" id="page-5">
+    <div class="wz-card-title"><span class="step-num">05</span> Endpoint de Envío</div>
+    <div class="wz-card-sub">Configura el servidor al que el Motor enviará los comprobantes. APIFAS está preconfigurado.</div>
+    <div class="wz-field">
+      <label class="wz-label">Tipo de endpoint</label>
+      <select id="ep-tipo" class="wz-input" onchange="onEpTipoChange(this.value)">
+        <option value="apifas">APIFAS — DisateQ™ (recomendado)</option>
+        <option value="ose">OSE — Operador de Servicios Electrónicos</option>
+        <option value="pse">PSE — Proveedor de Servicios Electrónicos</option>
+        <option value="custom">Personalizado</option>
+      </select>
+    </div>
+    <div class="wz-field">
+      <label class="wz-label">URL del endpoint <span class="req">*</span></label>
+      <input type="text" id="ep-url" class="wz-input mono" value="https://apifas.disateq.com/produccion_text.php">
+    </div>
+    <div class="wz-grid2">
+      <div class="wz-field">
+        <label class="wz-label">Usuario API <span style="color:var(--muted);font-size:0.68rem;">(opcional)</span></label>
+        <input type="text" id="ep-usuario" class="wz-input" placeholder="Dejar vacío si no aplica">
+      </div>
+      <div class="wz-field">
+        <label class="wz-label">Token <span style="color:var(--muted);font-size:0.68rem;">(opcional)</span></label>
+        <input type="password" id="ep-token" class="wz-input" placeholder="Dejar vacío si no aplica">
+      </div>
+    </div>
+    <div id="ep-alert" class="wz-alert error" style="display:none"></div>
+    <div class="wz-actions">
+      <button class="btn btn-ghost" onclick="irPaso(4)">← Atrás</button>
+      <button class="btn btn-primary" onclick="validarEndpoint()">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- PASO 6: PRUEBA -->
+  <div class="wz-page" id="page-6">
+    <div class="wz-card-title"><span class="step-num">06</span> Prueba de Conexión</div>
+    <div class="wz-card-sub">Verifica que todo funciona antes de activar el sistema en producción.</div>
+    <div id="prueba-alert" class="wz-alert neutral">
+      ℹ️ La prueba procesará hasta 3 comprobantes en modo simulado (MOCK). No se enviará nada a SUNAT.
+    </div>
+    <div id="prueba-estado" style="display:none;"></div>
+    <div id="prueba-resultado" class="prueba-box" style="display:none;"></div>
+    <div id="prueba-real-section" style="display:none;margin-top:1rem;">
+      <div class="wz-alert warn">⚠️ Envío real: se procesará 1 comprobante y se enviará a SUNAT a través del endpoint configurado.</div>
+      <div style="display:flex;gap:0.75rem;margin-top:0.75rem;">
+        <button class="btn btn-warn" onclick="confirmarEnvioReal()">Enviar 1 real de prueba</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('prueba-real-section').style.display='none'">Cancelar</button>
+      </div>
+    </div>
+    <div class="wz-actions">
+      <button class="btn btn-ghost" onclick="irPaso(5)">← Atrás</button>
+      <div style="display:flex;gap:0.6rem;">
+        <button class="btn btn-ghost" id="btn-prueba" onclick="ejecutarPrueba()">▶ Ejecutar prueba</button>
+        <button class="btn btn-ghost" id="btn-envio-real" style="display:none;" onclick="mostrarEnvioReal()">📡 Enviar real</button>
+        <button class="btn btn-primary" id="btn-finalizar" onclick="finalizar()" disabled>✅ Finalizar instalación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO FINAL: ÉXITO -->
+  <div class="wz-page" id="page-final">
+    <div class="final-icon">✅</div>
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <div style="font-size:1.2rem;font-weight:600;margin-bottom:0.35rem;">Instalación completada</div>
+      <div style="color:var(--muted);font-size:0.85rem;">El Motor CPE DisateQ™ está listo para producción.</div>
+    </div>
+    <ul class="final-list" id="final-resumen"></ul>
+    <div class="wz-actions" style="justify-content:center;border-top:none;padding-top:1rem;">
+      <button class="btn btn-primary" onclick="abrirMotor()" style="padding:0.7rem 2.5rem;font-size:1rem;">
+        🚀 Abrir Motor CPE
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- toast -->
+<div id="toast" style="position:fixed;bottom:1.5rem;right:1.5rem;display:none;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:0.75rem 1.25rem;font-size:0.85rem;color:var(--text);
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:999;max-width:320px;"></div>
+
+<script src="js/wizard.js"></script>
+</body>
+</html>
