@@ -4,20 +4,7 @@ empresa:
   razon_social: FARMACIA CENTRAL S.A.C.
   ruc: '10715460632'
 envio:
-  endpoints:
-  - activo: true
-    credenciales:
-      token: ''
-      usuario: ''
-    formato: txt
-    nombre: APIFAS
-    timeout: 30
-    tipo_comprobante:
-    - boleta
-    - factura
-    - nota_credito
-    - nota_debito
-    url: https://apifas.disateq.com/produccion_text.php
+  endpoints: []
 fuente:
   rutas:
   - D:/FFEESUNAT/test

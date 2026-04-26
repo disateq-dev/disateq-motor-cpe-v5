@@ -57,23 +57,9 @@ class Motor:
         self.sender = UniversalSender(mode=modo_sender) if modo_sender == 'mock' else None
 
     def _get_adapter(self):
-        """Instancia el adaptador segun tipo de fuente."""
-        tipo  = self.config.tipo_fuente
-        rutas = self.config.rutas_fuente
-
-        if not rutas:
-            raise ValueError("No hay rutas de fuente configuradas")
-
-        ruta = rutas[0]  # Principal
-
-        if tipo == 'dbf':
-            from src.adapters.dbf_farmacia_adapter import DbfFarmaciaAdapter
-            return DbfFarmaciaAdapter(ruta)
-        elif tipo == 'xlsx':
-            from src.adapters.xlsx_adapter import XlsxAdapter
-            return XlsxAdapter(ruta)
-        else:
-            raise ValueError(f"Tipo de fuente no soportado: {tipo}")
+        """Instancia el adaptador segun config del cliente (via factory)."""
+        from src.adapters.adapter_factory import get_adapter
+        return get_adapter(self.config)
 
     def _get_sender(self, tipo_comprobante: str = 'boleta'):
         """Instancia el sender con endpoints para el tipo de comprobante."""
