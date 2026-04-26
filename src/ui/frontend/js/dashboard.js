@@ -90,7 +90,7 @@ async function cargarTablaRecientes() {
                 <td>${c.fecha}</td>
                 <td>${c.cliente || 'CLIENTES VARIOS'}</td>
                 <td>S/ ${Number(c.total || 0).toFixed(2)}</td>
-                <td><span class="badge badge-success">remitido</span></td>
+                <td style="text-align:right;"><span class="badge badge-success">remitido</span></td>
             </tr>
         `).join('');
 

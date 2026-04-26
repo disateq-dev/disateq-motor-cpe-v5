@@ -244,47 +244,132 @@ function update_progress(current, total) {
 }
 
 // ================================================================
+// ================================================================
 // LOGS
 // ================================================================
 
+var _logsData   = [];
+var _logFiltTipo   = '';
+var _logFiltEstado = '';
+
 async function cargarLogs() {
     try {
-        var result = await eel.get_logs(null, 100)();
+        var result = await eel.get_logs(null, 500)();
         var page = document.getElementById('page-logs');
-        if (!result.exito) { page.querySelector('.card-body').innerHTML = '<p>' + result.error + '</p>'; return; }
+        if (!result.exito) {
+            page.querySelector('.card-body').innerHTML = '<p>' + result.error + '</p>';
+            return;
+        }
+
+        _logsData = result.logs || [];
+        _logFiltTipo   = '';
+        _logFiltEstado = '';
+
         var html =
-            '<div style="margin-bottom:0.75rem;display:flex;gap:0.5rem;">' +
-            '<button class="btn btn-sm btn-ghost" onclick="filtrarLogs(null)">Todos</button>' +
-            '<button class="btn btn-sm btn-ghost" onclick="filtrarLogs(\'REMITIDO\')">Remitidos</button>' +
-            '<button class="btn btn-sm btn-ghost" onclick="filtrarLogs(\'ERROR\')">Errores</button>' +
-            '<button class="btn btn-sm btn-ghost" onclick="filtrarLogs(\'IGNORADO\')">Ignorados</button></div>' +
-            '<table class="table" id="tabla-logs"><thead><tr>' +
-            '<th>Fecha</th><th>Serie-Numero</th><th>Estado</th><th>Endpoint</th><th>Detalle</th>' +
-            '</tr></thead><tbody>' +
-            result.logs.map(function(r) {
-                return '<tr>' +
-                    '<td>' + (r.fecha ? r.fecha.substring(0,19).replace('T',' ') : '-') + '</td>' +
-                    '<td>' + r.serie + '-' + String(r.numero).padStart(8,'0') + '</td>' +
-                    '<td><span class="badge badge-' + getBadgeClass(r.estado.toLowerCase()) + '">' + r.estado + '</span></td>' +
-                    '<td>' + (r.endpoint || '-') + '</td>' +
-                    '<td>' + (r.detalle || '-') + '</td></tr>';
-            }).join('') + '</tbody></table>';
+            // Fila filtros
+            '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center;">' +
+
+            '<span style="font-size:0.72rem;color:#6b7280;margin-right:0.1rem;">TIPO:</span>' +
+            '<button class="btn-filt active" id="lfilt-tipo-todos"        onclick="setLogFiltTipo(\'\')">Todos</button>' +
+            '<button class="btn-filt"        id="lfilt-tipo-boleta"       onclick="setLogFiltTipo(\'boleta\')">Boleta</button>' +
+            '<button class="btn-filt"        id="lfilt-tipo-factura"      onclick="setLogFiltTipo(\'factura\')">Factura</button>' +
+            '<button class="btn-filt"        id="lfilt-tipo-nota_credito" onclick="setLogFiltTipo(\'nota_credito\')">N.Crédito</button>' +
+            '<button class="btn-filt"        id="lfilt-tipo-nota_debito"  onclick="setLogFiltTipo(\'nota_debito\')">N.Débito</button>' +
+            '<button class="btn-filt"        id="lfilt-tipo-anulacion"    onclick="setLogFiltTipo(\'anulacion\')">Anulación</button>' +
+
+            '<div style="width:1px;background:#e5e7eb;margin:0 0.25rem;"></div>' +
+
+            '<span style="font-size:0.72rem;color:#6b7280;margin-right:0.1rem;">ESTADO:</span>' +
+            '<button class="btn-filt active" id="lfilt-est-todos"    onclick="setLogFiltEstado(\'\')">Todos</button>' +
+            '<button class="btn-filt"        id="lfilt-est-REMITIDO" onclick="setLogFiltEstado(\'REMITIDO\')">Remitido</button>' +
+            '<button class="btn-filt"        id="lfilt-est-ERROR"    onclick="setLogFiltEstado(\'ERROR\')">Error</button>' +
+            '<button class="btn-filt"        id="lfilt-est-IGNORADO" onclick="setLogFiltEstado(\'IGNORADO\')">Ignorado</button>' +
+            '<button class="btn-filt"        id="lfilt-est-GENERADO" onclick="setLogFiltEstado(\'GENERADO\')">Generado</button>' +
+            '<button class="btn-filt"        id="lfilt-est-LEIDO"    onclick="setLogFiltEstado(\'LEIDO\')">Leído</button>' +
+
+            '</div>' +
+
+            // Contador
+            '<div style="margin-bottom:0.5rem;font-size:0.8rem;color:#6b7280;">' +
+            'Mostrando <strong id="logs-count">' + _logsData.length + '</strong> registros</div>' +
+
+            // Tabla
+            '<div style="max-height:500px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;">' +
+            '<table class="table" id="tabla-logs" style="margin:0;">' +
+            '<thead style="position:sticky;top:0;background:#fff;z-index:1;"><tr>' +
+            '<th>Fecha</th><th>Comprobante</th><th>Tipo</th><th>Cliente</th><th>Endpoint</th><th>Detalle</th><th style="text-align:right;">Estado</th>' +
+            '</tr></thead>' +
+            '<tbody id="logs-tbody"></tbody>' +
+            '</table></div>';
+
         page.querySelector('.card-body').innerHTML = html;
-    } catch(e) { console.error('Error logs:', e); }
+        renderLogsTabla(_logsData);
+
+    } catch(e) {
+        console.error('Error logs:', e);
+    }
 }
 
+function setLogFiltTipo(tipo) {
+    _logFiltTipo = tipo;
+    document.querySelectorAll('[id^="lfilt-tipo-"]').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('lfilt-tipo-' + (tipo || 'todos')).classList.add('active');
+    aplicarFiltrosLogs();
+}
+
+function setLogFiltEstado(estado) {
+    _logFiltEstado = estado;
+    document.querySelectorAll('[id^="lfilt-est-"]').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('lfilt-est-' + (estado || 'todos')).classList.add('active');
+    aplicarFiltrosLogs();
+}
+
+function aplicarFiltrosLogs() {
+    var filtrado = _logsData.filter(function(r) {
+        var matchTipo   = !_logFiltTipo   || (r.tipo_doc || '') === _logFiltTipo;
+        var matchEstado = !_logFiltEstado || r.estado === _logFiltEstado;
+        return matchTipo && matchEstado;
+    });
+    document.getElementById('logs-count').textContent = filtrado.length;
+    renderLogsTabla(filtrado);
+}
+
+// Mantener compatibilidad con llamadas antiguas
 async function filtrarLogs(estado) {
-    var result = await eel.get_logs(estado, 100)();
-    if (!result.exito) return;
-    var tbody = document.querySelector('#tabla-logs tbody');
+    _logFiltEstado = estado || '';
+    document.querySelectorAll('[id^="lfilt-est-"]').forEach(function(b) { b.classList.remove('active'); });
+    var btn = document.getElementById('lfilt-est-' + (estado || 'todos'));
+    if (btn) btn.classList.add('active');
+    aplicarFiltrosLogs();
+}
+
+var TIPO_LABEL_LOG = {
+    'boleta':       'Boleta',
+    'factura':      'Factura',
+    'nota_credito': 'N.Crédito',
+    'nota_debito':  'N.Débito',
+    'anulacion':    'Anulación'
+};
+
+function renderLogsTabla(data) {
+    var tbody = document.getElementById('logs-tbody');
     if (!tbody) return;
-    tbody.innerHTML = result.logs.map(function(r) {
+
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6b7280;padding:2rem;">Sin resultados</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = data.map(function(r) {
         return '<tr>' +
-            '<td>' + (r.fecha ? r.fecha.substring(0,19).replace('T',' ') : '-') + '</td>' +
-            '<td>' + r.serie + '-' + String(r.numero).padStart(8,'0') + '</td>' +
-            '<td><span class="badge badge-' + getBadgeClass(r.estado.toLowerCase()) + '">' + r.estado + '</span></td>' +
-            '<td>' + (r.endpoint || '-') + '</td>' +
-            '<td>' + (r.detalle || '-') + '</td></tr>';
+            '<td style="font-size:0.78rem;">' + (r.fecha ? r.fecha.substring(0,19).replace('T',' ') : '-') + '</td>' +
+            '<td><strong>' + r.serie + '-' + String(r.numero).padStart(8,'0') + '</strong></td>' +
+            '<td style="font-size:0.75rem;color:#6b7280;">' + (TIPO_LABEL_LOG[r.tipo_doc] || r.tipo_doc || '-') + '</td>' +
+            '<td style="font-size:0.78rem;">' + (r.cliente_nombre || '-') + '</td>' +
+            '<td style="font-size:0.78rem;">' + (r.endpoint || '-') + '</td>' +
+            '<td style="font-size:0.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (r.detalle || '') + '">' + (r.detalle || '-') + '</td>' +
+            '<td style="text-align:right;"><span class="badge badge-' + getBadgeClass(r.estado.toLowerCase()) + '">' + r.estado + '</span></td>' +
+            '</tr>';
     }).join('');
 }
 
@@ -292,38 +377,147 @@ async function filtrarLogs(estado) {
 // HISTORIAL
 // ================================================================
 
+var _historialData = [];
+
 async function cargarHistorial() {
     var page = document.getElementById('page-historial');
     page.querySelector('.card-body').innerHTML = '<p style="color:#6b7280">Cargando...</p>';
-    var result = await eel.get_historial(200)();
-    if (!result.exito) { page.querySelector('.card-body').innerHTML = '<p style="color:red">Error</p>'; return; }
+
+    var result = await eel.get_historial(500)();
+    if (!result.exito) {
+        page.querySelector('.card-body').innerHTML = '<p style="color:red">Error: ' + result.error + '</p>';
+        return;
+    }
+
+    _historialData = result.comprobantes || [];
+
     var html =
-        '<div style="margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;">' +
-        '<span style="font-size:0.85rem;color:#6b7280;">Total: <strong>' + result.total + '</strong> comprobantes</span>' +
-        '<input type="text" id="hist-search" placeholder="Buscar..." ' +
-        'style="padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;" ' +
-        'oninput="filtrarHistorial(this.value)"></div>' +
-        '<div style="max-height:500px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;">' +
+        // Fila superior: total + búsqueda
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">' +
+        '<span style="font-size:0.85rem;color:#6b7280;">Total: <strong id="hist-count">' + result.total + '</strong> comprobantes</span>' +
+        '<input type="text" id="hist-search" placeholder="Buscar serie, cliente..." ' +
+        'style="padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;width:220px;" ' +
+        'oninput="aplicarFiltrosHistorial()"></div>' +
+
+        // Fila filtros
+        '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.75rem;">' +
+
+        // Tipo doc
+        '<div style="display:flex;gap:0.3rem;align-items:center;">' +
+        '<span style="font-size:0.72rem;color:#6b7280;margin-right:0.2rem;">TIPO:</span>' +
+        '<button class="btn-filt active" id="filt-tipo-todos"    onclick="setFiltTipo(\'\')"            >Todos</button>' +
+        '<button class="btn-filt"        id="filt-tipo-boleta"   onclick="setFiltTipo(\'boleta\')"      >Boleta</button>' +
+        '<button class="btn-filt"        id="filt-tipo-factura"  onclick="setFiltTipo(\'factura\')"     >Factura</button>' +
+        '<button class="btn-filt"        id="filt-tipo-nota_credito" onclick="setFiltTipo(\'nota_credito\')">N.Crédito</button>' +
+        '<button class="btn-filt"        id="filt-tipo-nota_debito"  onclick="setFiltTipo(\'nota_debito\')">N.Débito</button>' +
+        '</div>' +
+
+        '<div style="width:1px;background:#e5e7eb;margin:0 0.25rem;"></div>' +
+
+        // Estado
+        '<div style="display:flex;gap:0.3rem;align-items:center;">' +
+        '<span style="font-size:0.72rem;color:#6b7280;margin-right:0.2rem;">ESTADO:</span>' +
+        '<button class="btn-filt active" id="filt-est-todos"    onclick="setFiltEstado(\'\')"         >Todos</button>' +
+        '<button class="btn-filt"        id="filt-est-remitido" onclick="setFiltEstado(\'remitido\')" >Remitido</button>' +
+        '<button class="btn-filt"        id="filt-est-error"    onclick="setFiltEstado(\'error\')"    >Error</button>' +
+        '<button class="btn-filt"        id="filt-est-ignorado" onclick="setFiltEstado(\'ignorado\')" >Ignorado</button>' +
+        '</div>' +
+
+        '</div>' +
+
+        // Tabla
+        '<div style="max-height:460px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;">' +
         '<table class="table" id="tabla-historial" style="margin:0;">' +
         '<thead style="position:sticky;top:0;background:#fff;z-index:1;"><tr>' +
-        '<th>Comprobante</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Endpoint</th>' +
-        '</tr></thead><tbody id="historial-tbody">' +
-        result.comprobantes.map(function(c) {
-            return '<tr>' +
-                '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8,'0') + '</strong></td>' +
-                '<td>' + c.fecha + '</td>' +
-                '<td>' + c.cliente + '</td>' +
-                '<td>S/ ' + Number(c.total).toFixed(2) + '</td>' +
-                '<td><span class="badge badge-' + getBadgeClass(c.estado) + '">' + c.estado + '</span></td>' +
-                '<td>' + c.endpoint + '</td></tr>';
-        }).join('') + '</tbody></table></div>';
+        '<th>Comprobante</th><th>Tipo</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Endpoint</th>' +
+        '</tr></thead>' +
+        '<tbody id="historial-tbody"></tbody>' +
+        '</table></div>';
+
     page.querySelector('.card-body').innerHTML = html;
+
+    // Inyectar estilos btn-filt si no existen
+    if (!document.getElementById('style-btn-filt')) {
+        var s = document.createElement('style');
+        s.id = 'style-btn-filt';
+        s.textContent =
+            '.btn-filt{padding:0.25rem 0.65rem;font-size:0.75rem;border:1px solid #d1d5db;border-radius:5px;' +
+            'background:#fff;color:#374151;cursor:pointer;transition:all 0.15s;}' +
+            '.btn-filt:hover{border-color:#6b7280;}' +
+            '.btn-filt.active{background:#111827;color:#fff;border-color:#111827;}';
+        document.head.appendChild(s);
+    }
+
+    renderHistorialTabla(_historialData);
+}
+
+var _filtTipo   = '';
+var _filtEstado = '';
+
+function setFiltTipo(tipo) {
+    _filtTipo = tipo;
+    document.querySelectorAll('[id^="filt-tipo-"]').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('filt-tipo-' + (tipo || 'todos')).classList.add('active');
+    aplicarFiltrosHistorial();
+}
+
+function setFiltEstado(estado) {
+    _filtEstado = estado;
+    document.querySelectorAll('[id^="filt-est-"]').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('filt-est-' + (estado || 'todos')).classList.add('active');
+    aplicarFiltrosHistorial();
+}
+
+function aplicarFiltrosHistorial() {
+    var query = (document.getElementById('hist-search') || {}).value || '';
+    var q = query.toLowerCase();
+
+    var filtrado = _historialData.filter(function(c) {
+        var matchTipo   = !_filtTipo   || c.tipo_doc === _filtTipo;
+        var matchEstado = !_filtEstado || c.estado   === _filtEstado;
+        var matchSearch = !q ||
+            (c.serie  + '-' + c.numero).toLowerCase().includes(q) ||
+            (c.cliente || '').toLowerCase().includes(q) ||
+            (c.endpoint || '').toLowerCase().includes(q);
+        return matchTipo && matchEstado && matchSearch;
+    });
+
+    document.getElementById('hist-count').textContent = filtrado.length;
+    renderHistorialTabla(filtrado);
 }
 
 function filtrarHistorial(query) {
-    var rows = document.querySelectorAll('#historial-tbody tr');
-    var q = query.toLowerCase();
-    rows.forEach(function(row) { row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+    aplicarFiltrosHistorial();
+}
+
+function renderHistorialTabla(data) {
+    var tbody = document.getElementById('historial-tbody');
+    if (!tbody) return;
+
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6b7280;padding:2rem;">Sin resultados</td></tr>';
+        return;
+    }
+
+    var TIPO_LABEL = {
+        'boleta':       'Boleta',
+        'factura':      'Factura',
+        'nota_credito': 'N.Crédito',
+        'nota_debito':  'N.Débito',
+        'anulacion':    'Anulación'
+    };
+
+    tbody.innerHTML = data.map(function(c) {
+        return '<tr>' +
+            '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8, '0') + '</strong></td>' +
+            '<td><span style="font-size:0.75rem;color:#6b7280;">' + (TIPO_LABEL[c.tipo_doc] || c.tipo_doc || '-') + '</span></td>' +
+            '<td>' + c.fecha + '</td>' +
+            '<td>' + (c.cliente || 'CLIENTES VARIOS') + '</td>' +
+            '<td>S/ ' + Number(c.total || 0).toFixed(2) + '</td>' +
+            '<td><span class="badge badge-' + getBadgeClass(c.estado) + '">' + c.estado + '</span></td>' +
+            '<td>' + (c.endpoint || '-') + '</td>' +
+            '</tr>';
+    }).join('');
 }
 
 function getBadgeClass(estado) {

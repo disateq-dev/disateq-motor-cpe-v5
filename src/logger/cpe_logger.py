@@ -19,7 +19,7 @@ ESTADOS = {
     'LEIDO':       'Comprobante leido desde fuente',
     'NORMALIZADO': 'Normalizado a estructura CPE',
     'GENERADO':    'Archivo TXT/JSON generado',
-    'REMITIDO':     'Enviado al endpoint exitosamente',
+    'REMITIDO':    'Enviado al endpoint exitosamente',
     'ERROR':       'Error en el flujo',
     'IGNORADO':    'Serie/correlativo no permitido por config',
 }
@@ -65,6 +65,10 @@ class CpeLogger:
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_fecha
                 ON log_envios (fecha)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_tipo_doc
+                ON log_envios (tipo_doc)
             """)
 
     def _conn(self):
@@ -138,6 +142,7 @@ class CpeLogger:
     def consultar(self,
                   ruc: str = None,
                   estado: str = None,
+                  tipo_doc: str = None,
                   serie: str = None,
                   fecha_desde: str = None,
                   fecha_hasta: str = None,
@@ -150,6 +155,8 @@ class CpeLogger:
             sql += " AND ruc_emisor = ?"; params.append(ruc)
         if estado:
             sql += " AND estado = ?"; params.append(estado)
+        if tipo_doc:
+            sql += " AND tipo_doc = ?"; params.append(tipo_doc)
         if serie:
             sql += " AND serie = ?"; params.append(serie)
         if fecha_desde:
@@ -183,5 +190,3 @@ class CpeLogger:
     def pendientes_error(self, ruc: str = None) -> List[Dict]:
         """Retorna comprobantes con ERROR para reintento manual."""
         return self.consultar(ruc=ruc, estado='ERROR')
-
-
