@@ -18,8 +18,20 @@ series:
     - serie: F001
       correlativo_inicio: 0
       activa: true
-  nota_credito: []
-  nota_debito: []
+  nota_credito:
+    - serie: BC01
+      correlativo_inicio: 1
+      activa: false
+    - serie: FC01
+      correlativo_inicio: 1
+      activa: false
+  nota_debito:
+    - serie: BD01
+      correlativo_inicio: 1
+      activa: false
+    - serie: FD01
+      correlativo_inicio: 1
+      activa: false
 
 envio:
   endpoints:
@@ -30,12 +42,11 @@ envio:
         usuario: ''
         token: ''
       timeout: 30
-      urls:
-        boleta: https://apifas.disateq.com/produccion_text.php
-        factura: https://apifas.disateq.com/produccion_text.php
-        nota_credito: https://apifas.disateq.com/produccion_text.php
-        nota_debito: https://apifas.disateq.com/produccion_text.php
-        anulacion: https://apifas.disateq.com/anulacion_text.php
+      url_comprobantes: https://apifas.disateq.com/produccion_text.php
+      url_anulaciones:  https://apifas.disateq.com/anulacion_text.php
+      url_guias:        ''
+      url_retenciones:  ''
+      url_percepciones: ''
 
 scheduler:
   modo: manual
@@ -48,3 +59,8 @@ instalador:
 licencia:
   clave: ''
   endpoint_validacion: https://licenses.disateq.com/v1/validate
+
+observaciones: >
+  Cliente migrado desde sistema legacy FoxPro.
+  Serie B001 activa desde correlativo 16377.
+  Validar series con SUNAT antes de activar F001.

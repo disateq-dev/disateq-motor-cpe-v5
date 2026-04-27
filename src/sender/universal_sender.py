@@ -1,12 +1,13 @@
 """
 universal_sender.py — Motor CPE DisateQ™ v4.0
-Responsabilidad: enviar TXT/JSON a uno o multiples endpoints segun tipo de comprobante.
+Responsabilidad: enviar TXT/JSON al endpoint correcto segun tipo de comprobante.
 
-Soporta estructura de URLs por tipo:
-    urls:
-        boleta:    https://...
-        factura:   https://...
-        anulacion: https://...
+Estructura de endpoints:
+    url_comprobantes: facturas + boletas + notas credito/debito
+    url_anulaciones:  comunicaciones de baja
+    url_guias:        guias de remision
+    url_retenciones:  retenciones (opcional)
+    url_percepciones: percepciones (opcional)
 
 Compatible con estructura legacy (url: unica para todos).
 """
@@ -15,8 +16,21 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 
+# Mapa tipo_comprobante -> campo URL en el endpoint
+URL_MAP = {
+    'boleta':       'url_comprobantes',
+    'factura':      'url_comprobantes',
+    'nota_credito': 'url_comprobantes',
+    'nota_debito':  'url_comprobantes',
+    'anulacion':    'url_anulaciones',
+    'guia':         'url_guias',
+    'retencion':    'url_retenciones',
+    'percepcion':   'url_percepciones',
+}
+
+
 class UniversalSender:
-    """Envia archivo CPE a los endpoints configurados para el tipo de comprobante."""
+    """Envia archivo CPE al endpoint correcto segun tipo de comprobante."""
 
     def __init__(self, endpoints: list = None, mode: str = None):
         """
@@ -31,35 +45,39 @@ class UniversalSender:
         """
         Obtiene la URL correcta para el tipo de comprobante.
 
-        Soporta dos estructuras:
-        1. Nueva: urls.{tipo} -> URL especifica por tipo
-        2. Legacy: url -> URL unica para todos
+        Prioridad:
+        1. Nueva estructura: url_comprobantes / url_anulaciones / url_guias
+        2. Legacy: urls.{tipo} (estructura intermedia)
+        3. Legacy: url (URL unica para todo)
         """
-        # Nueva estructura: urls por tipo
+        # Nueva estructura: url_comprobantes / url_anulaciones / url_guias
+        campo_url = URL_MAP.get(tipo_comprobante, 'url_comprobantes')
+        url = ep.get(campo_url, '').strip()
+        if url:
+            return url
+
+        # Fallback legacy: urls por tipo
         urls = ep.get('urls', {})
         if urls:
-            # Buscar URL exacta para el tipo
-            url = urls.get(tipo_comprobante)
+            url = urls.get(tipo_comprobante, '')
             if url:
                 return url
-            # Fallback: boleta/factura usan misma URL en muchos servicios
+            # Fallback dentro de urls
             if tipo_comprobante in ('nota_credito', 'nota_debito'):
-                url = urls.get('factura') or urls.get('boleta')
-                if url:
-                    return url
-            # Ultimo fallback: cualquier URL disponible
+                return urls.get('factura') or urls.get('boleta') or ''
             return next(iter(urls.values()), '')
 
-        # Legacy: url unica
-        return ep.get('url', '')
+        # Fallback legacy final: url unica
+        return ep.get('url', '').strip()
 
     def enviar(self, archivo_path: str, tipo_comprobante: str = 'boleta') -> List[Tuple[bool, Dict, str]]:
         """
-        Envia archivo a todos los endpoints activos para el tipo de comprobante.
+        Envia archivo al endpoint correcto para el tipo de comprobante.
 
         Args:
             archivo_path:     Ruta al archivo TXT/JSON generado
-            tipo_comprobante: boleta | factura | nota_credito | nota_debito | anulacion | guia
+            tipo_comprobante: boleta | factura | nota_credito | nota_debito |
+                              anulacion | guia | retencion | percepcion
 
         Returns:
             Lista de (exito, respuesta_dict, nombre_endpoint)
@@ -81,7 +99,7 @@ class UniversalSender:
             fmt     = ep.get('formato', 'txt')
 
             if not url:
-                resultados.append((False, {'error': f'Sin URL para tipo {tipo_comprobante}'}, nombre))
+                print(f"   ⚠️  {nombre}: sin URL para tipo '{tipo_comprobante}' — omitido")
                 continue
 
             try:
@@ -105,7 +123,6 @@ class UniversalSender:
                     resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
 
                 else:
-                    # Otros formatos (XML, etc) — enviar como binario
                     with open(archivo_path, 'rb') as f:
                         headers = {'Content-Type': 'application/octet-stream'}
                         if creds.get('token'):
@@ -127,7 +144,7 @@ class UniversalSender:
             except Exception as e:
                 resultados.append((False, {'error': str(e)}, nombre))
 
-        return resultados if resultados else [(False, {'error': 'Sin endpoints configurados'}, '')]
+        return resultados if resultados else [(False, {'error': 'Sin endpoints configurados o sin URL para este tipo'}, '')]
 
     def enviar_primero(self, archivo_path: str, tipo_comprobante: str = 'boleta') -> Tuple[bool, Dict]:
         """Compatibilidad — retorna solo el primer resultado."""

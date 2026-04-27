@@ -1,0 +1,79 @@
+advertencias:
+- 'Campo requerido no encontrado en comprobantes: total'
+anulaciones:
+  campos:
+    fecha_emision: FECHA_NOTA
+    motivo: TIPO_MOTIV
+    numero: NUMERO_NOT
+    serie: SERIE_NOTA
+    tipo_doc: TIPO_FACTU
+  tabla: notacredito
+comprobantes:
+  campos:
+    direccion: null
+    estado_pendiente: FLAG_ENVIO
+    fecha: FECHA_DOCU
+    igv: null
+    nombre_cliente: null
+    numero: NUMERO_FAC
+    ruc_cliente: null
+    serie: SERIE_FACT
+    subtotal: null
+    tipo_doc: TIPO_FACTU
+    total: null
+  filtro:
+    campo: FLAG_ENVIO
+    valor: __COMPLETAR
+  tabla: enviosffee
+confianza: 0.86
+fuente:
+  ruta: D:\FFEESUNAT\Test
+  servidor: ''
+  tipo: dbf
+generado: '2026-04-26 18:28:51'
+items:
+  campos:
+    cantidad: CANTIDAD_P
+    codigo: CODIGO_PRO
+    descripcion: DETALLE_SE
+    igv: IGV_PEDIDO
+    precio: PRECIO_UNI
+    subtotal: MONTO_PEDI
+    total: REAL_PEDID
+  join: NUMERO_FAC
+  tabla: detalleventa
+mapeo:
+  anulaciones:
+    fecha_emision: FECHA_NOTA
+    motivo: TIPO_MOTIV
+    numero: NUMERO_NOT
+    serie: SERIE_NOTA
+    tipo_doc: TIPO_FACTU
+  comprobantes:
+    estado_pendiente: FLAG_ENVIO
+    fecha: FECHA_DOCU
+    numero: NUMERO_FAC
+    serie: SERIE_FACT
+    tipo_doc: TIPO_FACTU
+  items:
+    campo_union: NUMERO_FAC
+    cantidad: CANTIDAD_P
+    codigo: CODIGO_PRO
+    descripcion: DETALLE_SE
+    precio: PRECIO_UNI
+    total: REAL_PEDID
+  tabla_anulaciones: notacredito
+  tabla_comp: enviosffee
+  tabla_items: detalleventa
+  transformaciones:
+    fecha_formato: YYYYMMDD
+    moneda: PEN
+    tipo_doc:
+      B: '03'
+metodo_mapeo: heuristica
+transformaciones:
+  fecha_formato: YYYYMMDD
+  moneda: PEN
+  tipo_doc:
+    B: '03'
+version: '1.0'

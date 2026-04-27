@@ -98,80 +98,90 @@ async function cerrarApp() {
 }
 
 // ================================================================
+// SPINNER PROCESAR
+// ================================================================
+
+function showProcSpinner(msg) {
+    var sp = document.getElementById('proc-spinner');
+    if (sp) {
+        sp.style.display = 'flex';
+        var msgEl = document.getElementById('proc-spinner-msg');
+        if (msgEl) msgEl.textContent = msg || 'Cargando...';
+    }
+}
+
+function hideProcSpinner() {
+    var sp = document.getElementById('proc-spinner');
+    if (sp) sp.style.display = 'none';
+}
+
+function _setFuenteLabel(ruta) {
+    var el = document.getElementById('archivo-seleccionado');
+    if (!el) return;
+    if (ruta) {
+        el.textContent = ruta;
+        el.style.color = 'var(--text-primary)';
+    } else if (el.textContent === '—' || !el.textContent.trim()) {
+        el.textContent = '—';
+        el.style.color = 'var(--text-muted)';
+    }
+}
+
+// ================================================================
 // PROCESAR
 // ================================================================
 
 async function initProcesar() {
     var empresa = await eel.get_empresa_info()();
     var info = document.getElementById('proc-cliente-info');
-    if (info && empresa) info.textContent = empresa.nombre + ' - RUC: ' + empresa.ruc;
+    if (info && empresa) info.textContent = empresa.nombre + ' — RUC: ' + empresa.ruc;
+
+    // Mostrar ruta configurada antes de cargar
+    var clientes = await eel.get_clientes_disponibles()();
+    if (clientes.exito && clientes.clientes.length) {
+        var rutaResult = await eel.get_ruta_fuente(clientes.clientes[0].alias)();
+        _setFuenteLabel(rutaResult.ruta);
+    }
     await cargarPendientesDesdeMotor();
 }
 
-async function seleccionarArchivo() {
-    var carpeta = await eel.seleccionar_carpeta()();
-    if (carpeta) {
-        document.getElementById('archivo-seleccionado').value = carpeta;
-        appState.archivoSeleccionado = carpeta;
-        await conectarYPreview(carpeta);
-    }
-}
-
 async function cargarPendientes() {
-    var archivo = document.getElementById('archivo-seleccionado').value;
-    if (!archivo || archivo === 'Configurado en cliente YAML') await cargarPendientesDesdeMotor();
-    else await conectarYPreview(archivo);
-}
-
-async function conectarYPreview(archivo) {
-    var status  = document.getElementById('proc-status');
-    var preview = document.getElementById('preview-container');
-    status.style.display = 'block';
-    status.style.background = '#dbeafe';
-    status.style.color = '#1e40af';
-    status.textContent = 'Conectando a fuente de datos...';
-    preview.style.display = 'none';
-    var result = await eel.conectar_fuente('dbf', archivo)();
-    if (result.exito) {
-        status.style.background = '#dcfce7';
-        status.style.color = '#166534';
-        status.textContent = result.pendientes + ' comprobantes pendientes encontrados';
-        mostrarTabla(result.comprobantes, result.pendientes);
-    } else {
-        status.style.background = '#fee2e2';
-        status.style.color = '#991b1b';
-        status.textContent = result.error;
-    }
-    feather.replace();
+    await cargarPendientesDesdeMotor();
 }
 
 async function cargarPendientesDesdeMotor() {
     var status = document.getElementById('proc-status');
     if (!status) return;
+    showProcSpinner('Leyendo fuente de datos...');
     status.style.display = 'block';
-    status.style.background = '#dbeafe';
-    status.style.color = '#1e40af';
+    status.style.background = 'var(--info-bg)';
+    status.style.color = 'var(--info)';
     status.textContent = 'Leyendo fuente configurada...';
+
     var clientes = await eel.get_clientes_disponibles()();
     if (!clientes.exito || !clientes.clientes.length) {
-        status.style.background = '#fee2e2';
-        status.style.color = '#991b1b';
+        hideProcSpinner();
+        status.style.background = 'var(--error-bg)';
+        status.style.color = 'var(--error)';
         status.textContent = 'No hay cliente configurado';
         return;
     }
+
     var cfg = clientes.clientes[0];
     var rutaResult = await eel.get_ruta_fuente(cfg.alias)();
-    var input = document.getElementById('archivo-seleccionado');
-    if (input && rutaResult.ruta) input.value = rutaResult.ruta;
+    _setFuenteLabel(rutaResult.ruta);
+
     var result = await eel.conectar_fuente(cfg.tipo_fuente, rutaResult.ruta || cfg.alias)();
+    hideProcSpinner();
+
     if (result.exito) {
-        status.style.background = '#dcfce7';
-        status.style.color = '#166534';
+        status.style.background = 'var(--success-bg)';
+        status.style.color = 'var(--success)';
         status.textContent = result.pendientes + ' comprobantes pendientes encontrados';
         mostrarTabla(result.comprobantes, result.pendientes);
     } else {
-        status.style.background = '#fee2e2';
-        status.style.color = '#991b1b';
+        status.style.background = 'var(--error-bg)';
+        status.style.color = 'var(--error)';
         status.textContent = result.error;
     }
     feather.replace();
@@ -183,10 +193,15 @@ function mostrarTabla(comprobantes, total) {
     var preview = document.getElementById('preview-container');
     counter.textContent = 'Mostrando ' + comprobantes.length + ' de ' + total + ' pendientes';
     tbody.innerHTML = comprobantes.map(function(c, i) {
-        return '<tr><td><input type="checkbox" class="comp-check" data-index="' + i + '" checked></td>' +
-               '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8,'0') + '</strong></td>' +
-               '<td>' + (c.cliente || 'CLIENTES VARIOS') + '</td>' +
-               '<td>S/ ' + Number(c.total || 0).toFixed(2) + '</td></tr>';
+        var totalHtml = c.total > 0
+            ? '<strong>S/ ' + Number(c.total).toFixed(2) + '</strong>'
+            : '<span style="color:var(--text-muted)">—</span>';
+        return '<tr>' +
+            '<td style="width:40px;"><input type="checkbox" class="comp-check" data-index="' + i + '" checked></td>' +
+            '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8,'0') + '</strong></td>' +
+            '<td>' + (c.cliente || 'CLIENTES VARIOS') + '</td>' +
+            '<td style="text-align:right;">' + totalHtml + '</td>' +
+            '</tr>';
     }).join('');
     preview.style.display = 'block';
     feather.replace();
@@ -203,8 +218,11 @@ async function procesarConMotor() {
     if (!confirm('Procesar ' + checks.length + ' comprobante(s)?')) return;
     var btn = document.getElementById('btn-procesar');
     btn.disabled = true;
-    btn.innerHTML = 'Procesando...';
+    btn.innerHTML = '<i data-feather="loader"></i> Procesando...';
+    feather.replace();
+    showProcSpinner('Enviando comprobantes...');
     var result = await eel.procesar_motor(appState.clienteAlias, null, 'mock')();
+    hideProcSpinner();
     btn.disabled = false;
     btn.innerHTML = '<i data-feather="play-circle"></i> Procesar con Motor';
     feather.replace();
@@ -217,13 +235,13 @@ function mostrarResultado(r) {
     div.style.display = 'block';
     document.getElementById('preview-container').style.display = 'none';
     div.innerHTML =
-        '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:1.5rem;">' +
-        '<h4 style="margin:0 0 1rem 0;color:#166534;">Procesamiento completado</h4>' +
+        '<div style="background:var(--success-bg);border:1px solid var(--success-border);border-radius:var(--radius-lg);padding:1.5rem;">' +
+        '<h4 style="margin:0 0 1rem 0;color:var(--success);">Procesamiento completado</h4>' +
         '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;">' +
-        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;">' + r.procesados + '</div><div style="font-size:0.8rem;color:#6b7280;">Procesados</div></div>' +
-        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:#166534;">' + r.enviados + '</div><div style="font-size:0.8rem;color:#6b7280;">Enviados</div></div>' +
-        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:#991b1b;">' + r.errores + '</div><div style="font-size:0.8rem;color:#6b7280;">Errores</div></div>' +
-        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:#92400e;">' + r.ignorados + '</div><div style="font-size:0.8rem;color:#6b7280;">Ignorados</div></div>' +
+        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;">' + r.procesados + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Procesados</div></div>' +
+        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:var(--success);">' + r.enviados + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Enviados</div></div>' +
+        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:var(--error);">' + r.errores + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Errores</div></div>' +
+        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:var(--warning);">' + r.ignorados + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Ignorados</div></div>' +
         '</div><div style="display:flex;gap:0.75rem;">' +
         '<button class="btn btn-primary" onclick="volverAProcesar()">Procesar mas</button>' +
         '<button class="btn btn-secondary" onclick="navegarA(\'logs\')">Ver logs</button>' +
@@ -244,70 +262,50 @@ function update_progress(current, total) {
 }
 
 // ================================================================
-// ================================================================
-// LOGS
+// LOGS — solo estado final por defecto (REMITIDO)
 // ================================================================
 
-var _logsData   = [];
+var _logsData      = [];
 var _logFiltTipo   = '';
-var _logFiltEstado = '';
+var _logFiltEstado = 'REMITIDO';
 
 async function cargarLogs() {
     try {
         var result = await eel.get_logs(null, 500)();
         var page = document.getElementById('page-logs');
-        if (!result.exito) {
-            page.querySelector('.card-body').innerHTML = '<p>' + result.error + '</p>';
-            return;
-        }
-
+        if (!result.exito) { page.querySelector('.card-body').innerHTML = '<p>' + result.error + '</p>'; return; }
         _logsData = result.logs || [];
-        _logFiltTipo   = '';
-        _logFiltEstado = '';
-
+        _logFiltTipo = ''; _logFiltEstado = 'REMITIDO';
         var html =
-            // Fila filtros
             '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center;">' +
-
-            '<span style="font-size:0.72rem;color:#6b7280;margin-right:0.1rem;">TIPO:</span>' +
-            '<button class="btn-filt active" id="lfilt-tipo-todos"        onclick="setLogFiltTipo(\'\')">Todos</button>' +
-            '<button class="btn-filt"        id="lfilt-tipo-boleta"       onclick="setLogFiltTipo(\'boleta\')">Boleta</button>' +
-            '<button class="btn-filt"        id="lfilt-tipo-factura"      onclick="setLogFiltTipo(\'factura\')">Factura</button>' +
-            '<button class="btn-filt"        id="lfilt-tipo-nota_credito" onclick="setLogFiltTipo(\'nota_credito\')">N.Crédito</button>' +
-            '<button class="btn-filt"        id="lfilt-tipo-nota_debito"  onclick="setLogFiltTipo(\'nota_debito\')">N.Débito</button>' +
-            '<button class="btn-filt"        id="lfilt-tipo-anulacion"    onclick="setLogFiltTipo(\'anulacion\')">Anulación</button>' +
-
-            '<div style="width:1px;background:#e5e7eb;margin:0 0.25rem;"></div>' +
-
-            '<span style="font-size:0.72rem;color:#6b7280;margin-right:0.1rem;">ESTADO:</span>' +
-            '<button class="btn-filt active" id="lfilt-est-todos"    onclick="setLogFiltEstado(\'\')">Todos</button>' +
-            '<button class="btn-filt"        id="lfilt-est-REMITIDO" onclick="setLogFiltEstado(\'REMITIDO\')">Remitido</button>' +
-            '<button class="btn-filt"        id="lfilt-est-ERROR"    onclick="setLogFiltEstado(\'ERROR\')">Error</button>' +
-            '<button class="btn-filt"        id="lfilt-est-IGNORADO" onclick="setLogFiltEstado(\'IGNORADO\')">Ignorado</button>' +
-            '<button class="btn-filt"        id="lfilt-est-GENERADO" onclick="setLogFiltEstado(\'GENERADO\')">Generado</button>' +
-            '<button class="btn-filt"        id="lfilt-est-LEIDO"    onclick="setLogFiltEstado(\'LEIDO\')">Leído</button>' +
-
+            '<span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.1rem;">TIPO:</span>' +
+            '<button class="btn-filt active" id="lfilt-tipo-todos" onclick="setLogFiltTipo(\'\')">Todos</button>' +
+            '<button class="btn-filt" id="lfilt-tipo-boleta" onclick="setLogFiltTipo(\'boleta\')">Boleta</button>' +
+            '<button class="btn-filt" id="lfilt-tipo-factura" onclick="setLogFiltTipo(\'factura\')">Factura</button>' +
+            '<button class="btn-filt" id="lfilt-tipo-nota_credito" onclick="setLogFiltTipo(\'nota_credito\')">N.Crédito</button>' +
+            '<button class="btn-filt" id="lfilt-tipo-nota_debito" onclick="setLogFiltTipo(\'nota_debito\')">N.Débito</button>' +
+            '<button class="btn-filt" id="lfilt-tipo-anulacion" onclick="setLogFiltTipo(\'anulacion\')">Anulación</button>' +
+            '<div style="width:1px;background:var(--border-light);margin:0 0.25rem;"></div>' +
+            '<span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.1rem;">ESTADO:</span>' +
+            '<button class="btn-filt" id="lfilt-est-todos" onclick="setLogFiltEstado(\'\')">Todos</button>' +
+            '<button class="btn-filt active" id="lfilt-est-REMITIDO" onclick="setLogFiltEstado(\'REMITIDO\')">Remitido</button>' +
+            '<button class="btn-filt" id="lfilt-est-ERROR" onclick="setLogFiltEstado(\'ERROR\')">Error</button>' +
+            '<button class="btn-filt" id="lfilt-est-IGNORADO" onclick="setLogFiltEstado(\'IGNORADO\')">Ignorado</button>' +
+            '<button class="btn-filt" id="lfilt-est-GENERADO" onclick="setLogFiltEstado(\'GENERADO\')">Generado</button>' +
+            '<button class="btn-filt" id="lfilt-est-LEIDO" onclick="setLogFiltEstado(\'LEIDO\')">Leído</button>' +
             '</div>' +
-
-            // Contador
-            '<div style="margin-bottom:0.5rem;font-size:0.8rem;color:#6b7280;">' +
-            'Mostrando <strong id="logs-count">' + _logsData.length + '</strong> registros</div>' +
-
-            // Tabla
-            '<div style="max-height:500px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;">' +
+            '<div style="margin-bottom:0.5rem;font-size:0.8rem;color:var(--text-muted);">Mostrando <strong id="logs-count">0</strong> registros</div>' +
+            '<div style="max-height:500px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-md);">' +
             '<table class="table" id="tabla-logs" style="margin:0;">' +
-            '<thead style="position:sticky;top:0;background:#fff;z-index:1;"><tr>' +
-            '<th>Fecha</th><th>Comprobante</th><th>Tipo</th><th>Cliente</th><th>Endpoint</th><th>Detalle</th><th style="text-align:right;">Estado</th>' +
-            '</tr></thead>' +
-            '<tbody id="logs-tbody"></tbody>' +
-            '</table></div>';
-
+            '<thead style="position:sticky;top:0;background:var(--bg-table-head);z-index:1;"><tr>' +
+            '<th style="width:14%;">Fecha/Hora</th><th style="width:14%;">Comprobante</th><th style="width:8%;">Tipo</th>' +
+            '<th style="width:22%;">Cliente</th><th style="width:10%;">Endpoint</th>' +
+            '<th style="width:18%;">Detalle</th><th style="width:14%;text-align:right;">Estado</th>' +
+            '</tr></thead><tbody id="logs-tbody"></tbody></table></div>';
         page.querySelector('.card-body').innerHTML = html;
-        renderLogsTabla(_logsData);
-
-    } catch(e) {
-        console.error('Error logs:', e);
-    }
+        _inyectarEstilosFilt();
+        aplicarFiltrosLogs();
+    } catch(e) { console.error('Error logs:', e); }
 }
 
 function setLogFiltTipo(tipo) {
@@ -326,48 +324,34 @@ function setLogFiltEstado(estado) {
 
 function aplicarFiltrosLogs() {
     var filtrado = _logsData.filter(function(r) {
-        var matchTipo   = !_logFiltTipo   || (r.tipo_doc || '') === _logFiltTipo;
-        var matchEstado = !_logFiltEstado || r.estado === _logFiltEstado;
-        return matchTipo && matchEstado;
+        return (!_logFiltTipo || (r.tipo_doc || '') === _logFiltTipo) &&
+               (!_logFiltEstado || r.estado === _logFiltEstado);
     });
-    document.getElementById('logs-count').textContent = filtrado.length;
+    var countEl = document.getElementById('logs-count');
+    if (countEl) countEl.textContent = filtrado.length;
     renderLogsTabla(filtrado);
 }
 
-// Mantener compatibilidad con llamadas antiguas
-async function filtrarLogs(estado) {
-    _logFiltEstado = estado || '';
-    document.querySelectorAll('[id^="lfilt-est-"]').forEach(function(b) { b.classList.remove('active'); });
-    var btn = document.getElementById('lfilt-est-' + (estado || 'todos'));
-    if (btn) btn.classList.add('active');
-    aplicarFiltrosLogs();
-}
-
-var TIPO_LABEL_LOG = {
-    'boleta':       'Boleta',
-    'factura':      'Factura',
-    'nota_credito': 'N.Crédito',
-    'nota_debito':  'N.Débito',
-    'anulacion':    'Anulación'
-};
+var TIPO_LABEL_LOG = {'boleta':'Boleta','factura':'Factura','nota_credito':'N.Crédito','nota_debito':'N.Débito','anulacion':'Anulación'};
 
 function renderLogsTabla(data) {
     var tbody = document.getElementById('logs-tbody');
     if (!tbody) return;
-
     if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6b7280;padding:2rem;">Sin resultados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Sin resultados</td></tr>';
         return;
     }
-
     tbody.innerHTML = data.map(function(r) {
+        var tipoBadge = r.tipo_doc
+            ? '<span class="badge badge-' + _tipoBadgeClass(r.tipo_doc) + '">' + (TIPO_LABEL_LOG[r.tipo_doc] || r.tipo_doc) + '</span>'
+            : '-';
         return '<tr>' +
-            '<td style="font-size:0.78rem;">' + (r.fecha ? r.fecha.substring(0,19).replace('T',' ') : '-') + '</td>' +
+            '<td style="font-size:0.75rem;white-space:nowrap;">' + (r.fecha ? r.fecha.substring(0,19).replace('T',' ') : '-') + '</td>' +
             '<td><strong>' + r.serie + '-' + String(r.numero).padStart(8,'0') + '</strong></td>' +
-            '<td style="font-size:0.75rem;color:#6b7280;">' + (TIPO_LABEL_LOG[r.tipo_doc] || r.tipo_doc || '-') + '</td>' +
-            '<td style="font-size:0.78rem;">' + (r.cliente_nombre || '-') + '</td>' +
-            '<td style="font-size:0.78rem;">' + (r.endpoint || '-') + '</td>' +
-            '<td style="font-size:0.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (r.detalle || '') + '">' + (r.detalle || '-') + '</td>' +
+            '<td>' + tipoBadge + '</td>' +
+            '<td style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;" title="' + (r.cliente_nombre||'') + '">' + (r.cliente_nombre || '-') + '</td>' +
+            '<td><span class="badge badge-neutral" style="font-size:0.65rem;">' + (r.endpoint || '-') + '</span></td>' +
+            '<td style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (r.detalle || '') + '">' + (r.detalle || '-') + '</td>' +
             '<td style="text-align:right;"><span class="badge badge-' + getBadgeClass(r.estado.toLowerCase()) + '">' + r.estado + '</span></td>' +
             '</tr>';
     }).join('');
@@ -381,78 +365,70 @@ var _historialData = [];
 
 async function cargarHistorial() {
     var page = document.getElementById('page-historial');
-    page.querySelector('.card-body').innerHTML = '<p style="color:#6b7280">Cargando...</p>';
-
+    page.querySelector('.card-body').innerHTML = '<p style="color:var(--text-muted)">Cargando...</p>';
     var result = await eel.get_historial(500)();
     if (!result.exito) {
-        page.querySelector('.card-body').innerHTML = '<p style="color:red">Error: ' + result.error + '</p>';
+        page.querySelector('.card-body').innerHTML = '<p style="color:var(--error)">Error: ' + result.error + '</p>';
         return;
     }
-
     _historialData = result.comprobantes || [];
 
+    var remitidos   = _historialData.filter(function(c) { return c.estado === 'remitido'; });
+    var totalRem    = remitidos.length;
+    var sumaRem     = remitidos.reduce(function(a,c) { return a + (c.total||0); }, 0);
+
     var html =
-        // Fila superior: total + búsqueda
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">' +
-        '<span style="font-size:0.85rem;color:#6b7280;">Total: <strong id="hist-count">' + result.total + '</strong> comprobantes</span>' +
+        '<span style="font-size:0.85rem;color:var(--text-muted);">Total: <strong id="hist-count">' + result.total + '</strong> comprobantes</span>' +
         '<input type="text" id="hist-search" placeholder="Buscar serie, cliente..." ' +
-        'style="padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;width:220px;" ' +
+        'style="padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.85rem;width:220px;" ' +
         'oninput="aplicarFiltrosHistorial()"></div>' +
 
-        // Fila filtros
         '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.75rem;">' +
-
-        // Tipo doc
         '<div style="display:flex;gap:0.3rem;align-items:center;">' +
-        '<span style="font-size:0.72rem;color:#6b7280;margin-right:0.2rem;">TIPO:</span>' +
-        '<button class="btn-filt active" id="filt-tipo-todos"    onclick="setFiltTipo(\'\')"            >Todos</button>' +
-        '<button class="btn-filt"        id="filt-tipo-boleta"   onclick="setFiltTipo(\'boleta\')"      >Boleta</button>' +
-        '<button class="btn-filt"        id="filt-tipo-factura"  onclick="setFiltTipo(\'factura\')"     >Factura</button>' +
-        '<button class="btn-filt"        id="filt-tipo-nota_credito" onclick="setFiltTipo(\'nota_credito\')">N.Crédito</button>' +
-        '<button class="btn-filt"        id="filt-tipo-nota_debito"  onclick="setFiltTipo(\'nota_debito\')">N.Débito</button>' +
+        '<span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.2rem;">TIPO:</span>' +
+        '<button class="btn-filt active" id="filt-tipo-todos" onclick="setFiltTipo(\'\')">Todos</button>' +
+        '<button class="btn-filt" id="filt-tipo-boleta" onclick="setFiltTipo(\'boleta\')">Boleta</button>' +
+        '<button class="btn-filt" id="filt-tipo-factura" onclick="setFiltTipo(\'factura\')">Factura</button>' +
+        '<button class="btn-filt" id="filt-tipo-nota_credito" onclick="setFiltTipo(\'nota_credito\')">N.Crédito</button>' +
+        '<button class="btn-filt" id="filt-tipo-nota_debito" onclick="setFiltTipo(\'nota_debito\')">N.Débito</button>' +
         '</div>' +
-
-        '<div style="width:1px;background:#e5e7eb;margin:0 0.25rem;"></div>' +
-
-        // Estado
+        '<div style="width:1px;background:var(--border-light);margin:0 0.25rem;"></div>' +
         '<div style="display:flex;gap:0.3rem;align-items:center;">' +
-        '<span style="font-size:0.72rem;color:#6b7280;margin-right:0.2rem;">ESTADO:</span>' +
-        '<button class="btn-filt active" id="filt-est-todos"    onclick="setFiltEstado(\'\')"         >Todos</button>' +
-        '<button class="btn-filt"        id="filt-est-remitido" onclick="setFiltEstado(\'remitido\')" >Remitido</button>' +
-        '<button class="btn-filt"        id="filt-est-error"    onclick="setFiltEstado(\'error\')"    >Error</button>' +
-        '<button class="btn-filt"        id="filt-est-ignorado" onclick="setFiltEstado(\'ignorado\')" >Ignorado</button>' +
-        '</div>' +
+        '<span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.2rem;">ESTADO:</span>' +
+        '<button class="btn-filt active" id="filt-est-todos" onclick="setFiltEstado(\'\')">Todos</button>' +
+        '<button class="btn-filt" id="filt-est-remitido" onclick="setFiltEstado(\'remitido\')">Remitido</button>' +
+        '<button class="btn-filt" id="filt-est-error" onclick="setFiltEstado(\'error\')">Error</button>' +
+        '<button class="btn-filt" id="filt-est-ignorado" onclick="setFiltEstado(\'ignorado\')">Ignorado</button>' +
+        '</div></div>' +
 
-        '</div>' +
-
-        // Tabla
-        '<div style="max-height:460px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;">' +
+        '<div style="border:1px solid var(--border-light);border-radius:var(--radius-md) var(--radius-md) 0 0;overflow:hidden;">' +
+        '<div style="max-height:420px;overflow-y:auto;">' +
         '<table class="table" id="tabla-historial" style="margin:0;">' +
-        '<thead style="position:sticky;top:0;background:#fff;z-index:1;"><tr>' +
-        '<th>Comprobante</th><th>Tipo</th><th>Fecha</th><th>Cliente</th><th>Total</th><th style="text-align:right;">Estado</th><th>Endpoint</th>' +
-        '</tr></thead>' +
-        '<tbody id="historial-tbody"></tbody>' +
-        '</table></div>';
+        '<thead style="position:sticky;top:0;background:var(--bg-table-head);z-index:1;"><tr>' +
+        '<th style="width:14%;">Comprobante</th>' +
+        '<th style="width:9%;">Tipo</th>' +
+        '<th style="width:11%;">Fecha</th>' +
+        '<th style="width:28%;">Cliente</th>' +
+        '<th style="width:11%;text-align:right;">Total</th>' +
+        '<th style="width:13%;text-align:right;">Estado</th>' +
+        '<th style="width:14%;">Endpoint</th>' +
+        '</tr></thead><tbody id="historial-tbody"></tbody></table></div></div>' +
+
+        '<div class="table-footer">' +
+        '<div class="tf-stats">' +
+        '<div class="tf-item"><span class="tf-label">Remitidos</span><span class="tf-value ok" id="hist-total-remitidos">' + totalRem + '</span></div>' +
+        '<div class="tf-item"><span class="tf-label">Monto remitido</span><span class="tf-value" id="hist-suma-total">S/ ' + sumaRem.toFixed(2) + '</span></div>' +
+        '</div>' +
+        '<span class="tf-info">Mostrando <strong id="hist-count-footer">' + _historialData.length + '</strong> de ' + result.total + '</span>' +
+        '</div>';
 
     page.querySelector('.card-body').innerHTML = html;
-
-    // Inyectar estilos btn-filt si no existen
-    if (!document.getElementById('style-btn-filt')) {
-        var s = document.createElement('style');
-        s.id = 'style-btn-filt';
-        s.textContent =
-            '.btn-filt{padding:0.25rem 0.65rem;font-size:0.75rem;border:1px solid #d1d5db;border-radius:5px;' +
-            'background:#fff;color:#374151;cursor:pointer;transition:all 0.15s;}' +
-            '.btn-filt:hover{border-color:#6b7280;}' +
-            '.btn-filt.active{background:#111827;color:#fff;border-color:#111827;}';
-        document.head.appendChild(s);
-    }
-
+    _inyectarEstilosFilt();
     renderHistorialTabla(_historialData);
 }
 
-var _filtTipo   = '';
-var _filtEstado = '';
+var _filtTipo = '', _filtEstado = '';
 
 function setFiltTipo(tipo) {
     _filtTipo = tipo;
@@ -471,53 +447,58 @@ function setFiltEstado(estado) {
 function aplicarFiltrosHistorial() {
     var query = (document.getElementById('hist-search') || {}).value || '';
     var q = query.toLowerCase();
-
     var filtrado = _historialData.filter(function(c) {
-        var matchTipo   = !_filtTipo   || c.tipo_doc === _filtTipo;
-        var matchEstado = !_filtEstado || c.estado   === _filtEstado;
-        var matchSearch = !q ||
-            (c.serie  + '-' + c.numero).toLowerCase().includes(q) ||
-            (c.cliente || '').toLowerCase().includes(q) ||
-            (c.endpoint || '').toLowerCase().includes(q);
-        return matchTipo && matchEstado && matchSearch;
+        return (!_filtTipo   || c.tipo_doc === _filtTipo) &&
+               (!_filtEstado || c.estado   === _filtEstado) &&
+               (!q || (c.serie+'-'+c.numero).toLowerCase().includes(q) ||
+                      (c.cliente||'').toLowerCase().includes(q));
     });
-
-    document.getElementById('hist-count').textContent = filtrado.length;
+    var el = document.getElementById('hist-count'); if (el) el.textContent = filtrado.length;
+    var el2 = document.getElementById('hist-count-footer'); if (el2) el2.textContent = filtrado.length;
+    var remFilt = filtrado.filter(function(c) { return c.estado === 'remitido'; });
+    var el3 = document.getElementById('hist-total-remitidos'); if (el3) el3.textContent = remFilt.length;
+    var el4 = document.getElementById('hist-suma-total');
+    if (el4) el4.textContent = 'S/ ' + remFilt.reduce(function(a,c){return a+(c.total||0);},0).toFixed(2);
     renderHistorialTabla(filtrado);
 }
 
-function filtrarHistorial(query) {
-    aplicarFiltrosHistorial();
-}
+function filtrarHistorial() { aplicarFiltrosHistorial(); }
 
 function renderHistorialTabla(data) {
     var tbody = document.getElementById('historial-tbody');
     if (!tbody) return;
-
     if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6b7280;padding:2rem;">Sin resultados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Sin resultados</td></tr>';
         return;
     }
-
-    var TIPO_LABEL = {
-        'boleta':       'Boleta',
-        'factura':      'Factura',
-        'nota_credito': 'N.Crédito',
-        'nota_debito':  'N.Débito',
-        'anulacion':    'Anulación'
-    };
-
     tbody.innerHTML = data.map(function(c) {
+        var tipoBadge = c.tipo_doc
+            ? '<span class="badge badge-' + _tipoBadgeClass(c.tipo_doc) + '">' + _tipoLabel(c.tipo_doc) + '</span>'
+            : '-';
         return '<tr>' +
-            '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8, '0') + '</strong></td>' +
-            '<td><span style="font-size:0.75rem;color:#6b7280;">' + (TIPO_LABEL[c.tipo_doc] || c.tipo_doc || '-') + '</span></td>' +
-            '<td>' + c.fecha + '</td>' +
-            '<td>' + (c.cliente || 'CLIENTES VARIOS') + '</td>' +
-            '<td>S/ ' + Number(c.total || 0).toFixed(2) + '</td>' +
+            '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8,'0') + '</strong></td>' +
+            '<td>' + tipoBadge + '</td>' +
+            '<td style="font-size:0.78rem;">' + c.fecha + '</td>' +
+            '<td style="overflow:hidden;text-overflow:ellipsis;" title="' + (c.cliente||'') + '">' + (c.cliente || 'CLIENTES VARIOS') + '</td>' +
+            '<td style="text-align:right;font-weight:600;">S/ ' + Number(c.total||0).toFixed(2) + '</td>' +
             '<td style="text-align:right;"><span class="badge badge-' + getBadgeClass(c.estado) + '">' + c.estado + '</span></td>' +
-            '<td>' + (c.endpoint || '-') + '</td>' +
+            '<td><span class="badge badge-neutral" style="font-size:0.65rem;">' + (c.endpoint || '-') + '</span></td>' +
             '</tr>';
     }).join('');
+}
+
+// ================================================================
+// HELPERS COMUNES
+// ================================================================
+
+function _tipoLabel(tipo) {
+    var map = {'boleta':'Boleta','factura':'Factura','nota_credito':'N.Cred','nota_debito':'N.Deb','anulacion':'Anul.'};
+    return map[tipo] || tipo;
+}
+
+function _tipoBadgeClass(tipo) {
+    var map = {'boleta':'boleta','factura':'factura','nota_credito':'nc','nota_debito':'nd','anulacion':'anulacion'};
+    return map[tipo] || 'neutral';
 }
 
 function getBadgeClass(estado) {
@@ -527,6 +508,17 @@ function getBadgeClass(estado) {
 
 function verTodos() { navegarA('historial'); }
 
+function _inyectarEstilosFilt() {
+    if (document.getElementById('style-btn-filt')) return;
+    var s = document.createElement('style');
+    s.id = 'style-btn-filt';
+    s.textContent =
+        '.btn-filt{padding:0.22rem 0.6rem;font-size:0.72rem;border:1px solid var(--border-medium);border-radius:5px;' +
+        'background:var(--bg-card);color:var(--text-secondary);cursor:pointer;transition:all 0.15s;}' +
+        '.btn-filt:hover{border-color:var(--border-dark);}' +
+        '.btn-filt.active{background:var(--slate-800,#1e293b);color:#fff;border-color:var(--slate-800,#1e293b);}';
+    document.head.appendChild(s);
+}
 
 // ================================================================
 // SCHEDULER CONFIG
@@ -537,29 +529,23 @@ async function cargarSchedulerConfig() {
         var result = await eel.get_scheduler_status()();
         if (!result.exito) return;
         var s = result.status;
-
-        var modoManual = document.getElementById('sched-modo-manual');
-        var modoAuto   = document.getElementById('sched-modo-auto');
+        var modoManual  = document.getElementById('sched-modo-manual');
+        var modoAuto    = document.getElementById('sched-modo-auto');
         var intervalBox = document.getElementById('sched-intervalo-box');
-        var intervalo  = document.getElementById('sched-intervalo');
-
+        var intervalo   = document.getElementById('sched-intervalo');
         if (!modoManual) return;
-
         if (s.modo === 'automatico') {
             modoAuto.checked = true;
             if (intervalBox) intervalBox.style.display = 'block';
-            document.getElementById('lbl-modo-auto').style.borderColor = '#22c55e';
-            document.getElementById('lbl-modo-manual').style.borderColor = '#d1d5db';
+            document.getElementById('lbl-modo-auto').style.borderColor = 'var(--success)';
+            document.getElementById('lbl-modo-manual').style.borderColor = 'var(--border-medium)';
         } else {
             modoManual.checked = true;
             if (intervalBox) intervalBox.style.display = 'none';
-            document.getElementById('lbl-modo-manual').style.borderColor = '#22c55e';
-            document.getElementById('lbl-modo-auto').style.borderColor = '#d1d5db';
+            document.getElementById('lbl-modo-manual').style.borderColor = 'var(--success)';
+            document.getElementById('lbl-modo-auto').style.borderColor = 'var(--border-medium)';
         }
-
-        if (intervalo) {
-            intervalo.value = String(s.intervalo_minutos || 10);
-        }
+        if (intervalo) intervalo.value = String(s.intervalo_minutos || 10);
     } catch(e) { console.error('Error cargando scheduler:', e); }
 }
 
@@ -569,22 +555,20 @@ function onSchedModoChange() {
     var intervalBox = document.getElementById('sched-intervalo-box');
     var lblManual = document.getElementById('lbl-modo-manual');
     var lblAuto   = document.getElementById('lbl-modo-auto');
-
     if (modo.value === 'automatico') {
         if (intervalBox) intervalBox.style.display = 'block';
-        if (lblAuto)   lblAuto.style.borderColor   = '#22c55e';
-        if (lblManual) lblManual.style.borderColor = '#d1d5db';
+        if (lblAuto)   lblAuto.style.borderColor   = 'var(--success)';
+        if (lblManual) lblManual.style.borderColor = 'var(--border-medium)';
     } else {
         if (intervalBox) intervalBox.style.display = 'none';
-        if (lblManual) lblManual.style.borderColor = '#22c55e';
-        if (lblAuto)   lblAuto.style.borderColor   = '#d1d5db';
+        if (lblManual) lblManual.style.borderColor = 'var(--success)';
+        if (lblAuto)   lblAuto.style.borderColor   = 'var(--border-medium)';
     }
 }
 
-// Exponer callback del scheduler para notificaciones de ciclo
 eel.expose(scheduler_ciclo_completado);
 function scheduler_ciclo_completado(resultados) {
-    showToast('⏱️ Ciclo automático: ' + resultados.enviados + ' enviados, ' + resultados.errores + ' errores', 'info');
+    showToast('Ciclo automatico: ' + resultados.enviados + ' enviados, ' + resultados.errores + ' errores', 'info');
     cargarDashboard();
 }
 
@@ -593,7 +577,7 @@ function scheduler_ciclo_completado(resultados) {
 // ================================================================
 
 var _configDesbloqueada = false;
-var _SL = 'opacity:0.6;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.875rem;color:#374151;display:block;';
+var _SL = 'opacity:0.6;background:var(--bg-table-head);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:0.4rem 0.75rem;font-size:0.875rem;color:var(--text-secondary);display:block;';
 
 async function initConfig() {
     if (_configDesbloqueada) await mostrarConfigCompleta();
@@ -605,17 +589,17 @@ function mostrarLockConfig() {
     var pins = '';
     for (var i = 0; i < 4; i++) {
         pins += '<input type="password" maxlength="1" id="pin-' + i + '" ' +
-            'style="width:52px;height:52px;text-align:center;font-size:1.5rem;border:2px solid #d1d5db;border-radius:6px;outline:none;" ' +
+            'style="width:52px;height:52px;text-align:center;font-size:1.5rem;border:2px solid var(--border-medium);border-radius:var(--radius-md);outline:none;" ' +
             'oninput="onPinInput(' + i + ',this)" onkeydown="onPinKey(event,' + i + ')">';
     }
     page.querySelector('.card-body').innerHTML =
         '<div style="max-width:320px;margin:3rem auto;text-align:center;">' +
         '<div style="font-size:3rem;margin-bottom:1rem;">&#128274;</div>' +
         '<h3 style="margin-bottom:0.5rem;">Acceso Restringido</h3>' +
-        '<p style="color:#6b7280;margin-bottom:1.5rem;font-size:0.875rem;">Esta seccion requiere clave del tecnico instalador.</p>' +
+        '<p style="color:var(--text-muted);margin-bottom:1.5rem;font-size:0.875rem;">Esta seccion requiere clave del tecnico instalador.</p>' +
         '<div style="display:flex;gap:0.75rem;justify-content:center;margin-bottom:1.25rem;">' + pins + '</div>' +
-        '<button class="btn btn-primary" onclick="verificarPin()" style="width:100%;display:flex;align-items:center;justify-content:center;">Acceder</button>' +
-        '<div id="pin-error" style="color:#ef4444;margin-top:0.75rem;font-size:0.875rem;display:none;">Clave incorrecta</div></div>';
+        '<button class="btn btn-primary" onclick="verificarPin()" style="width:100%;justify-content:center;">Acceder</button>' +
+        '<div id="pin-error" style="color:var(--error);margin-top:0.75rem;font-size:0.875rem;display:none;">Clave incorrecta</div></div>';
     setTimeout(function() { var el = document.getElementById('pin-0'); if(el) el.focus(); }, 100);
 }
 
@@ -639,10 +623,10 @@ async function verificarPin() {
     if (result.valida) { _configDesbloqueada = true; await mostrarConfigCompleta(); }
     else {
         var err = document.getElementById('pin-error'); if(err) err.style.display = 'block';
-        for (var i = 0; i < 4; i++) { var el = document.getElementById('pin-'+i); if(el){el.value='';el.style.borderColor='#ef4444';} }
+        for (var i = 0; i < 4; i++) { var el = document.getElementById('pin-'+i); if(el){el.value='';el.style.borderColor='var(--error)';} }
         setTimeout(function() {
             var e0 = document.getElementById('pin-0'); if(e0) e0.focus();
-            for (var i = 0; i < 4; i++) { var el = document.getElementById('pin-'+i); if(el) el.style.borderColor='#d1d5db'; }
+            for (var i = 0; i < 4; i++) { var el = document.getElementById('pin-'+i); if(el) el.style.borderColor='var(--border-medium)'; }
         }, 1000);
     }
 }
@@ -650,151 +634,83 @@ async function verificarPin() {
 function _renderSL(val) { return '<div style="' + _SL + '">' + (val || '-') + '</div>'; }
 
 function _renderSeries(tipo, lista) {
-    if (!lista || !lista.length) return '<div style="color:#6b7280;font-size:0.85rem;padding:0.5rem;">Sin series</div>';
+    if (!lista || !lista.length) return '<div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem;">Sin series</div>';
     var html = '';
     for (var i = 0; i < lista.length; i++) {
         var s = lista[i];
         html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;' +
-            'background:' + (s.activa ? '#f0fdf4' : '#f9fafb') + ';' +
-            'border:1px solid ' + (s.activa ? '#86efac' : '#e5e7eb') + ';border-radius:6px;margin-bottom:0.35rem;">' +
+            'background:' + (s.activa ? 'var(--success-bg)' : 'var(--bg-table-head)') + ';' +
+            'border:1px solid ' + (s.activa ? 'var(--success-border)' : 'var(--border-light)') + ';border-radius:var(--radius-md);margin-bottom:0.35rem;">' +
             '<strong style="min-width:55px;font-size:0.875rem;">' + s.serie + '</strong>' +
-            '<span style="color:#6b7280;font-size:0.78rem;">desde:</span>' +
-            '<input type="number" value="' + s.correlativo_inicio + '" id="serie-' + tipo + '-' + i + '-corr" style="width:75px;padding:0.2rem 0.4rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.82rem;">' +
+            '<span style="color:var(--text-muted);font-size:0.78rem;">desde:</span>' +
+            '<input type="number" value="' + s.correlativo_inicio + '" id="serie-' + tipo + '-' + i + '-corr" style="width:75px;padding:0.2rem 0.4rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;">' +
             '<input type="hidden" id="serie-' + tipo + '-' + i + '-codigo" value="' + s.serie + '">' +
             '<label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;font-size:0.82rem;">' +
             '<input type="checkbox" id="serie-' + tipo + '-' + i + '-activa" ' + (s.activa ? 'checked' : '') + '> Activa</label>' +
-            '<button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#ef4444;font-size:1rem;">&#10005;</button></div>';
+            '<button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--error);font-size:1rem;">&#10005;</button></div>';
     }
-    return html + '<button onclick="agregarSerie(\'' + tipo + '\')" style="font-size:0.78rem;color:#2563eb;background:none;border:1px dashed #60a5fa;border-radius:6px;padding:0.25rem 0.75rem;cursor:pointer;margin-top:0.25rem;">+ Agregar serie</button>';
+    return html + '<button onclick="agregarSerie(\'' + tipo + '\')" style="font-size:0.78rem;color:var(--primary);background:none;border:1px dashed var(--blue-400);border-radius:var(--radius-md);padding:0.25rem 0.75rem;cursor:pointer;margin-top:0.25rem;">+ Agregar serie</button>';
 }
 
 function _renderEndpoints(eps) {
-    var td = ['boleta','factura','nota_credito','nota_debito','todos'];
+    var URL_CAMPOS = [
+        {id: 'url_comprobantes', label: 'Comprobantes', desc: 'Facturas, Boletas, Notas Crédito/Débito', req: true},
+        {id: 'url_anulaciones',  label: 'Anulaciones',  desc: 'Comunicaciones de Baja',                 req: false},
+        {id: 'url_guias',        label: 'Guías',        desc: 'Guías de Remisión Remitente/Transportista', req: false},
+        {id: 'url_retenciones',  label: 'Retenciones',  desc: 'Comprobantes de Retención',              req: false},
+        {id: 'url_percepciones', label: 'Percepciones', desc: 'Comprobantes de Percepción',             req: false},
+    ];
     var html = '';
     for (var i = 0; i < eps.length; i++) {
         var ep = eps[i];
-        var th = '';
-        for (var j = 0; j < td.length; j++) {
-            var chk = (ep.tipo_comprobante || []).indexOf(td[j]) >= 0 ? 'checked' : '';
-            th += '<label style="display:flex;align-items:center;gap:0.25rem;font-size:0.8rem;cursor:pointer;"><input type="checkbox" id="ep-' + i + '-tipo-' + td[j] + '" ' + chk + '> ' + td[j] + '</label>';
+        var u  = ep.credenciales && ep.credenciales.usuario ? ep.credenciales.usuario : '';
+        var t  = ep.credenciales && ep.credenciales.token   ? ep.credenciales.token   : '';
+        var vals = {};
+        URL_CAMPOS.forEach(function(c) { vals[c.id] = ep[c.id] || ''; });
+        if (!vals.url_comprobantes) {
+            var urls = ep.urls || {};
+            vals.url_comprobantes = urls.boleta || urls.factura || ep.url || '';
+            vals.url_anulaciones  = urls.anulacion || ep.url_anulaciones || '';
+            vals.url_guias        = urls.guia || ep.url_guias || '';
         }
-        var u = ep.credenciales && ep.credenciales.usuario ? ep.credenciales.usuario : '';
-        var t = ep.credenciales && ep.credenciales.token   ? ep.credenciales.token   : '';
-        html += '<div style="border:1px solid #d1d5db;border-radius:8px;padding:1rem;margin-bottom:0.75rem;background:' + (ep.activo ? '#fafffe' : '#f9fafb') + ';">' +
+        var urlRows = URL_CAMPOS.map(function(c) {
+            var val = vals[c.id] || '';
+            var hab = !!val || c.req;
+            return '<tr style="border-bottom:1px solid var(--border-light);">' +
+                '<td style="padding:0.4rem 0.5rem;white-space:nowrap;min-width:110px;">' +
+                '<label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;">' +
+                '<input type="checkbox" id="ep-' + i + '-habilitar-' + c.id + '" ' + (hab ? 'checked' : '') +
+                ' onchange="toggleUrlRow(this,\'ep-' + i + '-' + c.id + '\')">' +
+                '<span style="font-size:0.75rem;font-weight:' + (c.req ? '600' : '400') + ';color:var(--text-secondary);">' + c.label + '</span>' +
+                (c.req ? '<span style="color:var(--error);font-size:0.65rem;">*</span>' : '') +
+                '</label><div style="font-size:0.65rem;color:var(--text-muted);margin-left:1.2rem;">' + c.desc + '</div></td>' +
+                '<td style="padding:0.4rem 0.5rem;width:100%;">' +
+                '<input type="text" id="ep-' + i + '-' + c.id + '" value="' + val + '" placeholder="https://..." ' +
+                (hab ? '' : 'disabled ') +
+                'style="width:100%;padding:0.25rem 0.5rem;border:1px solid ' + (val ? 'var(--success-border)' : 'var(--border-medium)') + ';border-radius:var(--radius-sm);font-size:0.78rem;font-family:var(--font-mono);' +
+                (hab ? '' : 'background:var(--bg-input-disabled);color:var(--text-muted);') + '"></td></tr>';
+        }).join('');
+        html +=
+            '<div style="border:1px solid var(--border-medium);border-radius:var(--radius-lg);padding:1rem;margin-bottom:0.75rem;background:' + (ep.activo ? '#fafffe' : 'var(--bg-table-head)') + ';">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
             '<div style="display:flex;align-items:center;gap:0.75rem;">' +
-            '<input type="text" id="ep-' + i + '-nombre" value="' + (ep.nombre||'') + '" style="font-weight:600;border:1px solid #d1d5db;border-radius:4px;padding:0.25rem 0.5rem;font-size:0.875rem;width:150px;">' +
-            '<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;cursor:pointer;"><input type="checkbox" id="ep-' + i + '-activo" ' + (ep.activo ? 'checked' : '') + '> Activo</label></div>' +
-            '<button onclick="this.closest(\'div\').remove()" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:1rem;">&#10005;</button></div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">' +
-            '<div style="grid-column:span 2;"><label style="font-size:0.72rem;color:#6b7280;">URL</label>' +
-            '<input type="text" id="ep-' + i + '-url" value="' + (ep.url||'') + '" style="width:100%;padding:0.35rem 0.6rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.82rem;font-family:monospace;"></div>' +
-            '<div><label style="font-size:0.72rem;color:#6b7280;">Usuario API <span style="color:#9ca3af">(opcional)</span></label>' +
-            '<input type="text" id="ep-' + i + '-usuario" value="' + u + '" placeholder="Dejar vacio si no aplica" style="width:100%;padding:0.35rem 0.6rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.82rem;"></div>' +
-            '<div><label style="font-size:0.72rem;color:#6b7280;">Token <span style="color:#9ca3af">(opcional)</span></label>' +
-            '<input type="password" id="ep-' + i + '-token" value="' + t + '" placeholder="Dejar vacio si no aplica" style="width:100%;padding:0.35rem 0.6rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.82rem;"></div>' +
-            '<div style="grid-column:span 2;"><label style="font-size:0.72rem;color:#6b7280;">Tipos de comprobante</label>' +
-            '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.25rem;">' + th + '</div></div></div></div>';
+            '<input type="text" id="ep-' + i + '-nombre" value="' + (ep.nombre||'') + '" style="font-weight:600;border:1px solid var(--border-medium);border-radius:var(--radius-sm);padding:0.25rem 0.5rem;font-size:0.875rem;width:150px;">' +
+            '<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;cursor:pointer;"><input type="checkbox" id="ep-' + i + '-activo" ' + (ep.activo ? 'checked' : '') + '> Activo</label>' +
+            '<select id="ep-' + i + '-formato" style="padding:0.25rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.78rem;">' +
+            '<option value="txt" ' + (!ep.formato || ep.formato === 'txt' ? 'selected' : '') + '>TXT</option>' +
+            '<option value="json" ' + (ep.formato === 'json' ? 'selected' : '') + '>JSON</option>' +
+            '<option value="xml" ' + (ep.formato === 'xml' ? 'selected' : '') + '>XML</option>' +
+            '</select></div>' +
+            '<button onclick="this.parentNode.parentNode.remove()" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:1.2rem;">&#10005;</button></div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">' +
+            '<div><label style="font-size:0.72rem;color:var(--text-muted);">Usuario API <span style="color:var(--text-placeholder)">(opcional)</span></label>' +
+            '<input type="text" id="ep-' + i + '-usuario" value="' + u + '" placeholder="Dejar vacio" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div>' +
+            '<div><label style="font-size:0.72rem;color:var(--text-muted);">Token <span style="color:var(--text-placeholder)">(opcional)</span></label>' +
+            '<input type="password" id="ep-' + i + '-token" value="' + t + '" placeholder="Dejar vacio" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div></div>' +
+            '<table style="width:100%;border-collapse:collapse;border:1px solid var(--border-light);border-radius:var(--radius-md);overflow:hidden;">' +
+            urlRows + '</table></div>';
     }
-    return html + '<button onclick="agregarEndpoint()" style="font-size:0.78rem;color:#2563eb;background:none;border:1px dashed #60a5fa;border-radius:6px;padding:0.35rem 1rem;cursor:pointer;">+ Agregar endpoint</button>';
-}
-
-async function mostrarConfigCompleta() {
-    var page = document.getElementById('page-config');
-    var result = await eel.get_config_cliente()();
-    if (!result.exito) { page.querySelector('.card-body').innerHTML = '<p style="color:red">Error</p>'; return; }
-    var d = result;
-    var series    = d.series    || {};
-    var endpoints = d.endpoints || [];
-    var rutas = (d.fuente.rutas || []).map(function(r) {
-        return '<div style="' + _SL + 'font-family:monospace;font-size:0.82rem;margin-bottom:0.25rem;">' + r + '</div>';
-    }).join('');
-
-    var html =
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">' +
-        '<span style="color:#22c55e;font-size:0.875rem;">&#128275; Modo tecnico activo</span>' +
-        '<button class="btn btn-secondary" onclick="bloquearConfig()" style="font-size:0.8rem;">&#128274; Bloquear</button></div>' +
-
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header">' +
-        '<h3>&#127968; Empresa</h3>' +
-        '<span style="font-size:0.72rem;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:10px;">Parcialmente editable</span>' +
-        '</div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
-        '<div><label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.25rem;">RUC</label>' + _renderSL(d.empresa.ruc) + '</div>' +
-        '<div><label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.25rem;">Razon Social</label>' + _renderSL(d.empresa.razon_social) + '</div>' +
-        '<div><label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.25rem;">Nombre Comercial</label>' +
-        '<input type="text" id="cfg-nombre-comercial" value="' + (d.empresa.nombre_comercial||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;"></div>' +
-        '<div><label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.25rem;">Alias / Local</label>' +
-        '<input type="text" id="cfg-alias" value="' + (d.empresa.alias||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;"></div>' +
-        '</div></div></div>' +
-
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header">' +
-        '<h3>&#128451; Fuente de Datos</h3>' +
-        '<span style="font-size:0.72rem;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:10px;">Solo lectura</span>' +
-        '</div><div class="card-body"><div style="display:grid;grid-template-columns:100px 1fr;gap:1rem;align-items:start;">' +
-        '<div><label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.25rem;">Tipo</label>' + _renderSL((d.fuente.tipo||'').toUpperCase()) + '</div>' +
-        '<div><label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.25rem;">Ruta(s)</label>' + rutas + '</div>' +
-        '</div></div></div>' +
-
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header">' +
-        '<h3>&#128203; Series y Correlativos</h3>' +
-        '<span style="font-size:0.72rem;color:#22c55e;background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span>' +
-        '</div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
-        '<div><label style="font-size:0.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:0.5rem;">Boletas</label><div id="series-boleta">' + _renderSeries('boleta', series.boleta) + '</div></div>' +
-        '<div><label style="font-size:0.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:0.5rem;">Facturas</label><div id="series-factura">' + _renderSeries('factura', series.factura) + '</div></div>' +
-        '<div><label style="font-size:0.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Credito</label><div id="series-nota_credito">' + _renderSeries('nota_credito', series.nota_credito) + '</div></div>' +
-        '<div><label style="font-size:0.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Debito</label><div id="series-nota_debito">' + _renderSeries('nota_debito', series.nota_debito) + '</div></div>' +
-        '</div></div></div>' +
-
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header">' +
-        '<h3>&#128225; Endpoints de Envio</h3>' +
-        '<span style="font-size:0.72rem;color:#22c55e;background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span>' +
-        '</div><div class="card-body"><div id="endpoints-container">' + _renderEndpoints(endpoints) + '</div></div></div>' +
-
-
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header">' +
-        '<h3>&#9201; Procesamiento Automático</h3>' +
-        '<span style="font-size:0.72rem;color:#22c55e;background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span>' +
-        '</div><div class="card-body">' +
-        '<div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;">' +
-        '<div>' +
-        '<label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.35rem;">MODO</label>' +
-        '<div style="display:flex;gap:0.5rem;">' +
-        '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid #d1d5db;border-radius:6px;" id="lbl-modo-manual">' +
-        '<input type="radio" name="sched-modo" id="sched-modo-manual" value="manual" onchange="onSchedModoChange()"> Manual</label>' +
-        '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid #d1d5db;border-radius:6px;" id="lbl-modo-auto">' +
-        '<input type="radio" name="sched-modo" id="sched-modo-auto" value="automatico" onchange="onSchedModoChange()"> Automático</label>' +
-        '</div></div>' +
-        '<div id="sched-intervalo-box" style="display:none;">' +
-        '<label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.35rem;">INTERVALO BOLETAS</label>' +
-        '<select id="sched-intervalo" style="padding:0.45rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;">' +
-        '<option value="5">Cada 5 minutos</option>' +
-        '<option value="10">Cada 10 minutos</option>' +
-        '<option value="15">Cada 15 minutos</option>' +
-        '<option value="30">Cada 30 minutos</option>' +
-        '</select></div>' +
-        '</div>' +
-        '<div style="font-size:0.78rem;color:#6b7280;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:0.75rem;">' +
-        '&#8505; <strong>Manual:</strong> el operador presiona "Procesar" cuando desea enviar. ' +
-        '<strong>Automático:</strong> el Motor envía boletas cada X minutos y facturas de forma inmediata, sin intervención.' +
-        '</div></div></div>' +
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header">' +
-        '<h3>&#128273; Clave del Instalador</h3>' +
-        '<span style="font-size:0.72rem;color:#22c55e;background:#dcfce7;padding:2px 8px;border-radius:10px;">Editable</span>' +
-        '</div><div class="card-body"><div style="display:flex;gap:1rem;align-items:flex-end;max-width:400px;">' +
-        '<div style="flex:1;"><label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.25rem;">Nueva clave (4 digitos)</label>' +
-        '<input type="password" id="cfg-clave-nueva" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;letter-spacing:0.5rem;"></div>' +
-        '<div style="flex:1;"><label style="font-size:0.72rem;color:#6b7280;display:block;margin-bottom:0.25rem;">Confirmar clave</label>' +
-        '<input type="password" id="cfg-clave-confirma" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;letter-spacing:0.5rem;"></div>' +
-        '</div></div></div>' +
-
-        '<div style="display:flex;gap:0.75rem;justify-content:flex-end;padding-top:0.5rem;">' +
-        '<button class="btn btn-secondary" onclick="bloquearConfig()">Cancelar</button>' +
-        '<button class="btn btn-primary" onclick="guardarConfig()">&#128190; Guardar Cambios</button></div>' +
-        '<div id="cfg-mensaje" style="text-align:right;margin-top:0.5rem;font-size:0.85rem;display:none;"></div>';
-
-    page.querySelector('.card-body').innerHTML = html;
-    // Cargar estado actual del scheduler
-    setTimeout(cargarSchedulerConfig, 100);
+    return html + '<button onclick="agregarEndpoint()" style="font-size:0.78rem;color:var(--primary);background:none;border:1px dashed var(--blue-400);border-radius:var(--radius-md);padding:0.35rem 1rem;cursor:pointer;">+ Agregar servicio</button>';
 }
 
 function agregarSerie(tipo) {
@@ -805,44 +721,70 @@ function agregarSerie(tipo) {
     if (!container) return;
     var idx = container.querySelectorAll('input[type=number]').length;
     var div = document.createElement('div');
-    div.style.cssText = 'display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;margin-bottom:0.35rem;';
+    div.style.cssText = 'display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--success-bg);border:1px solid var(--success-border);border-radius:var(--radius-md);margin-bottom:0.35rem;';
     div.innerHTML =
         '<strong style="min-width:55px;font-size:0.875rem;">' + serie.toUpperCase() + '</strong>' +
-        '<span style="color:#6b7280;font-size:0.78rem;">desde:</span>' +
-        '<input type="number" value="' + (corr||0) + '" id="serie-' + tipo + '-' + idx + '-corr" style="width:75px;padding:0.2rem 0.4rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.82rem;">' +
+        '<span style="color:var(--text-muted);font-size:0.78rem;">desde:</span>' +
+        '<input type="number" value="' + (corr||0) + '" id="serie-' + tipo + '-' + idx + '-corr" style="width:75px;padding:0.2rem 0.4rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;">' +
         '<input type="hidden" id="serie-' + tipo + '-' + idx + '-codigo" value="' + serie.toUpperCase() + '">' +
         '<label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;font-size:0.82rem;"><input type="checkbox" id="serie-' + tipo + '-' + idx + '-activa" checked> Activa</label>' +
-        '<button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#ef4444;font-size:1rem;">&#10005;</button>';
+        '<button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--error);font-size:1rem;">&#10005;</button>';
     var btn = container.querySelector('button');
     if (btn) container.insertBefore(div, btn);
     else container.appendChild(div);
+}
+
+function toggleUrlRow(checkbox, inputId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    input.disabled = !checkbox.checked;
+    input.style.background = checkbox.checked ? '' : 'var(--bg-input-disabled)';
+    input.style.color = checkbox.checked ? '' : 'var(--text-muted)';
 }
 
 function agregarEndpoint() {
     var container = document.getElementById('endpoints-container');
     var btn = container.querySelector('button[onclick="agregarEndpoint()"]');
     var idx = container.querySelectorAll('input[id$="-nombre"]').length;
-    var td = ['boleta','factura','nota_credito','nota_debito','todos'];
-    var th = td.map(function(t) {
-        return '<label style="display:flex;align-items:center;gap:0.25rem;font-size:0.8rem;cursor:pointer;"><input type="checkbox" id="ep-' + idx + '-tipo-' + t + '"> ' + t + '</label>';
+    var URL_CAMPOS = [
+        {id: 'url_comprobantes', label: 'Comprobantes', desc: 'Facturas, Boletas, Notas Crédito/Débito', req: true},
+        {id: 'url_anulaciones',  label: 'Anulaciones',  desc: 'Comunicaciones de Baja',                 req: false},
+        {id: 'url_guias',        label: 'Guías',        desc: 'Guías de Remisión',                       req: false},
+        {id: 'url_retenciones',  label: 'Retenciones',  desc: 'Comprobantes de Retención',              req: false},
+        {id: 'url_percepciones', label: 'Percepciones', desc: 'Comprobantes de Percepción',             req: false},
+    ];
+    var urlRows = URL_CAMPOS.map(function(c) {
+        return '<tr style="border-bottom:1px solid var(--border-light);">' +
+            '<td style="padding:0.4rem 0.5rem;white-space:nowrap;min-width:110px;">' +
+            '<label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;">' +
+            '<input type="checkbox" id="ep-' + idx + '-habilitar-' + c.id + '" ' + (c.req ? 'checked' : '') +
+            ' onchange="toggleUrlRow(this,\'ep-' + idx + '-' + c.id + '\')">' +
+            '<span style="font-size:0.75rem;font-weight:' + (c.req ? '600' : '400') + ';color:var(--text-secondary);">' + c.label + '</span>' +
+            (c.req ? '<span style="color:var(--error);font-size:0.65rem;">*</span>' : '') +
+            '</label><div style="font-size:0.65rem;color:var(--text-muted);margin-left:1.2rem;">' + c.desc + '</div></td>' +
+            '<td style="padding:0.4rem 0.5rem;width:100%;">' +
+            '<input type="text" id="ep-' + idx + '-' + c.id + '" placeholder="https://..." ' +
+            (c.req ? '' : 'disabled ') +
+            'style="width:100%;padding:0.25rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.78rem;font-family:var(--font-mono);' +
+            (c.req ? '' : 'background:var(--bg-input-disabled);color:var(--text-muted);') + '"></td></tr>';
     }).join('');
     var div = document.createElement('div');
-    div.style.cssText = 'border:1px solid #d1d5db;border-radius:8px;padding:1rem;margin-bottom:0.75rem;background:#fafffe;';
+    div.style.cssText = 'border:1px solid var(--border-medium);border-radius:var(--radius-lg);padding:1rem;margin-bottom:0.75rem;background:#fafffe;';
     div.innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
         '<div style="display:flex;align-items:center;gap:0.75rem;">' +
-        '<input type="text" id="ep-' + idx + '-nombre" placeholder="Nombre endpoint" style="font-weight:600;border:1px solid #d1d5db;border-radius:4px;padding:0.25rem 0.5rem;font-size:0.875rem;width:150px;">' +
-        '<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;cursor:pointer;"><input type="checkbox" id="ep-' + idx + '-activo" checked> Activo</label></div>' +
-        '<button onclick="this.closest(\'div\').remove()" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:1rem;">&#10005;</button></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">' +
-        '<div style="grid-column:span 2;"><label style="font-size:0.72rem;color:#6b7280;">URL</label>' +
-        '<input type="text" id="ep-' + idx + '-url" placeholder="https://..." style="width:100%;padding:0.35rem 0.6rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.82rem;font-family:monospace;"></div>' +
-        '<div><label style="font-size:0.72rem;color:#6b7280;">Usuario API (opcional)</label>' +
-        '<input type="text" id="ep-' + idx + '-usuario" placeholder="Dejar vacio" style="width:100%;padding:0.35rem 0.6rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.82rem;"></div>' +
-        '<div><label style="font-size:0.72rem;color:#6b7280;">Token (opcional)</label>' +
-        '<input type="password" id="ep-' + idx + '-token" placeholder="Dejar vacio" style="width:100%;padding:0.35rem 0.6rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.82rem;"></div>' +
-        '<div style="grid-column:span 2;"><label style="font-size:0.72rem;color:#6b7280;">Tipos de comprobante</label>' +
-        '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.25rem;">' + th + '</div></div></div>';
+        '<input type="text" id="ep-' + idx + '-nombre" placeholder="Nombre servicio" style="font-weight:600;border:1px solid var(--border-medium);border-radius:var(--radius-sm);padding:0.25rem 0.5rem;font-size:0.875rem;width:150px;">' +
+        '<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;cursor:pointer;"><input type="checkbox" id="ep-' + idx + '-activo" checked> Activo</label>' +
+        '<select id="ep-' + idx + '-formato" style="padding:0.25rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.78rem;">' +
+        '<option value="txt">TXT</option><option value="json">JSON</option><option value="xml">XML</option></select></div>' +
+        '<button onclick="this.parentNode.parentNode.remove()" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:1.2rem;">&#10005;</button></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);">Usuario API (opcional)</label>' +
+        '<input type="text" id="ep-' + idx + '-usuario" placeholder="Dejar vacio" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div>' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);">Token (opcional)</label>' +
+        '<input type="password" id="ep-' + idx + '-token" placeholder="Dejar vacio" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div></div>' +
+        '<table style="width:100%;border-collapse:collapse;border:1px solid var(--border-light);border-radius:var(--radius-md);overflow:hidden;">' +
+        urlRows + '</table>';
     if (btn) container.insertBefore(div, btn);
     else container.appendChild(div);
 }
@@ -851,75 +793,145 @@ async function guardarConfig() {
     var nueva    = document.getElementById('cfg-clave-nueva')    ? document.getElementById('cfg-clave-nueva').value    : '';
     var confirma = document.getElementById('cfg-clave-confirma') ? document.getElementById('cfg-clave-confirma').value : '';
     var msg      = document.getElementById('cfg-mensaje');
-    if (nueva && nueva !== confirma)      { msg.style.display='block'; msg.style.color='#ef4444'; msg.textContent='Las claves no coinciden'; return; }
-    if (nueva && !/^\d{4}$/.test(nueva)) { msg.style.display='block'; msg.style.color='#ef4444'; msg.textContent='La clave debe ser 4 digitos'; return; }
+    if (nueva && nueva !== confirma)      { msg.style.display='block'; msg.style.color='var(--error)'; msg.textContent='Las claves no coinciden'; return; }
+    if (nueva && !/^\d{4}$/.test(nueva)) { msg.style.display='block'; msg.style.color='var(--error)'; msg.textContent='La clave debe ser 4 digitos'; return; }
+
     var epEls = document.querySelectorAll('[id$="-nombre"][id^="ep-"]');
     var endpoints = [];
+    var URL_CAMPOS = ['url_comprobantes','url_anulaciones','url_guias','url_retenciones','url_percepciones'];
     epEls.forEach(function(el) {
         var idx = el.id.replace('ep-','').replace('-nombre','');
-        var td  = ['boleta','factura','nota_credito','nota_debito','todos'];
-        var tipos = td.filter(function(t) { var cb = document.getElementById('ep-'+idx+'-tipo-'+t); return cb && cb.checked; });
-        var ae = document.getElementById('ep-'+idx+'-activo');
-        var ue = document.getElementById('ep-'+idx+'-url');
-        var us = document.getElementById('ep-'+idx+'-usuario');
-        var tk = document.getElementById('ep-'+idx+'-token');
-        endpoints.push({ nombre: el.value, activo: ae ? ae.checked : false, url: ue ? ue.value : '', usuario: us ? us.value : '', token: tk ? tk.value : '', tipo_comprobante: tipos });
+        var ae  = document.getElementById('ep-'+idx+'-activo');
+        var us  = document.getElementById('ep-'+idx+'-usuario');
+        var tk  = document.getElementById('ep-'+idx+'-token');
+        var fmt = document.getElementById('ep-'+idx+'-formato');
+        var ep  = {nombre: el.value, activo: ae ? ae.checked : false, formato: fmt ? fmt.value : 'txt', usuario: us ? us.value : '', token: tk ? tk.value : ''};
+        URL_CAMPOS.forEach(function(campo) {
+            var urlEl = document.getElementById('ep-'+idx+'-'+campo);
+            ep[campo] = (urlEl && !urlEl.disabled) ? urlEl.value.trim() : '';
+        });
+        endpoints.push(ep);
     });
-    // Leer series del DOM
-    var tiposSeries = ['boleta', 'factura', 'nota_credito', 'nota_debito'];
+
+    var tiposSeries = ['boleta','factura','nota_credito','nota_debito'];
     var series = {};
     tiposSeries.forEach(function(tipo) {
         var container = document.getElementById('series-' + tipo);
         if (!container) { series[tipo] = []; return; }
         var items = [];
-        var numInputs = container.querySelectorAll('input[type=number]');
-        numInputs.forEach(function(inp) {
+        container.querySelectorAll('input[type=number]').forEach(function(inp) {
             var match = inp.id.match(/^serie-[^-]+-(\d+)-corr$/);
             if (!match) return;
-            var idx    = match[1];
-            var codEl  = document.getElementById('serie-' + tipo + '-' + idx + '-codigo');
-            var actEl  = document.getElementById('serie-' + tipo + '-' + idx + '-activa');
+            var ii = match[1];
+            var codEl = document.getElementById('serie-'+tipo+'-'+ii+'-codigo');
+            var actEl = document.getElementById('serie-'+tipo+'-'+ii+'-activa');
             if (!codEl) return;
-            items.push({
-                serie:              codEl.value,
-                correlativo_inicio: parseInt(inp.value) || 0,
-                activa:             actEl ? actEl.checked : true
-            });
+            items.push({serie: codEl.value, correlativo_inicio: parseInt(inp.value)||0, activa: actEl ? actEl.checked : true});
         });
         series[tipo] = items;
     });
 
-    // Leer config scheduler
     var schedModo = document.querySelector('input[name="sched-modo"]:checked');
     var schedIntervalo = document.getElementById('sched-intervalo');
-    var schedulerPayload = null;
-    if (schedModo) {
-        schedulerPayload = {
-            modo: schedModo.value,
-            intervalo_boletas: schedIntervalo ? parseInt(schedIntervalo.value) : 10
-        };
-    }
+    var schedulerPayload = schedModo ? {modo: schedModo.value, intervalo_boletas: schedIntervalo ? parseInt(schedIntervalo.value) : 10} : null;
 
     var payload = {
         nombre_comercial: document.getElementById('cfg-nombre-comercial') ? document.getElementById('cfg-nombre-comercial').value : '',
         alias:            document.getElementById('cfg-alias')             ? document.getElementById('cfg-alias').value             : '',
-        endpoints:        endpoints,
-        series:           series,
-        clave_nueva:      nueva || null
+        endpoints: endpoints, series: series, clave_nueva: nueva || null
     };
-    // Guardar scheduler si hay cambios
-    if (schedulerPayload) {
-        await eel.guardar_config_scheduler(schedulerPayload)();
-    }
 
+    if (schedulerPayload) await eel.guardar_config_scheduler(schedulerPayload)();
     var result = await eel.guardar_config(payload)();
     msg.style.display = 'block';
     if (result.exito) {
-        msg.style.color = '#22c55e'; msg.textContent = 'Configuracion guardada correctamente';
+        msg.style.color = 'var(--success)'; msg.textContent = 'Configuracion guardada correctamente';
         setTimeout(function() { mostrarConfigCompleta(); }, 1500);
     } else {
-        msg.style.color = '#ef4444'; msg.textContent = 'Error: ' + result.error;
+        msg.style.color = 'var(--error)'; msg.textContent = 'Error: ' + result.error;
     }
 }
 
 function bloquearConfig() { _configDesbloqueada = false; mostrarLockConfig(); }
+
+async function mostrarConfigCompleta() {
+    var page = document.getElementById('page-config');
+    var result = await eel.get_config_cliente()();
+    if (!result.exito) { page.querySelector('.card-body').innerHTML = '<p style="color:var(--error)">Error</p>'; return; }
+    var d         = result;
+    var series    = d.series    || {};
+    var endpoints = d.endpoints || [];
+    var rutas = (d.fuente.rutas || []).map(function(r) {
+        return '<div style="' + _SL + 'font-family:var(--font-mono);font-size:0.82rem;margin-bottom:0.25rem;">' + r + '</div>';
+    }).join('');
+
+    var html =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">' +
+        '<span style="color:var(--success);font-size:0.875rem;">&#128275; Modo tecnico activo</span>' +
+        '<button class="btn btn-secondary" onclick="bloquearConfig()" style="font-size:0.8rem;">&#128274; Bloquear</button></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#127968; Empresa</h3>' +
+        '<span style="font-size:0.72rem;color:var(--text-muted);background:var(--bg-table-head);padding:2px 8px;border-radius:10px;">Parcialmente editable</span>' +
+        '</div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">RUC</label>' + _renderSL(d.empresa.ruc) + '</div>' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Razon Social</label>' + _renderSL(d.empresa.razon_social) + '</div>' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Nombre Comercial</label>' +
+        '<input type="text" id="cfg-nombre-comercial" value="' + (d.empresa.nombre_comercial||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;"></div>' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Alias / Local</label>' +
+        '<input type="text" id="cfg-alias" value="' + (d.empresa.alias||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;"></div>' +
+        '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128451; Fuente de Datos</h3>' +
+        '<span style="font-size:0.72rem;color:var(--text-muted);background:var(--bg-table-head);padding:2px 8px;border-radius:10px;">Solo lectura</span>' +
+        '</div><div class="card-body"><div style="display:grid;grid-template-columns:100px 1fr;gap:1rem;align-items:start;">' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Tipo</label>' + _renderSL((d.fuente.tipo||'').toUpperCase()) + '</div>' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Ruta(s)</label>' + rutas + '</div>' +
+        '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128203; Series y Correlativos</h3>' +
+        '<span style="font-size:0.72rem;color:var(--success);background:var(--success-bg);padding:2px 8px;border-radius:10px;">Editable</span>' +
+        '</div><div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
+        '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Boletas</label><div id="series-boleta">' + _renderSeries('boleta', series.boleta) + '</div></div>' +
+        '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Facturas</label><div id="series-factura">' + _renderSeries('factura', series.factura) + '</div></div>' +
+        '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Credito</label><div id="series-nota_credito">' + _renderSeries('nota_credito', series.nota_credito) + '</div></div>' +
+        '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Debito</label><div id="series-nota_debito">' + _renderSeries('nota_debito', series.nota_debito) + '</div></div>' +
+        '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128225; Endpoints de Envio</h3>' +
+        '<span style="font-size:0.72rem;color:var(--success);background:var(--success-bg);padding:2px 8px;border-radius:10px;">Editable</span>' +
+        '</div><div class="card-body"><div id="endpoints-container">' + _renderEndpoints(endpoints) + '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#9201; Procesamiento Automatico</h3>' +
+        '<span style="font-size:0.72rem;color:var(--success);background:var(--success-bg);padding:2px 8px;border-radius:10px;">Editable</span>' +
+        '</div><div class="card-body">' +
+        '<div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;">' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">MODO</label>' +
+        '<div style="display:flex;gap:0.5rem;">' +
+        '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid var(--border-medium);border-radius:var(--radius-md);" id="lbl-modo-manual"><input type="radio" name="sched-modo" id="sched-modo-manual" value="manual" onchange="onSchedModoChange()"> Manual</label>' +
+        '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid var(--border-medium);border-radius:var(--radius-md);" id="lbl-modo-auto"><input type="radio" name="sched-modo" id="sched-modo-auto" value="automatico" onchange="onSchedModoChange()"> Automatico</label>' +
+        '</div></div>' +
+        '<div id="sched-intervalo-box" style="display:none;"><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">INTERVALO BOLETAS</label>' +
+        '<select id="sched-intervalo" style="padding:0.45rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;">' +
+        '<option value="5">Cada 5 minutos</option><option value="10">Cada 10 minutos</option><option value="15">Cada 15 minutos</option><option value="30">Cada 30 minutos</option>' +
+        '</select></div></div>' +
+        '<div style="font-size:0.78rem;color:var(--text-muted);background:var(--bg-table-head);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:0.75rem;">' +
+        'Manual: el operador presiona Procesar cuando desea enviar. Automatico: el Motor envia boletas cada X minutos y facturas de forma inmediata.' +
+        '</div></div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128273; Clave del Instalador</h3>' +
+        '<span style="font-size:0.72rem;color:var(--success);background:var(--success-bg);padding:2px 8px;border-radius:10px;">Editable</span>' +
+        '</div><div class="card-body"><div style="display:flex;gap:1rem;align-items:flex-end;max-width:400px;">' +
+        '<div style="flex:1;"><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Nueva clave (4 digitos)</label>' +
+        '<input type="password" id="cfg-clave-nueva" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:1rem;letter-spacing:0.5rem;"></div>' +
+        '<div style="flex:1;"><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Confirmar clave</label>' +
+        '<input type="password" id="cfg-clave-confirma" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:1rem;letter-spacing:0.5rem;"></div>' +
+        '</div></div></div>' +
+
+        '<div style="display:flex;gap:0.75rem;justify-content:flex-end;padding-top:0.5rem;">' +
+        '<button class="btn btn-secondary" onclick="bloquearConfig()">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="guardarConfig()">&#128190; Guardar Cambios</button></div>' +
+        '<div id="cfg-mensaje" style="text-align:right;margin-top:0.5rem;font-size:0.85rem;display:none;"></div>';
+
+    page.querySelector('.card-body').innerHTML = html;
+    setTimeout(cargarSchedulerConfig, 100);
+}

@@ -42,6 +42,25 @@ def _cargar_cliente():
         print(f"⚠️ No se pudo cargar cliente: {e}")
 
 
+def _get_total(c: dict) -> float:
+    """Lee el total real del comprobante probando múltiples campos candidatos."""
+    campos = [
+        'TOTAL_FACT', 'TOTAL', 'IMPORTE', 'TOT_VENTA', 'IMP_TOTAL',
+        'IMPTOTAL', 'TOTAL_PAGO', 'MONTO_TOTAL', 'VALOR_TOTAL',
+        'IMPORTE_TOTAL', 'TOT_IMPORTE', 'TOTALFACT'
+    ]
+    for campo in campos:
+        val = c.get(campo)
+        if val is not None and val != '' and val != b'':
+            try:
+                v = float(str(val).strip())
+                if v > 0:
+                    return v
+            except (ValueError, TypeError):
+                continue
+    return 0.0
+
+
 # ================================================================
 # SISTEMA
 # ================================================================
@@ -72,7 +91,6 @@ def get_empresa_info():
 
 @eel.expose
 def get_dashboard_stats():
-    """Estadísticas rápidas desde SQLite — no conecta a fuente."""
     try:
         resumen = _logger.resumen()
         return {
@@ -87,7 +105,6 @@ def get_dashboard_stats():
 
 @eel.expose
 def get_pendientes_fuente():
-    """Cuenta pendientes en fuente DBF — llamada separada (puede tardar)."""
     try:
         if _client_config and _client_config.tipo_fuente == 'dbf':
             from src.adapters.dbf_farmacia_adapter import DbfFarmaciaAdapter
@@ -188,8 +205,11 @@ def conectar_fuente(tipo, archivo):
                 {
                     'serie':   str(c.get('TIPO_FACTU', '')).strip() + str(c.get('SERIE_FACT', '')).strip(),
                     'numero':  int(str(c.get('NUMERO_FAC', c.get('NUMERO', 0))).strip() or 0),
-                    'cliente': c.get('NOMBRE_CLIENTE', c.get('RAZON_SOCI', 'CLIENTES VARIOS')),
-                    'total':   float(str(c.get('TOTAL_FACT', c.get('TOTAL', 0))).strip() or 0)
+                    'cliente': (
+                        c.get('NOMBRE_CLIENTE') or c.get('RAZON_SOCI') or
+                        c.get('NOMBRE') or c.get('CLIENTE') or 'CLIENTES VARIOS'
+                    ),
+                    'total': float(c.get('_TOTAL_REAL') or 0.0) or _get_total(c)
                 }
                 for c in pendientes[:50]
             ]
@@ -319,7 +339,7 @@ def verificar_conexion_api():
         if _client_config:
             eps = _client_config.endpoints_activos
             if eps:
-                url    = eps[0].get('url', '')
+                url    = eps[0].get('url_comprobantes', eps[0].get('url', ''))
                 nombre = ', '.join([e.get('nombre','') for e in eps])
                 if url:
                     resp = requests.head(url, timeout=5)
@@ -341,7 +361,6 @@ def cerrar_sistema():
     return True
 
 
-
 # ================================================================
 # HISTORIAL CONSOLIDADO
 # ================================================================
@@ -353,7 +372,6 @@ def get_historial(limit=200, tipo_doc=None, estado=None):
         ruc  = _client_config.ruc if _client_config else None
         rows = _logger.consultar(ruc=ruc, tipo_doc=tipo_doc, estado=estado, limit=9999)
 
-        # Consolidar por (serie, numero) — quedarse con el ultimo estado
         comprobantes = {}
         for r in rows:
             key = (r['serie'], r['numero'])
@@ -386,6 +404,11 @@ def get_historial(limit=200, tipo_doc=None, estado=None):
         }
     except Exception as e:
         return {'exito': False, 'error': str(e), 'total': 0, 'comprobantes': []}
+
+
+# ================================================================
+# CONFIGURACION
+# ================================================================
 
 @eel.expose
 def verificar_clave_instalador(clave: str):
@@ -432,21 +455,22 @@ def guardar_config(payload):
         with open(cfg_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
-        # Campos editables empresa
         if payload.get("nombre_comercial"):
             data["empresa"]["nombre_comercial"] = payload["nombre_comercial"]
         if payload.get("alias"):
             data["empresa"]["alias"] = payload["alias"]
 
-        # Endpoints
         if payload.get("endpoints") is not None:
             data["envio"] = {"endpoints": [
                 {
-                    "nombre": ep.get("nombre",""),
-                    "activo": ep.get("activo", False),
-                    "tipo_comprobante": ep.get("tipo_comprobante", ["todos"]),
-                    "formato": ep.get("formato","txt"),
-                    "url": ep.get("url",""),
+                    "nombre":            ep.get("nombre",""),
+                    "activo":            ep.get("activo", False),
+                    "formato":           ep.get("formato","txt"),
+                    "url_comprobantes":  ep.get("url_comprobantes",""),
+                    "url_anulaciones":   ep.get("url_anulaciones",""),
+                    "url_guias":         ep.get("url_guias",""),
+                    "url_retenciones":   ep.get("url_retenciones",""),
+                    "url_percepciones":  ep.get("url_percepciones",""),
                     "credenciales": {
                         "usuario": ep.get("usuario",""),
                         "token":   ep.get("token","")
@@ -456,7 +480,6 @@ def guardar_config(payload):
                 for ep in payload["endpoints"]
             ]}
 
-        # Series y correlativos
         if payload.get("series") is not None:
             data["series"] = {}
             for tipo, lista in payload["series"].items():
@@ -469,44 +492,17 @@ def guardar_config(payload):
                     for s in lista
                 ]
 
-        # Series y correlativos
-        if payload.get("series") is not None:
-            data["series"] = {}
-            for tipo, lista in payload["series"].items():
-                data["series"][tipo] = [
-                    {
-                        "serie":              s.get("serie", ""),
-                        "correlativo_inicio": int(s.get("correlativo_inicio", 0)),
-                        "activa":             bool(s.get("activa", True))
-                    }
-                    for s in lista
-                ]
-
-        # Clave instalador
         if payload.get("clave_nueva"):
             data.setdefault("instalador", {})["clave"] = payload["clave_nueva"]
 
         with open(cfg_path, "w", encoding="utf-8") as f:
             yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
 
-        # Recargar cliente
         _cargar_cliente()
         return {"exito": True}
     except Exception as e:
         return {"exito": False, "error": str(e)}
 
-"""
-PATCH: agregar al final de src/ui/backend/app.py (antes del bloque MAIN)
-
-Endpoints Eel para el wizard de instalacion — DisateQ CPE™ v4.0
-"""
-
-"""
-PATCH: agregar al final de src/ui/backend/app.py (antes del bloque MAIN)
-
-Endpoints Eel para el scheduler — DisateQ CPE™ v4.0
-También reemplazar _cargar_cliente() y cerrar_sistema() para integrar scheduler.
-"""
 
 # ================================================================
 # SCHEDULER
@@ -516,7 +512,6 @@ _scheduler = None
 
 
 def _iniciar_scheduler():
-    """Inicia el scheduler si el cliente está configurado y modo=automatico."""
     global _scheduler
     try:
         if not _client_config:
@@ -524,14 +519,11 @@ def _iniciar_scheduler():
         from src.scheduler import CpeScheduler
 
         def _on_ciclo(resultados):
-            """Notifica a la UI cuando termina un ciclo."""
             try:
                 eel.scheduler_ciclo_completado(resultados)
             except Exception:
                 pass
 
-        # Usar nombre del archivo YAML, no el alias interno
-        from src.config.client_loader import ClientLoader
         loader = ClientLoader()
         alias_archivo = loader.listar()[0] if loader.listar() else _client_config.alias
         _scheduler = CpeScheduler(
@@ -545,7 +537,6 @@ def _iniciar_scheduler():
 
 @eel.expose
 def get_scheduler_status():
-    """Retorna estado actual del scheduler para la UI."""
     if _scheduler:
         return {'exito': True, 'status': _scheduler.get_status()}
     return {
@@ -565,7 +556,6 @@ def get_scheduler_status():
 
 @eel.expose
 def scheduler_iniciar():
-    """Inicia el scheduler desde la UI."""
     global _scheduler
     try:
         if _scheduler:
@@ -578,7 +568,6 @@ def scheduler_iniciar():
 
 @eel.expose
 def scheduler_detener():
-    """Detiene el scheduler desde la UI."""
     try:
         if _scheduler:
             _scheduler.detener()
@@ -590,12 +579,10 @@ def scheduler_detener():
 
 @eel.expose
 def scheduler_ejecutar_ahora():
-    """Fuerza un ciclo inmediato desde la UI."""
     try:
         if _scheduler:
             result = _scheduler.ejecutar_ahora()
             return {'exito': True, 'resultado': result}
-        # Si no hay scheduler, procesar directamente
         if _client_config:
             alias = _client_config.alias.lower().replace(' ', '_')
             motor = Motor(cliente_alias=alias, output_dir='output', modo_sender=None)
@@ -608,14 +595,8 @@ def scheduler_ejecutar_ahora():
 
 @eel.expose
 def guardar_config_scheduler(payload: dict):
-    """
-    Guarda configuración del scheduler en el YAML del cliente.
-    payload: {modo, intervalo_boletas}
-    """
     try:
         import yaml
-        from pathlib import Path
-
         loader = ClientLoader()
         clientes = loader.listar()
         if not clientes:
@@ -634,14 +615,11 @@ def guardar_config_scheduler(payload: dict):
         with open(cfg_path, 'w', encoding='utf-8') as f:
             yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
-        # Recargar cliente y scheduler
         _cargar_cliente()
         if _scheduler:
             _scheduler.recargar_config()
-            # Si cambió a automático, iniciar
             if payload.get('modo') == 'automatico' and not _scheduler.esta_activo:
                 _scheduler.iniciar()
-            # Si cambió a manual, detener
             elif payload.get('modo') == 'manual' and _scheduler.esta_activo:
                 _scheduler.detener()
 
@@ -656,7 +634,6 @@ def guardar_config_scheduler(payload: dict):
 
 @eel.expose
 def wz_validar_licencia(codigo: str):
-    """Valida un codigo de licencia contra el servidor DisateQ."""
     try:
         from src.licenses.validator import LicenseValidator
         v = LicenseValidator()
@@ -666,16 +643,11 @@ def wz_validar_licencia(codigo: str):
             return {'valida': True, 'tipo': info.get('license_type', 'Full')}
         return {'valida': False, 'error': status}
     except Exception as e:
-        # Si el servidor no responde, no bloqueamos
         return {'valida': False, 'error': str(e)}
 
 
 @eel.expose
 def wz_explorar_fuente(params: dict):
-    """
-    Ejecuta source_explorer en un thread separado (no bloquea UI).
-    params: {tipo, ruta} o {tipo, servidor, base_datos, usuario, clave, puerto}
-    """
     import threading
     import queue
 
@@ -701,7 +673,6 @@ def wz_explorar_fuente(params: dict):
                     puerto=params.get('puerto', 1433)
                 )
 
-            # SmartMapper: detectar tablas y generar mapeo
             mapper  = SmartMapper()
             mapeo   = mapper.mapear(reporte)
             contrato_motor = mapper.generar_contrato_motor(mapeo, {
@@ -738,24 +709,20 @@ def wz_explorar_fuente(params: dict):
             })
         except Exception as e:
             resultado_q.put({'exito': False, 'error': str(e)})
+
     t = threading.Thread(target=_explorar, daemon=True)
     t.start()
-    t.join(timeout=120)  # Max 120 segundos
+    t.join(timeout=120)
 
     if resultado_q.empty():
-        return {'exito': False, 'error': 'Timeout al analizar la fuente (>120s). La fuente tiene muchos archivos.'}
+        return {'exito': False, 'error': 'Timeout al analizar la fuente (>120s).'}
     return resultado_q.get()
 
 
 @eel.expose
 def wz_guardar_config(payload: dict):
-    """
-    Guarda la configuracion completa generada por el wizard.
-    Crea o sobreescribe config/clientes/{alias}.yaml
-    """
     try:
         import yaml
-        from pathlib import Path
 
         empresa  = payload.get('empresa', {})
         fuente   = payload.get('fuente', {})
@@ -763,13 +730,11 @@ def wz_guardar_config(payload: dict):
         endpoint = payload.get('endpoint', {})
         licencia = payload.get('licencia', {})
         contrato = payload.get('contrato')
-        modo     = payload.get('modo', 'nuevo')
 
         alias = empresa.get('alias', '').lower().replace(' ', '_')
         if not alias:
             return {'exito': False, 'error': 'Alias de empresa vacío'}
 
-        # Estructura del YAML cliente
         data = {
             'empresa': {
                 'ruc':              empresa.get('ruc', ''),
@@ -792,9 +757,12 @@ def wz_guardar_config(payload: dict):
                     {
                         'nombre':  endpoint.get('nombre', 'APIFAS'),
                         'activo':  True,
-                        'tipo_comprobante': ['boleta', 'factura', 'nota_credito', 'nota_debito'],
                         'formato': 'txt',
-                        'url':     endpoint.get('url', ''),
+                        'url_comprobantes': endpoint.get('url_comprobantes', endpoint.get('url', '')),
+                        'url_anulaciones':  endpoint.get('url_anulaciones', ''),
+                        'url_guias':        endpoint.get('url_guias', ''),
+                        'url_retenciones':  endpoint.get('url_retenciones', ''),
+                        'url_percepciones': endpoint.get('url_percepciones', ''),
                         'credenciales': {
                             'usuario': endpoint.get('usuario', ''),
                             'token':   endpoint.get('token', '')
@@ -808,19 +776,16 @@ def wz_guardar_config(payload: dict):
                 'codigo': licencia.get('codigo', ''),
                 'endpoint_validacion': 'https://licenses.disateq.com/v1/validate'
             },
-            'instalador': {
-                'clave': '1234'
-            }
+            'instalador': {'clave': '1234'},
+            'scheduler':  {'modo': 'manual', 'intervalo_boletas': 10, 'activo': True}
         }
 
-        # Si hay fuente SQL, guardar datos de conexion
         if fuente.get('servidor'):
             data['fuente']['servidor']   = fuente.get('servidor', '')
             data['fuente']['base_datos'] = fuente.get('base_datos', '')
             data['fuente']['usuario']    = fuente.get('usuario', '')
             data['fuente']['puerto']     = fuente.get('puerto', 1433)
 
-        # Si hay contrato generado por source_explorer, guardarlo
         if contrato:
             contrato_path = Path('config/contratos') / (alias + '.yaml')
             contrato_path.parent.mkdir(parents=True, exist_ok=True)
@@ -828,13 +793,11 @@ def wz_guardar_config(payload: dict):
                 yaml.dump(contrato, f, allow_unicode=True, default_flow_style=False)
             data['fuente']['contrato_path'] = str(contrato_path)
 
-        # Guardar YAML del cliente
         cliente_path = Path('config/clientes') / (alias + '.yaml')
         cliente_path.parent.mkdir(parents=True, exist_ok=True)
         with open(cliente_path, 'w', encoding='utf-8') as f:
             yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
-        # Recargar cliente en memoria
         _cargar_cliente()
         return {'exito': True, 'path': str(cliente_path)}
 
@@ -855,7 +818,6 @@ def _normalizar_series(lista):
 
 @eel.expose
 def wz_ejecutar_prueba(cliente_alias: str):
-    """Ejecuta Motor en modo mock con limit=3 para prueba del wizard."""
     try:
         motor = Motor(
             cliente_alias=cliente_alias,
@@ -869,30 +831,13 @@ def wz_ejecutar_prueba(cliente_alias: str):
 
 
 @eel.expose
-def wz_enviar_real(cliente_alias: str):
-    """Envía 1 comprobante real a SUNAT (con confirmación previa en frontend)."""
-    try:
-        motor = Motor(
-            cliente_alias=cliente_alias,
-            output_dir='output',
-            modo_sender=None  # Envío real
-        )
-        resultados = motor.procesar(limit=1)
-        exito = resultados.get('enviados', 0) > 0
-        return {'exito': exito, 'resultados': resultados}
-    except Exception as e:
-        return {'exito': False, 'error': str(e)}
-
-
-@eel.expose
 def wz_abrir_motor():
-    """Cierra el wizard y abre la UI principal."""
     import threading
     def _reabrir():
         import time
         time.sleep(0.5)
-        # Re-lanzar con index.html
         try:
+            url = 'http://localhost:8080/index.html'
             eel.start('index.html', size=(1280, 800), port=8080, mode='chrome',
                       cmdline_args=[f'--app={url}', '--disable-infobars'])
         except Exception:
@@ -903,10 +848,6 @@ def wz_abrir_motor():
 
 @eel.expose
 def wz_detectar_modo():
-    """
-    Retorna si debe mostrar wizard o UI principal.
-    Llamado desde main() al iniciar.
-    """
     try:
         loader = ClientLoader()
         clientes = loader.listar()

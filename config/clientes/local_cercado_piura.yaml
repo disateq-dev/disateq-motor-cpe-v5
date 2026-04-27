@@ -1,0 +1,42 @@
+empresa:
+  ruc: '20604242087'
+  razon_social: DISATEQ S.A.C.
+  nombre_comercial: BOTICAS DSQ&Salud
+  alias: local_cercado_piura
+fuente:
+  tipo: dbf
+  rutas:
+  - D:\FFEESUNAT\Test
+  contrato_path: config\contratos\local_cercado_piura.yaml
+series:
+  boleta:
+  - serie: B001
+    correlativo_inicio: 1
+    activa: true
+  factura:
+  - serie: F001
+    correlativo_inicio: 1
+    activa: true
+  nota_credito: []
+  nota_debito: []
+envio:
+  endpoints:
+  - nombre: APIFAS
+    activo: true
+    tipo_comprobante:
+    - boleta
+    - factura
+    - nota_credito
+    - nota_debito
+    formato: txt
+    url: https://apifas.disateq.com/produccion_text.php
+    credenciales:
+      usuario: ''
+      token: ''
+    timeout: 30
+licencia:
+  tipo: Trial 30 días
+  codigo: TRIAL
+  endpoint_validacion: https://licenses.disateq.com/v1/validate
+instalador:
+  clave: '1234'

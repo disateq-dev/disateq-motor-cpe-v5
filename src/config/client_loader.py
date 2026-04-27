@@ -55,35 +55,49 @@ class ClientConfig:
         """Solo endpoints activos."""
         return [e for e in self.endpoints if e.get('activo', False)]
 
+    # Mapa tipo_comprobante -> campo URL en endpoint
+    URL_CAMPO_MAP = {
+        'boleta':       'url_comprobantes',
+        'factura':      'url_comprobantes',
+        'nota_credito': 'url_comprobantes',
+        'nota_debito':  'url_comprobantes',
+        'anulacion':    'url_anulaciones',
+        'guia':         'url_guias',
+        'retencion':    'url_retenciones',
+        'percepcion':   'url_percepciones',
+    }
+
     def get_endpoints_para(self, tipo_comprobante: str) -> list:
         """
-        Retorna endpoints activos para un tipo de comprobante.
+        Retorna endpoints activos que tienen URL configurada para el tipo de comprobante.
 
-        Soporta dos estructuras:
-        1. Nueva: urls.{tipo} -> endpoint tiene URL para ese tipo
-        2. Legacy: tipo_comprobante lista -> endpoint cubre ese tipo
-
-        tipo_comprobante: 'boleta', 'factura', 'nota_credito', 'nota_debito', 'anulacion', 'guia'
+        tipo_comprobante: boleta | factura | nota_credito | nota_debito |
+                          anulacion | guia | retencion | percepcion
         """
         result = []
+        campo_url = self.URL_CAMPO_MAP.get(tipo_comprobante, 'url_comprobantes')
+
         for ep in self.endpoints_activos:
-            # Nueva estructura: urls por tipo
+            # Nueva estructura: url_comprobantes / url_anulaciones / url_guias
+            if ep.get(campo_url, '').strip():
+                result.append(ep)
+                continue
+
+            # Fallback legacy: urls{}
             urls = ep.get('urls', {})
             if urls:
-                # Tiene URL especifica para este tipo
-                if tipo_comprobante in urls:
+                if tipo_comprobante in urls and urls[tipo_comprobante]:
                     result.append(ep)
                     continue
-                # Nota credito/debito usan URL de factura como fallback
                 if tipo_comprobante in ('nota_credito', 'nota_debito'):
-                    if 'factura' in urls or 'boleta' in urls:
+                    if urls.get('factura') or urls.get('boleta'):
                         result.append(ep)
                         continue
-            else:
-                # Legacy: lista tipo_comprobante
-                tipos = ep.get('tipo_comprobante', ['todos'])
-                if 'todos' in tipos or tipo_comprobante in tipos:
-                    result.append(ep)
+
+            # Fallback legacy: url unica para todo
+            elif ep.get('url', '').strip():
+                result.append(ep)
+
         return result
 
     # Compatibilidad legacy

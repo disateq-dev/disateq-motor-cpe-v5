@@ -232,3 +232,5 @@ input:disabled, select:disabled {
   from { transform: translateY(10px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
