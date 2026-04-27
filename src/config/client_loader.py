@@ -58,13 +58,32 @@ class ClientConfig:
     def get_endpoints_para(self, tipo_comprobante: str) -> list:
         """
         Retorna endpoints activos para un tipo de comprobante.
-        tipo_comprobante: 'boleta', 'factura', 'nota_credito', 'nota_debito'
+
+        Soporta dos estructuras:
+        1. Nueva: urls.{tipo} -> endpoint tiene URL para ese tipo
+        2. Legacy: tipo_comprobante lista -> endpoint cubre ese tipo
+
+        tipo_comprobante: 'boleta', 'factura', 'nota_credito', 'nota_debito', 'anulacion', 'guia'
         """
         result = []
         for ep in self.endpoints_activos:
-            tipos = ep.get('tipo_comprobante', ['todos'])
-            if 'todos' in tipos or tipo_comprobante in tipos:
-                result.append(ep)
+            # Nueva estructura: urls por tipo
+            urls = ep.get('urls', {})
+            if urls:
+                # Tiene URL especifica para este tipo
+                if tipo_comprobante in urls:
+                    result.append(ep)
+                    continue
+                # Nota credito/debito usan URL de factura como fallback
+                if tipo_comprobante in ('nota_credito', 'nota_debito'):
+                    if 'factura' in urls or 'boleta' in urls:
+                        result.append(ep)
+                        continue
+            else:
+                # Legacy: lista tipo_comprobante
+                tipos = ep.get('tipo_comprobante', ['todos'])
+                if 'todos' in tipos or tipo_comprobante in tipos:
+                    result.append(ep)
         return result
 
     # Compatibilidad legacy

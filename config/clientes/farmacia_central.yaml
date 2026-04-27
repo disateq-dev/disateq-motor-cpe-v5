@@ -3,46 +3,48 @@ empresa:
   nombre_comercial: Farmacia Central
   razon_social: FARMACIA CENTRAL S.A.C.
   ruc: '10715460632'
+
+fuente:
+  tipo: dbf
+  rutas:
+    - D:/FFEESUNAT/test
+
+series:
+  boleta:
+    - serie: B001
+      correlativo_inicio: 16377
+      activa: true
+  factura:
+    - serie: F001
+      correlativo_inicio: 0
+      activa: true
+  nota_credito: []
+  nota_debito: []
+
 envio:
   endpoints:
-  - activo: true
-    credenciales:
-      token: ''
-      usuario: ''
-    formato: txt
-    nombre: APIFAS
-    timeout: 30
-    tipo_comprobante:
-    - boleta
-    - factura
-    - nota_credito
-    - nota_debito
-    url: https://apifas.disateq.com/produccion_text.php
-fuente:
-  rutas:
-  - D:/FFEESUNAT/test
-  tipo: dbf
+    - nombre: APIFAS
+      activo: true
+      formato: txt
+      credenciales:
+        usuario: ''
+        token: ''
+      timeout: 30
+      urls:
+        boleta: https://apifas.disateq.com/produccion_text.php
+        factura: https://apifas.disateq.com/produccion_text.php
+        nota_credito: https://apifas.disateq.com/produccion_text.php
+        nota_debito: https://apifas.disateq.com/produccion_text.php
+        anulacion: https://apifas.disateq.com/anulacion_text.php
+
+scheduler:
+  modo: manual
+  intervalo_boletas: 10
+  activo: true
+
 instalador:
   clave: '1234'
+
 licencia:
   clave: ''
   endpoint_validacion: https://licenses.disateq.com/v1/validate
-observaciones: 'Cliente migrado desde sistema legacy FoxPro. Serie B001 activa desde
-  correlativo 16377. Validar series con SUNAT antes de activar F001.
-
-  '
-scheduler:
-  activo: true
-  intervalo_boletas: 5
-  modo: automatico
-series:
-  boleta:
-  - activa: true
-    correlativo_inicio: 16377
-    serie: B001
-  factura:
-  - activa: true
-    correlativo_inicio: 0
-    serie: F001
-  nota_credito: []
-  nota_debito: []
