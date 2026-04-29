@@ -7,6 +7,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+
+## [5.0.0] - 2026-04-29
+
+### 🧹 Limpieza y reorganización
+- Eliminados 32 scripts fix_*.py / patch_*.py / replace_*.py de la raíz (parches ya aplicados)
+- Eliminado archivo backup app.py.bak4
+- Corregida inconsistencia de versiones en documentación (v3/v4 → v5)
+- main.py funcional con soporte CLI y modo UI
+
+---
+
 ## [4.0.0] - 2026-04-23
 
 ### 🎉 Lanzamiento Inicial v4.0

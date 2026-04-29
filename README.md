@@ -1,4 +1,4 @@
-# DisateQ™ Motor CPE v4.0
+# DisateQ™ Motor CPE v5.0
 
 **Generador y enrutador universal de comprobantes electrónicos con soporte multi-endpoint para PSE/OSE, SEE-Contribuyente, y plataforma propia futura.**
 
@@ -10,7 +10,7 @@
 
 ## 🎯 Descripción
 
-Motor CPE DisateQ™ v4.0 es un sistema profesional para generación y envío de Comprobantes de Pago Electrónicos (CPE) a SUNAT (Perú).
+Motor CPE DisateQ™ v5.0 es un sistema profesional para generación y envío de Comprobantes de Pago Electrónicos (CPE) a SUNAT (Perú).
 
 **Características principales:**
 - 🔌 **Multi-endpoint**: Envío a PSE/OSE, SEE-Contribuyente, DisateQ Platform
@@ -159,7 +159,7 @@ pytest tests/test_adapters.py::test_xlsx_adapter -v
 
 ## 🗺️ Roadmap
 
-### **v4.0 (Actual)** ✅
+### **v5.0 (Actual)** ✅
 - [x] Adaptadores Excel y DBF
 - [x] Generadores JSON y TXT
 - [x] UniversalSender multi-endpoint

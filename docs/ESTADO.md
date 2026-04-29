@@ -1,4 +1,4 @@
-# Estado del Proyecto — Motor CPE DisateQ™ v3.0
+# Estado del Proyecto — Motor CPE DisateQ™ v5.0
 
 **Última actualización:** 19/04/2026 07:42
 
@@ -24,7 +24,7 @@
 ### Flujo de Envío (HOY)
 
 \\\
-Sistema Origen → Motor v3.0 → TXT → APIFAS → SUNAT
+Sistema Origen → Motor v5.0 → TXT → APIFAS → SUNAT
            (Excel/DBF/SQL)  (normaliza)  (middleware)
 \\\
 
@@ -38,7 +38,7 @@ Sistema Origen → Motor v3.0 → TXT → APIFAS → SUNAT
 ### Flujo Futuro (ROADMAP)
 
 \\\
-Sistema Origen → Motor v3.0 → JSON UBL 2.1 → Plataforma FFEE → SUNAT
+Sistema Origen → Motor v5.0 → JSON UBL 2.1 → Plataforma FFEE → SUNAT
                               (directo)        (DisateQ™)
 \\\
 
@@ -53,7 +53,7 @@ Sistema Origen → Motor v3.0 → JSON UBL 2.1 → Plataforma FFEE → SUNAT
 ## 📋 PRÓXIMOS PASOS
 
 ### INMEDIATO (esta semana)
-1. ⏳ Probar integración POS™ Excel → Motor v3.0
+1. ⏳ Probar integración POS™ Excel → Motor v5.0
 2. ⏳ Validar envío TXT → APIFAS en producción
 3. ⏳ Confirmar recepción de CDR
 
@@ -73,7 +73,7 @@ Sistema Origen → Motor v3.0 → JSON UBL 2.1 → Plataforma FFEE → SUNAT
 ## 🔧 CONFIGURACIÓN ACTUAL
 
 \\\yaml
-# Motor v3.0 soporta DOS modos:
+# Motor v5.0 soporta DOS modos:
 
 envio:
   modo: legacy  # ← MODO ACTUAL

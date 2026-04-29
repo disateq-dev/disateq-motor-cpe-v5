@@ -1,4 +1,4 @@
-# Arquitectura de Carpetas — Motor CPE DisateQ™ v3.0
+# Arquitectura de Carpetas — Motor CPE DisateQ™ v5.0
 
 ## 🎯 Principio: Separación Programas vs Datos
 
@@ -14,7 +14,7 @@ Siguiendo estándar Windows profesional:
 **Contenido:** Programas y archivos inmutables
 ```
 C:\Program Files\DisateQ\Motor CPE\
-├── MotorCPE_DisateQ_v3.0.0.exe    # Ejecutable principal
+├── MotorCPE_DisateQ_v5.0.0.exe    # Ejecutable principal
 ├── disateq_public.pem             # Clave pública RSA
 └── disateq_motor.lic              # Licencia del cliente
 ```
@@ -100,9 +100,9 @@ disateq-cpe-envio/
 └── dist/                          # ⭐ PRODUCTOS FINALES
     ├── README.md
     ├── windows/                   # Ejecutables compilados
-    │   └── MotorCPE_DisateQ_v3.0.0.exe
+    │   └── MotorCPE_DisateQ_v5.0.0.exe
     └── installers/                # Paquetes para clientes
-        └── MotorCPE_v3.0.0_Instalador_2026-04-20.zip
+        └── MotorCPE_v5.0.0_Instalador_2026-04-20.zip
 ```
 
 ---
@@ -122,9 +122,9 @@ disateq-cpe-envio/
 
 2. DISTRIBUCIÓN
    disateq-cpe-envio\dist\installers\
-   └── MotorCPE_v3.0.0_Instalador.zip
+   └── MotorCPE_v5.0.0_Instalador.zip
        ├── INSTALAR.bat
-       ├── MotorCPE_DisateQ_v3.0.0.exe
+       ├── MotorCPE_DisateQ_v5.0.0.exe
        ├── disateq_public.pem
        └── carpetas vacías (config, logs, output, backup)
 
@@ -197,4 +197,4 @@ El Motor detecta automáticamente su entorno:
 
 ---
 
-© 2026 DisateQ™ | Motor CPE v3.0
+© 2026 DisateQ™ | Motor CPE v5.0
