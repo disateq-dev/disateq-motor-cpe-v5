@@ -1,4 +1,4 @@
-# ══════════════════════════════════════════════════════════════════
+﻿# ══════════════════════════════════════════════════════════════════
 #  DisateQ Motor CPE v5.0  —  wizard_service.py
 #  2026-05-01  fix: paso 3 lista archivos DBF, no datos aleatorios
 # ══════════════════════════════════════════════════════════════════
@@ -51,7 +51,7 @@ def _test_dbf(fuente: dict) -> dict:
     if not carpeta.exists():
         return {"ok": False, "error": f"La ruta no existe: {ruta}"}
 
-    dbfs = sorted(list(carpeta.glob("*.dbf")) + list(carpeta.glob("*.DBF")))
+    dbfs = sorted(set(carpeta.glob("*.[dD][bB][fF]")))
     if not dbfs:
         return {"ok": False, "error": f"No se encontraron archivos .DBF en: {ruta}"}
 
