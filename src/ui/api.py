@@ -1,4 +1,4 @@
-# src/ui/api.py
+﻿# src/ui/api.py
 # DisateQ Motor CPE v5.0 — TASK-004
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -22,13 +22,16 @@ import json
 import logging
 import threading
 from datetime import datetime, timedelta
+from src.tools.wizard_service import test_fuente, guardar_wizard
 from pathlib import Path
+from src.tools.wizard_service import test_fuente, guardar_wizard
 from typing import Optional
+from src.tools.wizard_service import test_fuente, guardar_wizard
 
-from src.config.client_loader import ClientLoader
-from src.database.schema import init_db
-from src.database.cpe_logger import CpeLogger
-from src.motor import Motor
+
+
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -776,3 +779,65 @@ class DisateQAPI:
             }
             for s in lista if s.get('serie')
         ]
+
+    # ------------------------------------------------------------------
+    # WIZARD — paso 2: dialogo de exploracion de ruta / carpeta
+    # ------------------------------------------------------------------
+    def explorar_ruta(self, es_carpeta: bool = True):
+        import webview
+        try:
+            if es_carpeta:
+                resultado = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+            else:
+                resultado = self._window.create_file_dialog(
+                    webview.OPEN_DIALOG,
+                    file_types=(
+                        "Archivos de datos (*.dbf;*.xlsx;*.xls;*.csv;*.mdb;*.accdb)",
+                        "Todos los archivos (*.*)",
+                    ),
+                )
+            if resultado and len(resultado) > 0:
+                return resultado[0]
+        except Exception as exc:
+            print(f"[WIZARD] explorar_ruta error: {exc}")
+        return None
+
+    # ------------------------------------------------------------------
+    # WIZARD — paso 3: test de lectura de la fuente
+    # ------------------------------------------------------------------
+    def wizard_test_fuente(self, fuente: dict) -> dict:
+        try:
+            from src.tools.wizard_service import test_fuente
+            return test_fuente(fuente)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # WIZARD — paso 4: autocontrato IA (stub hasta TASK-009)
+    # ------------------------------------------------------------------
+    def wizard_generar_contrato_auto(self, fuente: dict) -> dict:
+        try:
+            from src.tools.smart_mapper import SmartMapper
+            mapper = SmartMapper()
+            result = mapper.generar(fuente)
+            if result.get("score", 0) >= 0.80:
+                return {"ok": True, "contrato": result["contrato"], "score": result["score"]}
+            else:
+                return {
+                    "ok": False,
+                    "error": f"Score insuficiente ({result.get('score', 0):.0%}). Completa manualmente.",
+                }
+        except ImportError:
+            return {"ok": False, "error": "smart_mapper no disponible aun (TASK-009). Completa manualmente."}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # WIZARD — paso 6 final: guardar cliente + contrato
+    # ------------------------------------------------------------------
+    def wizard_guardar(self, payload: dict) -> dict:
+        try:
+            from src.tools.wizard_service import guardar_wizard
+            return guardar_wizard(payload)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
