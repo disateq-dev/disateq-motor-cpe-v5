@@ -1,4 +1,4 @@
-// ══════════════════════════════════════════════════════════════════
+﻿// ══════════════════════════════════════════════════════════════════
 //  DisateQ Motor CPE v5.0  —  Wizard JS
 //  Migrado: eel.xxx() → window.pywebview.api.xxx()
 //  TASK-005 — 2026-05-01
@@ -523,7 +523,11 @@ function guardarWizard() {
 }
 
 // ── Acciones post-éxito ────────────────────────────────────────
-function irDashboard()  { window.location.href = 'index.html'; }
+function irDashboard() {
+    window.pywebview.api.cargar_motor()
+        .then(() => { window.location.href = 'index.html'; })
+        .catch(() => { window.location.href = 'index.html'; });
+}
 function nuevoCliente() { window.location.reload(); }
 function cancelar() {
   if (confirm('¿Cancelar la configuración? Los datos no serán guardados.')) {

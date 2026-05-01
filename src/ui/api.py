@@ -1,4 +1,4 @@
-# src/ui/api.py
+﻿# src/ui/api.py
 # DisateQ Motor CPE v5.0 — TASK-004 + TASK-005
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -773,6 +773,16 @@ class DisateQAPI:
     # INTERNOS
     # ═════════════════════════════════════════════════════════════════════════
 
+    def cargar_motor(self) -> dict:
+        """Navega la ventana PyWebView al dashboard (index.html)."""
+        try:
+            if self._window:
+                self._window.load_url(
+                    self._window.get_current_url().replace("wizard.html", "index.html")
+                )
+            return {"ok": True}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
     def _cargar_cliente(self) -> None:
         try:
             loader   = ClientLoader()
