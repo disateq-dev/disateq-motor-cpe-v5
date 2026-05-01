@@ -1,5 +1,5 @@
-﻿# src/ui/api.py
-# DisateQ Motor CPE v5.0 — TASK-004
+# src/ui/api.py
+# DisateQ Motor CPE v5.0 — TASK-004 + TASK-005
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
@@ -22,16 +22,14 @@ import json
 import logging
 import threading
 from datetime import datetime, timedelta
-from src.tools.wizard_service import test_fuente, guardar_wizard
 from pathlib import Path
-from src.tools.wizard_service import test_fuente, guardar_wizard
 from typing import Optional
+
+from src.database.schema import init_db
+from src.database.cpe_logger import CpeLogger
+from src.motor import Motor
+from src.config.client_loader import ClientLoader
 from src.tools.wizard_service import test_fuente, guardar_wizard
-
-
-
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +107,7 @@ class DisateQAPI:
         try:
             if self._client_config:
                 from src.adapters.adapter_factory import AdapterFactory
-                adapter   = AdapterFactory.create_from_cliente_id(
+                adapter    = AdapterFactory.create_from_cliente_id(
                     self._client_config.alias)
                 pendientes = adapter.read_pending()
                 return {'count': len(pendientes)}
@@ -127,8 +125,8 @@ class DisateQAPI:
                     'serie':   r['serie'],
                     'numero':  r['numero'],
                     'fecha':   r['fecha_creacion'][:10],
-                    'cliente': '-',           # TODO: agregar cliente_nombre al schema
-                    'total':   0.0,           # TODO: agregar total al schema
+                    'cliente': '-',
+                    'total':   0.0,
                     'estado':  r['estado'].lower(),
                 }
                 for r in rows
@@ -163,7 +161,6 @@ class DisateQAPI:
             rows = self._log.historial(
                 cliente_id=cliente_id, estado=estado, limit=9999)
 
-            # Deduplicar por (serie, numero) — conservar estado de mayor prioridad
             prioridad  = {'REMITIDO':5,'ERROR':4,'GENERADO':3,'LEIDO':2,'IGNORADO':1}
             unicos: dict = {}
             for r in rows:
@@ -206,11 +203,6 @@ class DisateQAPI:
     # ═════════════════════════════════════════════════════════════════════════
 
     def conectar_fuente(self, tipo: str, archivo: str):
-        """
-        Previsualiza pendientes desde la fuente usando AdapterFactory.
-        tipo: 'dbf' | 'xlsx' | 'csv' | 'sqlserver' | etc.
-        archivo: ruta a la carpeta o archivo fuente.
-        """
         try:
             from src.adapters.adapter_factory import AdapterFactory
             if not self._client_config:
@@ -534,13 +526,13 @@ class DisateQAPI:
             return {'exito': False, 'error': str(e)}
 
     # ═════════════════════════════════════════════════════════════════════════
-    # WIZARD
+    # WIZARD (legacy — TASK-004)
     # ═════════════════════════════════════════════════════════════════════════
 
     def wz_validar_licencia(self, codigo: str):
         try:
             from src.licenses.validator import LicenseValidator
-            v        = LicenseValidator()
+            v          = LicenseValidator()
             ok, status = v.validate_code(codigo)
             if ok:
                 info = v.get_license_info()
@@ -576,9 +568,9 @@ class DisateQAPI:
                 mapper         = SmartMapper()
                 mapeo          = mapper.mapear(reporte)
                 contrato_motor = mapper.generar_contrato_motor(mapeo, {
-                    'tipo':      tipo,
-                    'ruta':      params.get('ruta', ''),
-                    'servidor':  params.get('servidor', ''),
+                    'tipo':     tipo,
+                    'ruta':     params.get('ruta', ''),
+                    'servidor': params.get('servidor', ''),
                 })
 
                 tablas      = reporte.get('tablas', {})
@@ -723,6 +715,61 @@ class DisateQAPI:
             return {'wizard': True}
 
     # ═════════════════════════════════════════════════════════════════════════
+    # WIZARD TASK-005 — 6 pasos
+    # ═════════════════════════════════════════════════════════════════════════
+
+    def explorar_ruta(self, es_carpeta: bool = True):
+        """Dialogo nativo PyWebView para seleccionar carpeta o archivo."""
+        import webview
+        try:
+            if es_carpeta:
+                resultado = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+            else:
+                resultado = self._window.create_file_dialog(
+                    webview.OPEN_DIALOG,
+                    file_types=(
+                        "Archivos de datos (*.dbf;*.xlsx;*.xls;*.csv;*.mdb;*.accdb)",
+                        "Todos los archivos (*.*)",
+                    ),
+                )
+            if resultado and len(resultado) > 0:
+                return resultado[0]
+        except Exception as exc:
+            logger.warning(f"[WIZARD] explorar_ruta error: {exc}")
+        return None
+
+    def wizard_test_fuente(self, fuente: dict) -> dict:
+        """Paso 3 — lee primeros registros de la fuente para verificar acceso."""
+        try:
+            return test_fuente(fuente)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def wizard_generar_contrato_auto(self, fuente: dict) -> dict:
+        """Paso 4 — genera contrato via smart_mapper (stub hasta TASK-009)."""
+        try:
+            from src.tools.smart_mapper import SmartMapper
+            mapper = SmartMapper()
+            result = mapper.generar(fuente)
+            if result.get("score", 0) >= 0.80:
+                return {"ok": True, "contrato": result["contrato"], "score": result["score"]}
+            return {
+                "ok":    False,
+                "error": f"Score insuficiente ({result.get('score', 0):.0%}). Completa manualmente.",
+            }
+        except ImportError:
+            return {"ok": False, "error": "smart_mapper no disponible aun (TASK-009). Completa manualmente."}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def wizard_guardar(self, payload: dict) -> dict:
+        """Paso 6 final — guarda config/clientes y config/contratos YAML."""
+        try:
+            return guardar_wizard(payload)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    # ═════════════════════════════════════════════════════════════════════════
     # INTERNOS
     # ═════════════════════════════════════════════════════════════════════════
 
@@ -779,65 +826,3 @@ class DisateQAPI:
             }
             for s in lista if s.get('serie')
         ]
-
-    # ------------------------------------------------------------------
-    # WIZARD — paso 2: dialogo de exploracion de ruta / carpeta
-    # ------------------------------------------------------------------
-    def explorar_ruta(self, es_carpeta: bool = True):
-        import webview
-        try:
-            if es_carpeta:
-                resultado = self._window.create_file_dialog(webview.FOLDER_DIALOG)
-            else:
-                resultado = self._window.create_file_dialog(
-                    webview.OPEN_DIALOG,
-                    file_types=(
-                        "Archivos de datos (*.dbf;*.xlsx;*.xls;*.csv;*.mdb;*.accdb)",
-                        "Todos los archivos (*.*)",
-                    ),
-                )
-            if resultado and len(resultado) > 0:
-                return resultado[0]
-        except Exception as exc:
-            print(f"[WIZARD] explorar_ruta error: {exc}")
-        return None
-
-    # ------------------------------------------------------------------
-    # WIZARD — paso 3: test de lectura de la fuente
-    # ------------------------------------------------------------------
-    def wizard_test_fuente(self, fuente: dict) -> dict:
-        try:
-            from src.tools.wizard_service import test_fuente
-            return test_fuente(fuente)
-        except Exception as exc:
-            return {"ok": False, "error": str(exc)}
-
-    # ------------------------------------------------------------------
-    # WIZARD — paso 4: autocontrato IA (stub hasta TASK-009)
-    # ------------------------------------------------------------------
-    def wizard_generar_contrato_auto(self, fuente: dict) -> dict:
-        try:
-            from src.tools.smart_mapper import SmartMapper
-            mapper = SmartMapper()
-            result = mapper.generar(fuente)
-            if result.get("score", 0) >= 0.80:
-                return {"ok": True, "contrato": result["contrato"], "score": result["score"]}
-            else:
-                return {
-                    "ok": False,
-                    "error": f"Score insuficiente ({result.get('score', 0):.0%}). Completa manualmente.",
-                }
-        except ImportError:
-            return {"ok": False, "error": "smart_mapper no disponible aun (TASK-009). Completa manualmente."}
-        except Exception as exc:
-            return {"ok": False, "error": str(exc)}
-
-    # ------------------------------------------------------------------
-    # WIZARD — paso 6 final: guardar cliente + contrato
-    # ------------------------------------------------------------------
-    def wizard_guardar(self, payload: dict) -> dict:
-        try:
-            from src.tools.wizard_service import guardar_wizard
-            return guardar_wizard(payload)
-        except Exception as exc:
-            return {"ok": False, "error": str(exc)}
