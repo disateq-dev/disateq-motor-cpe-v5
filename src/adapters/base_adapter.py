@@ -1,199 +1,90 @@
-"""
-base_adapter.py
-===============
-Clase base para adaptadores — Motor CPE DisateQ™ v3.0
-
-Define interfaz común para todos los adaptadores.
-Todos los adaptadores heredan de BaseAdapter.
-"""
+# src/adapters/base_adapter.py
+# DisateQ Motor CPE v5.0
+# ─────────────────────────────────────────────────────────────────────────────
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import List, Dict, Any
 
 
 class BaseAdapter(ABC):
     """
-    Clase base abstracta para adaptadores de fuentes de datos.
-    
-    Todos los adaptadores (DBF, XLSX, SQL, etc.) deben heredar de esta clase
-    e implementar los métodos abstractos.
-    
-    Flujo típico:
-        1. connect() — Establecer conexión con fuente
-        2. read_pending() — Leer comprobantes pendientes
-        3. read_items(comprobante) — Leer items de un comprobante
-        4. normalize(data, items) — Normalizar al formato CPE
-        5. disconnect() — Cerrar conexión
+    Clase base para todos los adaptadores de fuente de datos.
+
+    Cada fuente (DBF, Excel, SQL, CSV) implementa esta interfaz.
+    El Motor solo conoce esta interfaz — no sabe nada del tipo de fuente.
+
+    Flujo obligatorio:
+        read_pending() → read_items() → normalize() → [write_flag()]
+
+    write_flag() es opcional: si la fuente no permite escritura,
+    el metodo base retorna silenciosamente. SQLite es siempre la
+    fuente de verdad de envios, con o sin write_flag().
     """
-    
-    def __init__(self):
-        """Inicializa el adaptador."""
-        pass
-    
+
+    def __init__(self, contrato: dict, config_cliente: dict):
+        """
+        contrato:       dict cargado desde config/contratos/{cliente_id}.yaml
+        config_cliente: dict cargado desde config/clientes/{cliente_id}.yaml
+                        Contiene ruc, razon_social, series permitidas, endpoints.
+        """
+        self.contrato = contrato
+        self.config_cliente = config_cliente
+
     @abstractmethod
-    def connect(self):
+    def read_pending(self) -> List[Dict[str, Any]]:
         """
-        Establece conexión con la fuente de datos.
-        
-        Debe implementarse en cada adaptador específico.
-        Puede lanzar excepciones si la conexión falla.
+        Lee todos los comprobantes pendientes desde la fuente.
+        Incluye comprobantes normales Y notas/anulaciones pendientes.
+
+        Cada registro retornado debe incluir:
+            '_tipo_registro': 'comprobante' | 'nota'
+            '_tabla_origen':  nombre de la tabla/archivo fuente
+
+        No normaliza — retorna los datos raw de la fuente.
         """
-        pass
-    
+
     @abstractmethod
-    def disconnect(self):
+    def read_items(self, comprobante: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Cierra conexión con la fuente de datos.
-        
-        Debe implementarse en cada adaptador específico.
+        Lee los items (lineas de detalle) de un comprobante especifico.
+
+        comprobante: registro raw retornado por read_pending()
+        Retorna lista de dicts raw con los items — sin normalizar.
         """
-        pass
-    
+
     @abstractmethod
-    def read_pending(self) -> List[Dict]:
+    def normalize(
+        self,
+        comprobante: Dict[str, Any],
+        items: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
-        Lee comprobantes pendientes de envío.
-        
-        Returns:
-            Lista de dicts con datos de cabecera de comprobantes pendientes.
-            Cada dict representa un comprobante.
-        
-        Example:
-            [
-                {
-                    'TIPO_DOCUMENTO': 'F',
-                    'SERIE': '001',
-                    'NUMERO': 1234,
-                    'FECHA': '2026-04-19',
-                    ...
-                },
-                ...
-            ]
-        """
-        pass
-    
-    @abstractmethod
-    def read_items(self, comprobante: Dict) -> List[Dict]:
-        """
-        Lee items/detalle de un comprobante específico.
-        
-        Args:
-            comprobante: Dict con datos de cabecera del comprobante
-        
-        Returns:
-            Lista de dicts con items del comprobante.
-        
-        Example:
-            [
-                {
-                    'CODIGO': 'PROD001',
-                    'DESCRIPCION': 'Producto de prueba',
-                    'CANTIDAD': 2,
-                    'PRECIO': 10.50,
-                    ...
-                },
-                ...
-            ]
-        """
-        pass
-    
-    @abstractmethod
-    def normalize(self, source_data: Dict, source_items: List[Dict]) -> Dict:
-        """
-        Normaliza datos de la fuente al formato estándar del Motor CPE.
-        
-        Args:
-            source_data: Datos de cabecera del comprobante (origen)
-            source_items: Lista de items del comprobante (origen)
-        
-        Returns:
-            Dict normalizado con estructura estándar del Motor CPE:
-            {
-                'comprobante': {
-                    'tipo_doc': '01',  # 01=Factura, 03=Boleta
-                    'serie': 'F001',
-                    'numero': 1234,
-                    'fecha_emision': '2026-04-19',
-                    'moneda': 'PEN',
-                    ...
-                },
-                'cliente': {
-                    'tipo_doc': '6',
-                    'numero_doc': '20123456789',
-                    'denominacion': 'CLIENTE S.A.C.',
-                    ...
-                },
-                'totales': {
-                    'gravada': 100.00,
-                    'exonerada': 0.00,
-                    'inafecta': 0.00,
-                    'igv': 18.00,
-                    'total': 118.00,
-                },
-                'items': [
-                    {
-                        'codigo': 'PROD001',
-                        'descripcion': 'Producto',
-                        'cantidad': 2,
-                        'unidad': 'NIU',
-                        'precio_unitario': 10.00,
-                        'valor_unitario': 8.47,
-                        'subtotal_sin_igv': 16.94,
-                        'igv': 3.05,
-                        'total': 20.00,
-                        'afectacion_igv': '10',
-                        'unspsc': '10000000',
-                    },
-                    ...
-                ]
-            }
-        """
-        pass
-    
-    # Métodos opcionales (pueden sobrescribirse si es necesario)
-    
-    def validate_source(self) -> tuple[bool, str]:
-        """
-        Valida que la fuente de datos esté disponible y sea accesible.
-        
-        Returns:
-            (es_valida, mensaje)
-        
-        Este método es opcional. Los adaptadores pueden sobrescribirlo
-        para realizar validaciones específicas.
-        """
-        return True, "OK"
-    
-    def get_source_info(self) -> Dict:
-        """
-        Retorna información sobre la fuente de datos.
-        
-        Returns:
-            Dict con información de la fuente (tipo, ubicación, estado, etc.)
-        
-        Este método es opcional.
-        """
-        return {
-            'type': self.__class__.__name__,
-            'status': 'connected' if hasattr(self, 'conn') and self.conn else 'disconnected',
-        }
+        Convierte comprobante + items raw a la estructura CPE interna estandar.
 
+        La estructura normalizada es independiente del tipo de fuente.
+        Los generadores (txt_generator, json_generator) consumen esta estructura.
 
-class AdapterError(Exception):
-    """Excepción base para errores de adaptadores."""
-    pass
+        Campos obligatorios en el resultado:
+            tipo_comprobante, serie, numero, es_nota, es_anulacion,
+            ruc_emisor, cliente_tipo_doc, cliente_num_doc, cliente_nombre,
+            fecha_emision, total_gravada, total_igv, total, items
+        """
 
+    def write_flag(self, comprobante: Dict[str, Any], estado: str) -> None:
+        """
+        Escribe el resultado del envio de vuelta a la fuente original.
 
-class ConnectionError(AdapterError):
-    """Error de conexión con la fuente de datos."""
-    pass
+        estado: 'enviado' | 'error'
 
+        Implementacion por defecto: no hace nada (retorno silencioso).
+        Cada adaptador la sobreescribe si su fuente permite escritura.
 
-class DataError(AdapterError):
-    """Error en la estructura o contenido de los datos."""
-    pass
+        El Motor NO falla si write_flag() no hace nada —
+        SQLite es la fuente de verdad y ya registro el estado antes
+        de llamar a este metodo.
 
-
-class MappingError(AdapterError):
-    """Error en el mapeo de campos."""
-    pass
+        NOTA farmacias_fas DBF:
+            Verificar bloqueo de archivo durante escritura simultanea
+            con el sistema legacy. Si hay bloqueo → dejar esta
+            implementacion base activa (solo SQLite controla).
+        """

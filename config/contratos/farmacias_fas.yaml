@@ -1,0 +1,148 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CONTRATO YAML — farmacias_fas
+# DisateQ Motor CPE v5.0
+# Esquema verificado con datos reales: 2026-04-29
+# ─────────────────────────────────────────────────────────────────────────────
+
+cliente_id: farmacias_fas
+descripcion: Farmacia FAS — Sistema legacy DBF FoxPro
+
+# ─── FUENTE DE DATOS ──────────────────────────────────────────────────────────
+source:
+  type: dbf
+  encoding: latin-1
+  path: D:\FFEESUNAT\Test        # TEST — produccion: C:\sistemas\data
+
+# ─── COMPROBANTES (enviosffee.dbf) ────────────────────────────────────────────
+# FLAG_ENVIO verificado como INTEGER: 2=pendiente, 3=enviado, 4=error
+comprobantes:
+  tabla: enviosffee.dbf
+
+  flag_lectura:
+    campo: FLAG_ENVIO
+    valor: 2                     # integer — pendiente de envio
+
+  flag_escritura:
+    campo: FLAG_ENVIO
+    enviado: 3                   # Motor escribe al confirmar SUNAT
+    error: 4                     # Motor escribe al fallar
+
+  campos:
+    tipo_factu:   TIPO_FACTU     # 'B'=Boleta | 'F'=Factura
+    serie_fact:   SERIE_FACT     # '001' — se concatena con tipo_factu → B001
+    numero:       NUMERO_FAC     # '0000011057'
+    fecha_emision: FECHA_DOCU
+    factura_ex:   FACTURA_EX     # 0=con IGV | 1=exonerado total
+
+  # Serie completa = TIPO_FACTU + SERIE_FACT  (ej: B001, F013)
+  # Verificado: unica combinacion en test = TIPO='B' SERIE='001' → B001
+
+  # Mapeo TIPO_FACTU → tipo_de_comprobante SUNAT para TXT
+  tipo_comprobante_map:
+    B: "2"                       # Boleta de venta
+    F: "1"                       # Factura
+
+# ─── TOTALES REALES (factura.dbf) ─────────────────────────────────────────────
+# Fuente de verdad para importes y datos de cliente
+totales:
+  tabla: factura.dbf
+  join:                          # clave compuesta para lookup
+    - TIPO_FACTU
+    - SERIE_FACT
+    - NUMERO_FAC
+  campos:
+    total_real:      REAL_FACTU  # total final con IGV (fuente de verdad)
+    total_gravada:   MONTO_FACT  # base imponible
+    total_igv:       IGV_FACTUR
+    cliente_tipo:    TIPO_CLIEN  # 0=varios | 1=DNI | 6=RUC
+    cliente_num_doc: RUC_CLIENT
+    cliente_nombre:  NOMBRE_CLI
+    importe_icbper:  IMPORTE_IC  # impuesto bolsas plasticas (puede ser null)
+    importe_exoner:  IMPORTE_EX  # importe exonerado (puede ser null)
+    fecha_fact:      FECHA_FACT  # fecha original — usado en anulaciones
+
+# ─── ITEMS (detalleventa.dbf) ─────────────────────────────────────────────────
+items:
+  tabla: detalleventa.dbf
+  join:
+    - TIPO_FACTU
+    - SERIE_FACT
+    - NUMERO_FAC
+  campos:
+    item_num:        ITEM_FACTU  # orden del item
+    codigo:          CODIGO_PRO  # clave para join con productox
+    cantidad:        CANTIDAD_P
+    precio_unitario: PRECIO_UNI  # precio unitario CON IGV
+    valor_total:     MONTO_PEDI  # subtotal SIN IGV  (valor_unit = MONTO_PEDI / CANTIDAD_P)
+    igv_item:        IGV_PEDIDO
+    total_item:      REAL_PEDID  # total CON IGV
+    icbper:          ICBPER
+
+# ─── CATALOGO DE PRODUCTOS (productox.dbf) ────────────────────────────────────
+productos:
+  tabla: productox.dbf
+  join_campo: CODIGO_PRO
+  campos:
+    descripcion:  DESCRIPCIO
+    presentacion: PRESENTA_P    # se concatena a descripcion
+    cod_sunat:    CODIGO_UNS    # codigo UNSPSC — fallback '10000000' si vacio
+    exonerado:    EXONERADO_    # boolean — True → tipo_igv=2
+    es_fraccion:  ES_FRACCIO
+
+# ─── NOTAS DE CREDITO / ANULACIONES (notacredito.dbf) ────────────────────────
+# En farmacias_fas: TIPO_MOVIM=2 → siempre anulacion (archivo A- TXT 6 campos)
+notas:
+  tabla: notacredito.dbf
+  tipo_registro: anulacion      # anulacion | nota_credito — determina generador
+
+  flag_lectura:
+    campo_pendiente:  PENDIENTE_
+    valor_pendiente:  "2"        # string en DBF
+    campo_tipo_movim: TIPO_MOVIM
+    valor_tipo_movim: 2          # integer en DBF — verificado
+
+  campos:
+    tipo_factu_mod:  TIPO_FACTU  # tipo del doc ORIGINAL modificado (B/F)
+    serie_mod:       SERIE_FACT  # serie del doc ORIGINAL
+    numero_mod:      NUMERO_FAC  # numero del doc ORIGINAL
+    serie_nota:      SERIE_NOTA  # serie de la nota/anulacion
+    numero_nota:     NUMERO_NOT
+    fecha_nota:      FECHA_NOTA
+    tipo_motiv:      TIPO_MOTIV  # codigo motivo → join con motivonota
+    monto_base:      MONTO_NOTA  # base sin IGV
+    igv_nota:        IGV_NOTA
+    total_nota:      REAL_NOTA   # total con IGV
+    cliente_tipo:    TIPO_CLIEN
+    cliente_num_doc: RUC_CLIENT
+    cliente_nombre:  NOMBRE_CLI
+    factura_ex:      FACTURA_EX
+
+  # tipo_de_comprobante para la anulacion = tipo del doc original
+  tipo_comprobante_map:
+    B: "2"
+    F: "1"
+
+  # Serie nota = prefijo segun tipo + SERIE_NOTA  (ej: BC001, FC001)
+  serie_prefijos:
+    B: "BC"
+    F: "FC"
+
+# ─── MOTIVOS DE ANULACION (motivonota.dbf) ────────────────────────────────────
+motivos:
+  tabla: motivonota.dbf
+  join_campo: CODIGO             # TIPO_MOTIV → CODIGO
+  campos:
+    descripcion: MOTIVO          # 'Anulación de la operación'
+
+# ─── CONSTANTES CLIENTE VARIOS ────────────────────────────────────────────────
+cliente_varios:
+  tipo_doc: "-"
+  num_doc:  "00000000"
+  nombre:   "CLIENTE VARIOS"
+  direccion: "-"
+
+# ─── TIPO IGV — codigos SUNAT ─────────────────────────────────────────────────
+tipo_igv:
+  gravado:    1
+  exonerado:  2
+  inafecto:   3
