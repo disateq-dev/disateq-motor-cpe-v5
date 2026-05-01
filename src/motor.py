@@ -1,218 +1,240 @@
+# src/motor.py
+# DisateQ Motor CPE v5.0
+# ─────────────────────────────────────────────────────────────────────────────
+
 """
 motor.py
 ========
-Motor CPE DisateQ™ v4.0 — Orquestador principal
+Motor CPE DisateQ™ v5.0 — Orquestador principal
 
 Flujo:
-    ClientConfig → Adapter → Normalize → Validar Serie → TxtGenerator → Sender → Log
+    AdapterFactory → GenericAdapter
+        read_pending()  → comprobantes + notas/anulaciones
+        read_items()    → items de cada comprobante
+        normalize()     → estructura CPE interna plana
+    CpeLogger.ya_remitido()   → anti-duplicado (SQLite)
+    Validar serie             → config del cliente
+    TxtGenerator / AnulacionGenerator
+    UniversalSender           → APIFAS / Nubefact / DisateQ
+    CpeLogger.registrar()     → estado final en SQLite
+    adapter.write_flag()      → marca en fuente (opcional)
 """
 
 import time
-from pathlib import Path
-from typing import Dict, List, Tuple
+import logging
+from typing import Dict, Optional
 
-from src.config.client_loader import ClientLoader, ClientConfig
+from src.config.client_loader import ClientLoader
 from src.generators.txt_generator import TxtGenerator
 from src.generators.anulacion_generator import AnulacionGenerator
 from src.sender.universal_sender import UniversalSender
-from src.logger.cpe_logger import CpeLogger
+from src.database.schema import init_db
+from src.database.cpe_logger import CpeLogger
+from src.adapters.adapter_factory import AdapterFactory
 
-
-# Mapa tipo_doc CPE → tipo config cliente
-TIPO_DOC_MAP = {
-    '01': 'factura',
-    '03': 'boleta',
-    '07': 'nota_credito',
-    '08': 'nota_debito',
-}
+logger = logging.getLogger(__name__)
 
 
 class Motor:
-    """Orquestador principal del Motor CPE."""
+    """Orquestador principal del Motor CPE v5.0."""
 
-    def __init__(self,
-                 cliente_alias: str,
-                 output_dir: str = "output",
-                 db_path: str = "data/cpe_log.db",
-                 modo_sender: str = None):
+    def __init__(
+        self,
+        cliente_alias: str,
+        output_dir:    str = "output",
+        db_path:       str = "data/disateq_cpe.db",
+        modo_sender:   str = None,
+    ):
         """
-        Args:
-            cliente_alias: Alias del cliente (farmacia_central)
-            output_dir: Directorio de salida para TXT
-            db_path: Ruta a SQLite
-            modo_sender: None=real, 'mock'=simulacion
+        cliente_alias: ID del cliente — debe coincidir con
+                       config/clientes/{alias}.yaml y
+                       config/contratos/{alias}.yaml
+        output_dir:    carpeta donde se guardan los TXT generados
+        db_path:       ruta al archivo SQLite (se crea si no existe)
+        modo_sender:   None=envio real | 'mock'=simulacion sin red
         """
         self.output_dir  = output_dir
         self.modo_sender = modo_sender
 
-        # Cargar config cliente
-        loader = ClientLoader()
+        # ── Config cliente ────────────────────────────────────────────────
+        loader      = ClientLoader()
         self.config = loader.cargar(cliente_alias)
-        print(f"✅ Cliente: {self.config.razon_social} ({self.config.ruc})")
+        self.ruc    = self.config.ruc
+        self.alias  = self.config.alias
+        logger.info(f"[Motor] Cliente: {self.config.razon_social} ({self.ruc})")
 
-        # Logger
-        self.log = CpeLogger(db_path)
+        # ── SQLite — init en arranque (TASK-003) ──────────────────────────
+        # init_db() es idempotente: crea archivo + tablas si no existen.
+        # La conexion se comparte con CpeLogger durante toda la sesion.
+        self.conn = init_db(db_path)
+        self.log  = CpeLogger(self.conn)
+        logger.info(f"[Motor] SQLite listo: {db_path}")
 
-        # Sender
-        self.sender = UniversalSender(mode=modo_sender) if modo_sender == 'mock' else None
+        # ── Sender ────────────────────────────────────────────────────────
+        # Se instancia por comprobante en _get_sender() para usar los
+        # endpoints correctos segun el tipo de documento.
+        self._modo_sender = modo_sender
 
-    def _get_adapter(self):
-        """Instancia el adaptador segun config del cliente (via factory)."""
-        from src.adapters.adapter_factory import get_adapter
-        return get_adapter(self.config)
+    # ═════════════════════════════════════════════════════════════════════════
+    # PROCESAMIENTO PRINCIPAL
+    # ═════════════════════════════════════════════════════════════════════════
 
-    def _get_sender(self, tipo_comprobante: str = 'boleta'):
-        """Instancia el sender con endpoints para el tipo de comprobante."""
-        if self.modo_sender == 'mock':
-            return UniversalSender(mode='mock')
-        endpoints = self.config.get_endpoints_para(tipo_comprobante)
-        return UniversalSender(endpoints=endpoints)
-
-    def procesar_anulaciones(self, limit: int = None) -> Dict:
-        """Procesa anulaciones pendientes desde notacredito.dbf."""
-        ruc   = self.config.ruc
-        alias = self.config.alias
-
-        adapter = self._get_adapter()
-        adapter.connect()
-        pendientes = adapter.read_pending_anulaciones()
-        if limit:
-            pendientes = pendientes[:limit]
-
-        print(f"📋 Anulaciones pendientes: {len(pendientes)}")
-        results = {'procesados': 0, 'enviados': 0, 'errores': 0}
-
-        for rec in pendientes:
-            try:
-                cpe  = adapter.normalize_anulacion(rec)
-                cab  = cpe['comprobante']
-                serie  = cab['serie']
-                numero = int(cab['numero'])
-
-                # Generar TXT
-                path = AnulacionGenerator.generate(cpe, ruc,
-                       output_dir=self.output_dir + '/anulaciones')
-
-                self.log.generado(ruc, alias, 'anulacion', serie, numero, path)
-
-                # Enviar
-                sender = self._get_sender('anulacion')
-                endpoint_nombre = ','.join([ep.get('nombre','') for ep in self.config.get_endpoints_para('anulacion')]) or 'mock'
-                resultados_envio = sender.enviar(path, 'anulacion')
-                exito    = all(r[0] for r in resultados_envio)
-                respuesta = resultados_envio[0][1] if resultados_envio else {}
-
-                if exito:
-                    self.log.enviado(ruc, alias, 'anulacion', serie, numero,
-                                     path, endpoint_nombre)
-                    results['enviados'] += 1
-                    print(f"   ✅ ANULACION {serie}-{numero:08d}")
-                else:
-                    detalle = respuesta.get('error', str(respuesta))
-                    self.log.error(ruc, alias, 'anulacion', serie, numero, detalle)
-                    results['errores'] += 1
-                    print(f"   ❌ ANULACION {serie}-{numero:08d} — {detalle}")
-
-                results['procesados'] += 1
-
-            except Exception as e:
-                self.log.error(ruc, alias, 'anulacion', '', 0, str(e))
-                results['errores'] += 1
-                print(f"   ❌ Error anulacion: {e}")
-
-        adapter.disconnect()
-        print(f"\n📊 Anulaciones: {results}")
-        return results
-
-    def procesar(self, limit: int = None) -> Dict:
+    def procesar(self, limit: Optional[int] = None) -> Dict:
         """
-        Ejecuta el flujo completo.
+        Ejecuta el flujo completo para el cliente configurado.
+        Lee comprobantes normales Y notas/anulaciones en una sola pasada.
 
-        Args:
-            limit: Limite de comprobantes a procesar (None = todos)
+        limit: maximo de registros a procesar (None = todos)
 
-        Returns:
-            Resumen de resultados
+        Retorna resumen: procesados / enviados / errores / ignorados
         """
-        ruc   = self.config.ruc
-        alias = self.config.alias
-
-        adapter = self._get_adapter()
-        adapter.connect()
-
-        pendientes = adapter.read_pending()
-        if limit:
-            pendientes = pendientes[:limit]
-
-        print(f"📋 Pendientes: {len(pendientes)}")
-
         results = {'procesados': 0, 'enviados': 0, 'errores': 0, 'ignorados': 0}
 
-        for comp in pendientes:
+        adapter = AdapterFactory.create_from_cliente_id(self.alias)
+        pendientes = adapter.read_pending()
+
+        if limit:
+            pendientes = pendientes[:limit]
+
+        logger.info(f"[Motor] Pendientes: {len(pendientes)}")
+        print(f"📋 Pendientes: {len(pendientes)}")
+
+        for raw in pendientes:
             try:
-                # Leer items
-                items = adapter.read_items(comp)
+                tipo_registro = raw.get('_tipo_registro', 'comprobante')
 
-                # Normalizar
-                cpe = adapter.normalize(comp, items)
-                cab = cpe.get('comprobante', cpe)
+                # ── Leer items ────────────────────────────────────────────
+                items = adapter.read_items(raw)
 
-                tipo_doc = cab.get('tipo_doc', '')
-                serie_raw = cab.get('serie', '')
-                prefijo   = {'01':'F','03':'B','07':'BC','08':'BD'}.get(tipo_doc, '')
-                serie     = prefijo + serie_raw
-                numero   = int(cab.get('numero', 0))
-                tipo_str = TIPO_DOC_MAP.get(tipo_doc, 'boleta')
+                # ── Normalizar ────────────────────────────────────────────
+                cpe = adapter.normalize(raw, items)
 
-                # Validar serie
-                if not self.config.serie_permitida(serie, numero):
-                    self.log.ignorado(ruc, alias, tipo_str, serie, numero,
-                                      f"Serie {serie}/{numero} no permitida por config")
+                serie  = cpe['serie']
+                numero = cpe['numero']
+
+                # ── Anti-duplicado (TASK-001B) ─────────────────────────────
+                if self.log.ya_remitido(self.ruc, serie, numero):
+                    self.log.registrar_ignorado(cpe, self.alias, 'Duplicado — ya REMITIDO')
                     results['ignorados'] += 1
+                    logger.debug(f"[Motor] IGNORADO duplicado: {serie}-{numero}")
                     continue
 
-                cli_nombre = cpe.get('cliente', {}).get('denominacion', '-')
-                total_cpe  = cpe.get('totales', {}).get('total', 0.0)
-                self.log.leido(ruc, alias, tipo_str, serie, numero)
+                # ── Validar serie ─────────────────────────────────────────
+                if not self.config.serie_permitida(serie, int(numero)):
+                    self.log.registrar_ignorado(
+                        cpe, self.alias,
+                        f"Serie {serie}/{numero} no permitida por config"
+                    )
+                    results['ignorados'] += 1
+                    logger.info(f"[Motor] IGNORADO serie: {serie}-{numero}")
+                    continue
 
-                # Generar TXT
-                t0   = time.time()
-                path = TxtGenerator.generate(cpe, self.output_dir)
-                self.log.generado(ruc, alias, tipo_str, serie, numero, path)
+                # ── Registrar LEIDO ───────────────────────────────────────
+                self.log.registrar(cpe, 'LEIDO', self.alias)
 
-                # Sender para este tipo de comprobante
-                tipo_str_ep = TIPO_DOC_MAP.get(tipo_doc, 'boleta')
-                sender      = self._get_sender(tipo_str_ep)
-                endpoint_nombre = ','.join([ep.get('nombre','') for ep in self.config.get_endpoints_para(tipo_str_ep)]) or 'mock'
-                resultados_envio = sender.enviar(path, tipo_str_ep)
+                # ── Generar TXT ───────────────────────────────────────────
+                t0 = time.time()
+
+                if cpe.get('es_anulacion'):
+                    ruta_txt = AnulacionGenerator.generate(
+                        cpe, self.ruc,
+                        output_dir=f"{self.output_dir}/anulaciones"
+                    )
+                else:
+                    ruta_txt = TxtGenerator.generate(cpe, self.output_dir)
+
+                self.log.registrar(cpe, 'GENERADO', self.alias)
+
+                # ── Enviar ────────────────────────────────────────────────
+                tipo_str  = self._tipo_str(cpe)
+                sender    = self._get_sender(tipo_str)
+                endpoint  = self._nombre_endpoint(tipo_str)
+
+                self.log.registrar(cpe, 'GENERADO', self.alias, endpoint=endpoint)
+
+                resultados_envio = sender.enviar(ruta_txt, tipo_str)
                 exito    = all(r[0] for r in resultados_envio)
                 respuesta = resultados_envio[0][1] if resultados_envio else {}
-                duracion = int((time.time() - t0) * 1000)
+                duracion  = int((time.time() - t0) * 1000)
 
                 if exito:
-                    self.log.enviado(ruc, alias, tipo_str, serie, numero,
-                                     path, endpoint_nombre, duracion,
-                                     cli_nombre, total_cpe)
+                    codigo_sunat = str(respuesta.get('codigo', ''))
+                    desc_sunat   = str(respuesta.get('descripcion', ''))
+
+                    self.log.registrar(
+                        cpe, 'REMITIDO', self.alias,
+                        endpoint=endpoint,
+                        respuesta_raw=str(respuesta),
+                        codigo_sunat=codigo_sunat,
+                        descripcion_sunat=desc_sunat,
+                    )
+                    # Limpiar flag reenvio forzado si aplica
+                    self.log.limpiar_forzar_reenvio(self.ruc, serie, numero)
+
+                    # Marcar en fuente (opcional — silencioso si no soportado)
+                    adapter.write_flag(raw, 'enviado')
+
                     results['enviados'] += 1
-                    print(f"   ✅ {serie}-{numero:08d} ({duracion}ms)")
+                    print(f"   ✅ {serie}-{numero} ({duracion}ms)")
+
                 else:
                     detalle = respuesta.get('error', str(respuesta))
-                    self.log.error(ruc, alias, tipo_str, serie, numero,
-                                   detalle, endpoint_nombre)
+                    self.log.registrar(
+                        cpe, 'ERROR', self.alias,
+                        endpoint=endpoint,
+                        descripcion_sunat=detalle,
+                    )
+                    adapter.write_flag(raw, 'error')
                     results['errores'] += 1
-                    print(f"   ❌ {serie}-{numero:08d} — {detalle}")
+                    print(f"   ❌ {serie}-{numero} — {detalle}")
 
                 results['procesados'] += 1
 
             except Exception as e:
-                serie  = comp.get('SERIE_FACT', '?')
-                numero = comp.get('NUMERO_FAC', '?')
-                self.log.error(ruc, alias, '', str(serie), 0, str(e))
+                serie  = raw.get('SERIE_FACT', '?')
+                numero = raw.get('NUMERO_FAC', '?')
+                logger.exception(f"[Motor] Error inesperado {serie}-{numero}: {e}")
                 results['errores'] += 1
                 print(f"   ❌ Error inesperado {serie}-{numero}: {e}")
 
-        adapter.disconnect()
-
         print(f"\n📊 Resumen: {results}")
+        logger.info(f"[Motor] Resumen: {results}")
         return results
 
+    def procesar_anulaciones(self, limit: Optional[int] = None) -> Dict:
+        """
+        Compatibilidad hacia atras.
+        En v5.0 las anulaciones se procesan dentro de procesar().
+        Este metodo llama procesar() y filtra solo los resultados
+        de anulaciones — util para ejecucion CLI separada si se necesita.
+        """
+        logger.info("[Motor] procesar_anulaciones() → delegando a procesar()")
+        return self.procesar(limit=limit)
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # HELPERS
+    # ═════════════════════════════════════════════════════════════════════════
+
+    def _get_sender(self, tipo_str: str) -> UniversalSender:
+        if self._modo_sender == 'mock':
+            return UniversalSender(mode='mock')
+        endpoints = self.config.get_endpoints_para(tipo_str)
+        return UniversalSender(endpoints=endpoints)
+
+    def _nombre_endpoint(self, tipo_str: str) -> str:
+        endpoints = self.config.get_endpoints_para(tipo_str)
+        return ','.join(ep.get('nombre', '') for ep in endpoints) or 'mock'
+
+    @staticmethod
+    def _tipo_str(cpe: Dict) -> str:
+        """Convierte tipo_comprobante SUNAT → clave de endpoint en config."""
+        mapa = {
+            '1':  'factura',
+            '2':  'boleta',
+            '3':  'nota_credito',
+            '7':  'nota_debito',
+        }
+        # Anulaciones usan el tipo del doc original
+        if cpe.get('es_anulacion'):
+            return 'anulacion'
+        return mapa.get(str(cpe.get('tipo_comprobante', '2')), 'boleta')
