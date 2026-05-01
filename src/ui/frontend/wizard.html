@@ -3,634 +3,758 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DisateQ CPE™ — Asistente de Instalación</title>
-<script src="/eel.js"></script>
+<title>DisateQ — Configurar Cliente</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
 :root {
-  --bg:        #0d1117;
-  --surface:   #161b22;
-  --border:    #30363d;
-  --accent:    #2ea043;
-  --accent2:   #238636;
-  --warn:      #d29922;
-  --error:     #da3633;
-  --text:      #e6edf3;
-  --muted:     #8b949e;
-  --input-bg:  #0d1117;
-  --radius:    8px;
-  --step-w:    640px;
+  --bg:          #0b0d14;
+  --surface:     #12151f;
+  --surface-2:   #1a1d2e;
+  --border:      #242840;
+  --accent:      #f59e0b;
+  --accent-dim:  rgba(245,158,11,.13);
+  --accent-glow: rgba(245,158,11,.06);
+  --text:        #dde3f0;
+  --text-muted:  #525a7a;
+  --success:     #10b981;
+  --error:       #ef4444;
+  --mono:        'IBM Plex Mono', monospace;
+  --sans:        'DM Sans', sans-serif;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; }
 
 body {
-  font-family: 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
+  font-family: var(--sans);
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
 }
 
-/* HEADER */
-.wz-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-.wz-logo {
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  text-transform: uppercase;
-}
-.wz-title {
-  font-size: 1.5rem;
-  font-weight: 300;
-  color: var(--muted);
-  margin-top: 0.25rem;
-}
-
-/* STEPPER */
-.wz-stepper {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin-bottom: 2rem;
-  width: 100%;
-  max-width: var(--step-w);
-}
-.wz-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  position: relative;
-  cursor: default;
-}
-.wz-step-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+/* ─── SIDEBAR ─────────────────────────────────────────────── */
+.sidebar {
+  width: 214px;
+  min-width: 214px;
   background: var(--surface);
-  border: 2px solid var(--border);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.sidebar-brand {
+  padding: 22px 22px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: .06em;
+}
+.brand-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.steps-nav {
+  flex: 1;
+  padding: 22px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s;
+  position: relative;
+}
+.step-row.locked  { cursor: default; opacity: .38; pointer-events: none; }
+.step-row.active  { background: var(--accent-dim); }
+.step-row:not(.locked):not(.active):hover { background: var(--surface-2); }
+
+.step-bullet {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--muted);
-  transition: all 0.3s;
-  z-index: 1;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: all .2s;
 }
-.wz-step.active .wz-step-dot {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 0 4px rgba(46,160,67,0.2);
+.step-row.active  .step-bullet { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.step-row.done    .step-bullet { border-color: var(--success); color: var(--success); background: rgba(16,185,129,.1); font-size: 13px; }
+
+.step-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.2; }
+.step-row.active .step-text { color: var(--text); font-weight: 500; }
+.step-row.done   .step-text { color: var(--text); }
+
+.step-wire {
+  width: 1.5px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 0 0 22px;
 }
-.wz-step.done .wz-step-dot {
-  background: var(--accent2);
-  border-color: var(--accent2);
-  color: #fff;
+
+/* ─── MAIN ────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
 }
-.wz-step-label {
-  font-size: 0.65rem;
-  color: var(--muted);
-  margin-top: 0.35rem;
-  text-align: center;
+
+.progress-bar { height: 2px; background: var(--border); }
+.progress-fill { height: 100%; background: var(--accent); transition: width .45s ease; }
+
+.main-header {
+  padding: 22px 34px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.step-title { font-size: 19px; font-weight: 600; }
+.step-desc  { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+
+.badge {
+  padding: 4px 13px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--accent-dim);
+  border: 1px solid rgba(245,158,11,.25);
+  color: var(--accent);
   white-space: nowrap;
 }
-.wz-step.active .wz-step-label { color: var(--accent); }
-.wz-step-line {
+
+.panel-scroll {
   flex: 1;
-  height: 2px;
-  background: var(--border);
-  margin-top: -14px;
-  transition: background 0.3s;
+  overflow-y: auto;
+  padding: 30px 34px;
 }
-.wz-step-line.done { background: var(--accent2); }
+.panel-scroll::-webkit-scrollbar { width: 5px; }
+.panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.panel-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-/* CARD */
-.wz-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  width: 100%;
-  max-width: var(--step-w);
-  padding: 2rem;
+/* ─── FORM BASE ───────────────────────────────────────────── */
+.fg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  max-width: 580px;
 }
-.wz-card-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 0.35rem;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-.wz-card-title .step-num {
-  font-size: 0.7rem;
-  background: var(--accent);
-  color: #fff;
-  border-radius: 4px;
-  padding: 1px 7px;
-  font-weight: 700;
-}
-.wz-card-sub {
-  font-size: 0.82rem;
-  color: var(--muted);
-  margin-bottom: 1.5rem;
-  line-height: 1.5;
-}
+.fg.w1 { grid-template-columns: 1fr; }
 
-/* FORM */
-.wz-field { margin-bottom: 1.1rem; }
-.wz-label {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--muted);
-  margin-bottom: 0.35rem;
+.f { display: flex; flex-direction: column; gap: 7px; }
+.f.s2 { grid-column: span 2; }
+
+.f label {
+  font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: .07em;
+  color: var(--text-muted);
 }
-.wz-label .req { color: var(--error); margin-left: 2px; }
-.wz-input {
-  width: 100%;
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  padding: 0.55rem 0.85rem;
-  font-size: 0.9rem;
-  outline: none;
-  transition: border-color 0.2s;
-  font-family: inherit;
-}
-.wz-input:focus { border-color: var(--accent); }
-.wz-input.mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; }
-.wz-input[readonly] { color: var(--muted); cursor: default; }
+.f label .req { color: var(--accent); margin-left: 2px; }
 
-.wz-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-
-/* BUTTONS */
-.wz-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1.75rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
-}
-.btn {
-  padding: 0.55rem 1.4rem;
-  border-radius: var(--radius);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent2); }
-.btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
-.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-.btn-ghost:hover { color: var(--text); border-color: var(--muted); }
-.btn-warn { background: var(--warn); color: #000; }
-.btn-danger { background: var(--error); color: #fff; }
-
-/* ALERT */
-.wz-alert {
-  padding: 0.75rem 1rem;
-  border-radius: var(--radius);
-  font-size: 0.82rem;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  line-height: 1.5;
-}
-.wz-alert.info    { background: rgba(46,160,67,0.1);  border: 1px solid rgba(46,160,67,0.3);  color: #7ee787; }
-.wz-alert.warn    { background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.3); color: #e3b341; }
-.wz-alert.error   { background: rgba(218,54,51,0.1);  border: 1px solid rgba(218,54,51,0.3);  color: #ff7b72; }
-.wz-alert.neutral { background: rgba(139,148,158,0.1);border: 1px solid var(--border);        color: var(--muted); }
-
-/* LICENCIA PIN */
-.pin-row {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-  margin: 1.5rem 0;
-}
-.pin-input {
-  width: 56px; height: 64px;
-  text-align: center;
-  font-size: 1.6rem;
-  font-weight: 700;
-  background: var(--input-bg);
-  border: 2px solid var(--border);
+input, select, textarea {
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
   border-radius: 8px;
   color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 9px 13px;
   outline: none;
-  transition: border-color 0.2s;
+  width: 100%;
+  transition: border-color .15s, background .15s;
 }
-.pin-input:focus { border-color: var(--accent); }
-.pin-input.error  { border-color: var(--error); }
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+input.err, select.err { border-color: var(--error) !important; }
+input:disabled { opacity: .4; cursor: not-allowed; }
 
-/* FUENTE TIPO SELECTOR */
-.tipo-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-.tipo-card {
-  background: var(--input-bg);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem 0.75rem;
-  text-align: center;
+.mono { font-family: var(--mono); font-size: 13px; }
+select option { background: var(--surface-2); }
+input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
+
+.hint { font-size: 11px; color: var(--text-muted); }
+.ferr { font-size: 11px; color: var(--error); }
+
+/* ─── BUTTONS ─────────────────────────────────────────────── */
+.btn {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all .15s;
+  white-space: nowrap;
 }
-.tipo-card:hover { border-color: var(--muted); }
-.tipo-card.selected { border-color: var(--accent); background: rgba(46,160,67,0.08); }
-.tipo-card .tipo-icon { font-size: 1.6rem; margin-bottom: 0.35rem; }
-.tipo-card .tipo-name { font-size: 0.8rem; font-weight: 600; }
-.tipo-card .tipo-desc { font-size: 0.68rem; color: var(--muted); margin-top: 0.2rem; }
+.btn-primary  { background: var(--accent); color: #000; }
+.btn-primary:hover  { background: #fbbf24; }
+.btn-primary:disabled { opacity: .4; cursor: default; }
+.btn-outline  { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+.btn-outline:hover   { border-color: var(--accent); color: var(--accent); }
+.btn-ghost    { background: transparent; color: var(--text-muted); padding: 9px 4px; }
+.btn-ghost:hover    { color: var(--text); }
+.btn-success  { background: var(--success); color: #000; }
+.btn-success:hover  { background: #34d399; }
+.btn-success:disabled { opacity: .4; cursor: default; }
+.btn-sm { padding: 6px 13px; font-size: 12.5px; }
 
-/* EXPLORER RESULT */
-.explorer-result {
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  font-size: 0.8rem;
-  font-family: 'Consolas', monospace;
-  max-height: 200px;
-  overflow-y: auto;
-  color: var(--muted);
-  line-height: 1.6;
+/* ─── NAV FOOTER ──────────────────────────────────────────── */
+.nav-footer {
+  padding: 16px 34px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  flex-shrink: 0;
 }
-.explorer-result .ok   { color: #7ee787; }
-.explorer-result .warn { color: #e3b341; }
-.explorer-result .err  { color: #ff7b72; }
+.nav-l, .nav-r { display: flex; gap: 10px; align-items: center; }
 
-/* SPINNER */
-.spinner {
-  display: inline-block;
-  width: 18px; height: 18px;
+/* ─── ALERTS ──────────────────────────────────────────────── */
+.al {
+  padding: 11px 15px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  line-height: 1.4;
+}
+.al-info    { background: rgba(99,102,241,.1);  border: 1px solid rgba(99,102,241,.25);  color: #a5b4fc; }
+.al-success { background: rgba(16,185,129,.1);  border: 1px solid rgba(16,185,129,.25);  color: #34d399; }
+.al-error   { background: rgba(239,68,68,.1);   border: 1px solid rgba(239,68,68,.25);   color: #fca5a5; }
+.al-warn    { background: rgba(245,158,11,.1);  border: 1px solid rgba(245,158,11,.25);  color: #fcd34d; }
+
+/* ─── SPINNER ─────────────────────────────────────────────── */
+.spin {
+  width: 17px; height: 17px;
   border: 2px solid var(--border);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  vertical-align: middle;
+  animation: rot .65s linear infinite;
+  flex-shrink: 0;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes rot { to { transform: rotate(360deg); } }
 
-/* SERIES */
-.serie-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--input-bg);
+/* ─── STEP 3 table ────────────────────────────────────────── */
+.tbl-wrap {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 0.4rem;
+  border-radius: 8px;
+  overflow: auto;
+  margin-top: 16px;
+  max-width: 800px;
 }
-.serie-row input[type=number] {
-  width: 90px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  padding: 0.25rem 0.5rem;
-  font-size: 0.82rem;
-  outline: none;
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
 }
-.serie-row input[type=number]:focus { border-color: var(--accent); }
-.serie-badge {
-  font-size: 0.78rem;
-  font-weight: 700;
-  min-width: 50px;
+.tbl th {
+  background: var(--surface-2);
+  padding: 9px 13px;
+  text-align: left;
   color: var(--accent);
-  font-family: monospace;
-}
-.serie-muted { font-size: 0.72rem; color: var(--muted); }
-
-/* PRUEBA RESULTADO */
-.prueba-box {
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-top: 1rem;
-}
-.prueba-stat {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  padding: 0.35rem 0;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
-.prueba-stat:last-child { border-bottom: none; }
-.prueba-stat .val { font-weight: 700; color: var(--accent); }
-.prueba-stat .val.err { color: var(--error); }
+.tbl td {
+  padding: 8px 13px;
+  border-bottom: 1px solid rgba(36,40,64,.5);
+  color: var(--text);
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: var(--surface-2); }
 
-/* CHECKBOX toggle */
-.toggle-row {
+/* ─── STEP 4 contract ─────────────────────────────────────── */
+.csec { margin-bottom: 26px; }
+.csec-title {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--accent);
+  font-family: var(--mono);
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+.fmap {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.fmap-label {
+  font-size: 13px;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 0.82rem;
-  cursor: pointer;
-  margin-bottom: 0.75rem;
+  gap: 6px;
 }
-.toggle-row input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
-/* STEP PAGES */
-.wz-page { display: none; }
-.wz-page.active { display: block; }
-
-/* FINAL */
-.final-icon { font-size: 4rem; text-align: center; margin: 1rem 0; }
-.final-list { list-style: none; }
-.final-list li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.85rem;
+/* ─── STEP 5 series ───────────────────────────────────────── */
+.series-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  max-width: 560px;
+}
+.scard {
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  transition: border-color .2s;
+}
+.scard.on { border-color: rgba(245,158,11,.4); }
+.scard-hdr {
   display: flex;
-  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
-.final-list li:last-child { border-bottom: none; }
-.final-list .check { color: var(--accent); }
+.scard-name { font-size: 13px; font-weight: 500; }
+.scard-type { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); }
 
-/* SCROLLBAR */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--surface); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+/* toggle */
+.tog { position: relative; width: 38px; height: 21px; flex-shrink: 0; }
+.tog input { opacity: 0; width: 0; height: 0; }
+.tog-s {
+  position: absolute; inset: 0;
+  background: var(--border); border-radius: 11px;
+  cursor: pointer; transition: background .2s;
+}
+.tog-s::before {
+  content: '';
+  position: absolute;
+  width: 15px; height: 15px;
+  left: 3px; top: 3px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform .2s, background .2s;
+}
+.tog input:checked ~ .tog-s { background: var(--accent-dim); border: 1px solid var(--accent); }
+.tog input:checked ~ .tog-s::before { transform: translateX(17px); background: var(--accent); }
+
+/* ─── STEP 6 endpoint tabs ────────────────────────────────── */
+.ep-tabs { display: flex; gap: 8px; margin-bottom: 22px; }
+.ep-tab {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+}
+.ep-tab:hover  { border-color: var(--accent); color: var(--text); }
+.ep-tab.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+
+/* ─── SUCCESS screen ──────────────────────────────────────── */
+.ok-screen {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; text-align: center; gap: 14px;
+}
+.ok-icon {
+  width: 62px; height: 62px; border-radius: 50%;
+  background: rgba(16,185,129,.1); border: 2px solid var(--success);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+}
+.ok-title { font-size: 21px; font-weight: 600; }
+.ok-sub   { font-size: 13.5px; color: var(--text-muted); max-width: 360px; line-height: 1.5; }
+.id-pill  {
+  font-family: var(--mono); font-size: 13px;
+  padding: 5px 16px;
+  background: var(--accent-dim); border: 1px solid rgba(245,158,11,.3);
+  border-radius: 20px; color: var(--accent);
+}
+
+/* ─── UTILS ───────────────────────────────────────────────── */
+.hidden  { display: none !important; }
+.panel   { animation: fadeup .2s ease; }
+@keyframes fadeup { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+
+.row     { display: flex; align-items: center; gap: 10px; }
+.col     { display: flex; flex-direction: column; gap: 10px; }
+.mt8     { margin-top: 8px; }
+.mt16    { margin-top: 16px; }
+.mt22    { margin-top: 22px; }
 </style>
 </head>
 <body>
 
-<div class="wz-header">
-  <div class="wz-logo">DisateQ CPE™</div>
-  <div class="wz-title">Asistente de Instalación v4.0</div>
-</div>
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-name">DISATEQ</div>
+    <div class="brand-sub">Nuevo cliente — Wizard</div>
+  </div>
+  <nav class="steps-nav" id="stepsNav">
+    <div class="step-row active" data-step="1" id="sr1"><div class="step-bullet" id="sb1">1</div><div class="step-text">Datos del cliente</div></div>
+    <div class="step-wire"></div>
+    <div class="step-row locked" data-step="2" id="sr2"><div class="step-bullet" id="sb2">2</div><div class="step-text">Fuente de datos</div></div>
+    <div class="step-wire"></div>
+    <div class="step-row locked" data-step="3" id="sr3"><div class="step-bullet" id="sb3">3</div><div class="step-text">Verificación</div></div>
+    <div class="step-wire"></div>
+    <div class="step-row locked" data-step="4" id="sr4"><div class="step-bullet" id="sb4">4</div><div class="step-text">Contrato</div></div>
+    <div class="step-wire"></div>
+    <div class="step-row locked" data-step="5" id="sr5"><div class="step-bullet" id="sb5">5</div><div class="step-text">Series</div></div>
+    <div class="step-wire"></div>
+    <div class="step-row locked" data-step="6" id="sr6"><div class="step-bullet" id="sb6">6</div><div class="step-text">Credenciales</div></div>
+  </nav>
+</aside>
 
-<!-- STEPPER -->
-<div class="wz-stepper" id="stepper"></div>
+<!-- ══════════════ MAIN ══════════════ -->
+<div class="main">
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:16.6%"></div></div>
 
-<!-- CARD -->
-<div class="wz-card">
-
-  <!-- PASO 1: LICENCIA -->
-  <div class="wz-page active" id="page-1">
-    <div class="wz-card-title"><span class="step-num">01</span> Licencia</div>
-    <div class="wz-card-sub">Ingresa el código de activación proporcionado por DisateQ™. Si no tienes uno, puedes continuar en modo Trial por 30 días.</div>
-    <div id="lic-alert" class="wz-alert neutral" style="display:none"></div>
-    <div class="wz-field">
-      <label class="wz-label">Código de activación</label>
-      <input type="text" id="lic-codigo" class="wz-input mono" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19"
-             oninput="formatLicCode(this)" style="text-transform:uppercase;letter-spacing:0.1em;">
+  <div class="main-header" id="mainHeader">
+    <div>
+      <div class="step-title" id="stepTitle">Datos del cliente</div>
+      <div class="step-desc" id="stepDesc">Información básica del emisor de comprobantes</div>
     </div>
-    <div id="lic-estado" style="display:none;"></div>
-    <div class="wz-actions">
-      <button class="btn btn-ghost" onclick="usarTrial()">Continuar en Trial (30 días)</button>
-      <button class="btn btn-primary" onclick="validarLicencia()">Validar y Continuar →</button>
-    </div>
+    <div class="badge" id="stepBadge">Paso 1 de 6</div>
   </div>
 
-  <!-- PASO 2: EMPRESA -->
-  <div class="wz-page" id="page-2">
-    <div class="wz-card-title"><span class="step-num">02</span> Datos de la Empresa</div>
-    <div class="wz-card-sub">Ingresa los datos del cliente donde se instalará el Motor CPE.</div>
-    <div class="wz-grid2">
-      <div class="wz-field">
-        <label class="wz-label">RUC <span class="req">*</span></label>
-        <input type="text" id="emp-ruc" class="wz-input mono" placeholder="20123456789" maxlength="11" oninput="this.value=this.value.replace(/\D/g,'')">
-      </div>
-      <div class="wz-field">
-        <label class="wz-label">Alias / Local <span class="req">*</span></label>
-        <input type="text" id="emp-alias" class="wz-input" placeholder="farmacia_central">
-      </div>
-      <div class="wz-field" style="grid-column:span 2">
-        <label class="wz-label">Razón Social <span class="req">*</span></label>
-        <input type="text" id="emp-razon" class="wz-input" placeholder="FARMACIA CENTRAL S.A.C.">
-      </div>
-      <div class="wz-field" style="grid-column:span 2">
-        <label class="wz-label">Nombre Comercial</label>
-        <input type="text" id="emp-nombre" class="wz-input" placeholder="Farmacia Central">
-      </div>
-    </div>
-    <div id="emp-alert" class="wz-alert error" style="display:none"></div>
-    <div class="wz-actions">
-      <button class="btn btn-ghost" onclick="irPaso(1)">← Atrás</button>
-      <button class="btn btn-primary" onclick="validarEmpresa()">Siguiente →</button>
-    </div>
-  </div>
+  <div class="panel-scroll" id="panelScroll">
 
-  <!-- PASO 3: FUENTE DE DATOS -->
-  <div class="wz-page" id="page-3">
-    <div class="wz-card-title"><span class="step-num">03</span> Fuente de Datos</div>
-    <div class="wz-card-sub">Selecciona el tipo de sistema de ventas del cliente y apunta a sus datos.</div>
-
-    <div class="tipo-grid">
-      <div class="tipo-card selected" onclick="selTipo('dbf')" id="tipo-dbf">
-        <div class="tipo-icon">🗄️</div>
-        <div class="tipo-name">DBF / FoxPro</div>
-        <div class="tipo-desc">Sistemas legacy</div>
-      </div>
-      <div class="tipo-card" onclick="selTipo('xlsx')" id="tipo-xlsx">
-        <div class="tipo-icon">📊</div>
-        <div class="tipo-name">Excel / XLSX</div>
-        <div class="tipo-desc">DisateQ POS™</div>
-      </div>
-      <div class="tipo-card" onclick="selTipo('sqlserver')" id="tipo-sqlserver">
-        <div class="tipo-icon">🔷</div>
-        <div class="tipo-name">SQL Server</div>
-        <div class="tipo-desc">Sistemas .NET/ERP</div>
-      </div>
-    </div>
-
-    <!-- DBF / XLSX: ruta carpeta -->
-    <div id="fuente-ruta" class="wz-field">
-      <label class="wz-label">Ruta de datos <span class="req">*</span></label>
-      <div style="display:flex;gap:0.5rem;">
-        <input type="text" id="fuente-ruta-input" class="wz-input mono" placeholder="D:/SISTEMA/datos/">
-        <button class="btn btn-ghost" onclick="seleccionarCarpeta()" style="white-space:nowrap;">📁 Explorar</button>
-      </div>
-    </div>
-
-    <!-- SQL: servidor / base / credenciales -->
-    <div id="fuente-sql" style="display:none;">
-      <div class="wz-grid2">
-        <div class="wz-field">
-          <label class="wz-label">Servidor <span class="req">*</span></label>
-          <input type="text" id="sql-servidor" class="wz-input mono" placeholder="192.168.1.10\SQLEXPRESS">
+    <!-- ── PASO 1 — CLIENTE ─────────────────────────────── -->
+    <div class="panel" id="p1">
+      <div class="fg">
+        <div class="f s2">
+          <label>RUC Emisor <span class="req">*</span></label>
+          <input type="text" id="f_ruc" class="mono" maxlength="11" placeholder="20XXXXXXXXX" autocomplete="off">
+          <div class="hint">11 dígitos — persona natural (10) o empresa (20)</div>
+          <div class="ferr hidden" id="e_ruc"></div>
         </div>
-        <div class="wz-field">
-          <label class="wz-label">Puerto</label>
-          <input type="text" id="sql-puerto" class="wz-input mono" placeholder="1433">
+        <div class="f s2">
+          <label>Razón Social / Nombre <span class="req">*</span></label>
+          <input type="text" id="f_rs" placeholder="Ej: Farmacia Central SAC" autocomplete="off">
+          <div class="ferr hidden" id="e_rs"></div>
         </div>
-        <div class="wz-field" style="grid-column:span 2">
-          <label class="wz-label">Base de datos <span class="req">*</span></label>
-          <input type="text" id="sql-db" class="wz-input mono" placeholder="ventas_db">
+        <div class="f">
+          <label>Régimen Fiscal <span class="req">*</span></label>
+          <select id="f_reg">
+            <option value="">— Seleccionar —</option>
+            <option value="RER">RER — Régimen Especial</option>
+            <option value="RMT">RMT — MYPE Tributario</option>
+            <option value="MYPE">MYPE — Pequeña empresa</option>
+            <option value="RG">RG — General</option>
+          </select>
+          <div class="ferr hidden" id="e_reg"></div>
         </div>
-        <div class="wz-field">
-          <label class="wz-label">Usuario</label>
-          <input type="text" id="sql-usuario" class="wz-input" placeholder="sa">
-        </div>
-        <div class="wz-field">
-          <label class="wz-label">Contraseña</label>
-          <input type="password" id="sql-clave" class="wz-input">
+        <div class="f">
+          <label>ID Cliente <span class="req">*</span></label>
+          <input type="text" id="f_id" class="mono" placeholder="Auto-generado" autocomplete="off">
+          <div class="hint">Identificador interno único, sin espacios</div>
+          <div class="ferr hidden" id="e_id"></div>
         </div>
       </div>
     </div>
 
-    <div id="explorer-status" style="display:none;margin-bottom:0.75rem;"></div>
-    <div id="explorer-result" class="explorer-result" style="display:none;"></div>
-    <div id="fuente-manual" style="display:none;margin-top:0.75rem;">
-      <div class="wz-alert warn">⚠️ No se pudo analizar automáticamente. El contrato YAML se generará con campos por completar manualmente.</div>
+    <!-- ── PASO 2 — FUENTE ──────────────────────────────── -->
+    <div class="panel hidden" id="p2">
+      <div class="fg" style="max-width:560px">
+        <div class="f s2">
+          <label>Tipo de fuente <span class="req">*</span></label>
+          <select id="f_tipo" onchange="onTipoFuente()">
+            <option value="">— Seleccionar —</option>
+            <option value="dbf">DBF (FoxPro / Clipper)</option>
+            <option value="excel">Excel (.xlsx / .xls)</option>
+            <option value="csv">CSV</option>
+            <option value="sqlserver">SQL Server</option>
+            <option value="mysql">MySQL / MariaDB</option>
+            <option value="postgresql">PostgreSQL</option>
+            <option value="access">Access (.mdb / .accdb)</option>
+          </select>
+        </div>
+
+        <!-- archivos -->
+        <div class="f s2 hidden" id="grp_file">
+          <label>Ruta <span id="lbl_file"></span><span class="req">*</span></label>
+          <div class="row">
+            <input type="text" id="f_ruta" class="mono" placeholder="C:\sistemas\data" style="flex:1">
+            <button class="btn btn-outline btn-sm" onclick="explorarRuta()">Explorar</button>
+          </div>
+          <div class="hint" id="hint_ruta"></div>
+          <div class="ferr hidden" id="e_ruta"></div>
+        </div>
+
+        <!-- bases de datos -->
+        <div class="f s2 hidden" id="grp_db_host">
+          <label>Host <span class="req">*</span></label>
+          <input type="text" id="f_host" class="mono" value="localhost">
+        </div>
+        <div class="f hidden" id="grp_db_port">
+          <label>Puerto</label>
+          <input type="text" id="f_port" class="mono">
+        </div>
+        <div class="f hidden" id="grp_db_name">
+          <label>Base de datos <span class="req">*</span></label>
+          <input type="text" id="f_dbname" class="mono" placeholder="nombre_bd">
+        </div>
+        <div class="f hidden" id="grp_db_user">
+          <label>Usuario <span class="req">*</span></label>
+          <input type="text" id="f_dbuser" class="mono" autocomplete="off">
+        </div>
+        <div class="f hidden" id="grp_db_pass">
+          <label>Contraseña</label>
+          <input type="password" id="f_dbpass" placeholder="••••••••" autocomplete="new-password">
+        </div>
+      </div>
     </div>
 
-    <div id="fuente-alert" class="wz-alert error" style="display:none"></div>
-    <div class="wz-actions">
-      <button class="btn btn-ghost" onclick="irPaso(2)">← Atrás</button>
-      <div style="display:flex;gap:0.6rem;">
-        <button class="btn btn-ghost" id="btn-explorar" onclick="explorarFuente()">🔍 Analizar fuente</button>
-        <button class="btn btn-primary" id="btn-sig-3" onclick="validarFuente()">Siguiente →</button>
+    <!-- ── PASO 3 — VERIFICACIÓN ────────────────────────── -->
+    <div class="panel hidden" id="p3">
+      <div style="max-width:760px">
+        <div class="al al-info mt8" style="margin-bottom:20px">
+          <span>ℹ</span>
+          <span>El motor leerá los primeros registros de la fuente. Confirma que el acceso es correcto antes de continuar.</span>
+        </div>
+        <div class="row" style="margin-bottom:18px">
+          <button class="btn btn-primary" id="btnTest" onclick="testConexion()">Probar conexión</button>
+          <div class="spin hidden" id="spinTest"></div>
+          <span id="lblTest" style="font-size:13px; color:var(--text-muted)"></span>
+        </div>
+        <div id="resTest" class="hidden col" style="gap:12px">
+          <div class="al" id="alTest"></div>
+          <div class="tbl-wrap hidden" id="tblWrap">
+            <table class="tbl">
+              <thead id="tblHead"></thead>
+              <tbody id="tblBody"></tbody>
+            </table>
+          </div>
+          <div style="font-size:11.5px; color:var(--text-muted)" id="tblInfo"></div>
+        </div>
       </div>
+    </div>
+
+    <!-- ── PASO 4 — CONTRATO ────────────────────────────── -->
+    <div class="panel hidden" id="p4">
+      <div style="max-width:660px">
+        <div class="row" style="justify-content:space-between; margin-bottom:22px">
+          <div style="font-size:13px; color:var(--text-muted)">
+            Mapea los campos del sistema fuente a la estructura CPE.
+          </div>
+          <button class="btn btn-outline btn-sm" id="btnAuto" onclick="autoContrato()">✦ Generar automático (IA)</button>
+        </div>
+        <div id="alAuto" class="hidden" style="margin-bottom:16px"></div>
+
+        <!-- Tabla de comprobantes -->
+        <div class="csec">
+          <div class="csec-title">Tabla de comprobantes</div>
+          <div class="fg" style="max-width:100%">
+            <div class="f">
+              <label>Tabla / archivo <span class="req">*</span></label>
+              <input type="text" id="c_tabla" class="mono" placeholder="ej: enviosffee">
+            </div>
+            <div class="f">
+              <label>Campo flag <span class="req">*</span></label>
+              <input type="text" id="c_flag_c" class="mono" placeholder="ej: FLAG_ENVIO">
+            </div>
+            <div class="f">
+              <label>Valor pendiente <span class="req">*</span></label>
+              <input type="text" id="c_flag_v" class="mono" placeholder="ej: 2">
+            </div>
+            <div class="f">
+              <label>Tipo del valor</label>
+              <select id="c_flag_t">
+                <option value="integer">integer</option>
+                <option value="string">string</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campos -->
+        <div class="csec">
+          <div class="csec-title">Campos del comprobante</div>
+          <div class="col" style="gap:9px">
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Número</span><input type="text" id="c_num" class="mono" placeholder="ej: NRO_MOVIM"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Serie</span><input type="text" id="c_ser" class="mono" placeholder="ej: SERIE_FACT"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Tipo doc.</span><input type="text" id="c_tdc" class="mono" placeholder="ej: TIPO_FACTU"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Fecha</span><input type="text" id="c_fec" class="mono" placeholder="ej: FECHA_EMIS"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>RUC cliente</span><input type="text" id="c_ruc" class="mono" placeholder="ej: RUC_CLIEN"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Nombre cliente</span><input type="text" id="c_nom" class="mono" placeholder="ej: NOM_CLIEN"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Total <span class="req">*</span></span><input type="text" id="c_tot" class="mono" placeholder="ej: TOT_PAGAR"></div>
+          </div>
+        </div>
+
+        <!-- Items -->
+        <div class="csec">
+          <div class="csec-title">Tabla de ítems (detalle)</div>
+          <div class="col" style="gap:9px">
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Tabla ítems</span><input type="text" id="c_ti" class="mono" placeholder="ej: detalleventa"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Join campo</span><input type="text" id="c_tj" class="mono" placeholder="ej: NRO_MOVIM"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Código prod.</span><input type="text" id="c_tc" class="mono" placeholder="ej: COD_PROD"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Descripción</span><input type="text" id="c_td" class="mono" placeholder="ej: NOM_PROD"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Cantidad</span><input type="text" id="c_tq" class="mono" placeholder="ej: CANT_VEND"></div>
+            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Precio unit.</span><input type="text" id="c_tp" class="mono" placeholder="ej: PRE_VENTA"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PASO 5 — SERIES ──────────────────────────────── -->
+    <div class="panel hidden" id="p5">
+      <div style="max-width:560px">
+        <div class="al al-warn" style="margin-bottom:22px">
+          <span>⚠</span>
+          <span>Solo se procesarán comprobantes cuya serie esté habilitada. Las demás quedarán como IGNORADO.</span>
+        </div>
+        <div class="series-grid">
+          <!-- 01 Facturas -->
+          <div class="scard" id="sc_01">
+            <div class="scard-hdr">
+              <div><div class="scard-name">Facturas</div><div class="scard-type">Tipo 01 — F</div></div>
+              <label class="tog"><input type="checkbox" id="tog_01" onchange="toggleSerie('01')"><span class="tog-s"></span></label>
+            </div>
+            <div class="f"><input type="text" id="s_01" class="mono" placeholder="F001" disabled></div>
+          </div>
+          <!-- 02 Boletas -->
+          <div class="scard" id="sc_02">
+            <div class="scard-hdr">
+              <div><div class="scard-name">Boletas</div><div class="scard-type">Tipo 02 — B</div></div>
+              <label class="tog"><input type="checkbox" id="tog_02" onchange="toggleSerie('02')"><span class="tog-s"></span></label>
+            </div>
+            <div class="f"><input type="text" id="s_02" class="mono" placeholder="B001" disabled></div>
+          </div>
+          <!-- 07 Notas crédito -->
+          <div class="scard" id="sc_07">
+            <div class="scard-hdr">
+              <div><div class="scard-name">Notas de crédito</div><div class="scard-type">Tipo 07 — FC / BC</div></div>
+              <label class="tog"><input type="checkbox" id="tog_07" onchange="toggleSerie('07')"><span class="tog-s"></span></label>
+            </div>
+            <div class="row">
+              <input type="text" id="s_07a" class="mono" placeholder="FC01" disabled style="flex:1">
+              <input type="text" id="s_07b" class="mono" placeholder="BC01" disabled style="flex:1">
+            </div>
+          </div>
+          <!-- AN Anulaciones -->
+          <div class="scard" id="sc_an">
+            <div class="scard-hdr">
+              <div><div class="scard-name">Anulaciones</div><div class="scard-type">Resumen — BEE / FEE</div></div>
+              <label class="tog"><input type="checkbox" id="tog_an" onchange="toggleSerie('an')"><span class="tog-s"></span></label>
+            </div>
+            <div class="f"><input type="text" id="s_an" class="mono" placeholder="BEE1" disabled></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PASO 6 — CREDENCIALES ────────────────────────── -->
+    <div class="panel hidden" id="p6">
+      <div style="max-width:520px">
+        <div style="font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin-bottom:10px">
+          Proveedor de envío
+        </div>
+        <div class="ep-tabs">
+          <button class="ep-tab active" id="et_apifas"  onclick="selectEp('apifas')">APIFAS</button>
+          <button class="ep-tab"        id="et_nubef"   onclick="selectEp('nubef')">Nubefact</button>
+          <button class="ep-tab"        id="et_disateq" onclick="selectEp('disateq')">DisateQ Platform</button>
+        </div>
+
+        <div id="cred_apifas" class="fg w1">
+          <div class="f">
+            <label>Token API <span class="req">*</span></label>
+            <input type="password" id="ap_tok" class="mono" placeholder="••••••••••••" autocomplete="new-password">
+          </div>
+          <div class="f">
+            <label>URL Base</label>
+            <input type="text" id="ap_url" class="mono" value="https://api.apifas.com/v1">
+          </div>
+          <div class="al al-info"><span>ℹ</span><span>Test de envío real en TASK-008. Aquí solo se guardan las credenciales.</span></div>
+        </div>
+
+        <div id="cred_nubef" class="fg w1 hidden">
+          <div class="f">
+            <label>Token Nubefact <span class="req">*</span></label>
+            <input type="password" id="nb_tok" class="mono" placeholder="••••••••••••" autocomplete="new-password">
+          </div>
+          <div class="al al-info"><span>ℹ</span><span>Nubefact usa el token en el header de cada envío.</span></div>
+        </div>
+
+        <div id="cred_disateq" class="fg w1 hidden">
+          <div class="f">
+            <label>API Key <span class="req">*</span></label>
+            <input type="password" id="dq_key" class="mono" placeholder="dq-••••••••••••" autocomplete="new-password">
+          </div>
+          <div class="f">
+            <label>URL Base</label>
+            <input type="text" id="dq_url" class="mono" value="https://platform.disateq.com/api/v1">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ÉXITO ─────────────────────────────────────────── -->
+    <div class="panel hidden" id="pOK">
+      <div class="ok-screen">
+        <div class="ok-icon">✓</div>
+        <div class="ok-title">Cliente configurado</div>
+        <div class="ok-sub">El contrato y las credenciales han sido guardados correctamente. El motor puede procesar este cliente.</div>
+        <div class="id-pill" id="okId"></div>
+        <div class="row mt8">
+          <button class="btn btn-primary" onclick="irDashboard()">Ir al Dashboard</button>
+          <button class="btn btn-outline" onclick="nuevoCliente()">Configurar otro cliente</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-scroll -->
+
+  <!-- ── NAV FOOTER ──────────────────────────────────────── -->
+  <div class="nav-footer" id="navFooter">
+    <div class="nav-l">
+      <button class="btn btn-ghost" id="btnBack" onclick="goBack()" style="display:none">← Atrás</button>
+    </div>
+    <div class="nav-r">
+      <button class="btn btn-outline" onclick="cancelar()">Cancelar</button>
+      <button class="btn btn-primary" id="btnNext" onclick="goNext()">Siguiente →</button>
     </div>
   </div>
-
-  <!-- PASO 4: SERIES -->
-  <div class="wz-page" id="page-4">
-    <div class="wz-card-title"><span class="step-num">04</span> Series y Correlativos</div>
-    <div class="wz-card-sub">Configura las series habilitadas y el correlativo de inicio para cada tipo de comprobante.</div>
-    <div id="modo-reconf-aviso" class="wz-alert warn" style="display:none;">
-      ⚠️ Modo reconfiguración — series actuales cargadas. Activa el toggle para editar.
-      <label class="toggle-row" style="margin-top:0.5rem;margin-bottom:0;">
-        <input type="checkbox" id="toggle-editar-series" onchange="toggleEditarSeries(this.checked)"> Permitir edición de series
-      </label>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" id="series-container">
-      <div>
-        <div class="wz-label" style="margin-bottom:0.5rem;">BOLETAS</div>
-        <div id="series-boleta"></div>
-        <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem;margin-top:0.35rem;" onclick="addSerie('boleta','B')">+ Agregar</button>
-      </div>
-      <div>
-        <div class="wz-label" style="margin-bottom:0.5rem;">FACTURAS</div>
-        <div id="series-factura"></div>
-        <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem;margin-top:0.35rem;" onclick="addSerie('factura','F')">+ Agregar</button>
-      </div>
-      <div>
-        <div class="wz-label" style="margin-bottom:0.5rem;">NOTAS CRÉDITO</div>
-        <div id="series-nota_credito"></div>
-        <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem;margin-top:0.35rem;" onclick="addSerie('nota_credito','BC')">+ Agregar</button>
-      </div>
-      <div>
-        <div class="wz-label" style="margin-bottom:0.5rem;">NOTAS DÉBITO</div>
-        <div id="series-nota_debito"></div>
-        <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.8rem;margin-top:0.35rem;" onclick="addSerie('nota_debito','BD')">+ Agregar</button>
-      </div>
-    </div>
-    <div class="wz-actions">
-      <button class="btn btn-ghost" onclick="irPaso(3)">← Atrás</button>
-      <button class="btn btn-primary" onclick="irPaso(5)">Siguiente →</button>
-    </div>
-  </div>
-
-  <!-- PASO 5: ENDPOINT -->
-  <div class="wz-page" id="page-5">
-    <div class="wz-card-title"><span class="step-num">05</span> Endpoint de Envío</div>
-    <div class="wz-card-sub">Configura el servidor al que el Motor enviará los comprobantes. APIFAS está preconfigurado.</div>
-    <div class="wz-field">
-      <label class="wz-label">Tipo de endpoint</label>
-      <select id="ep-tipo" class="wz-input" onchange="onEpTipoChange(this.value)">
-        <option value="apifas">APIFAS — DisateQ™ (recomendado)</option>
-        <option value="ose">OSE — Operador de Servicios Electrónicos</option>
-        <option value="pse">PSE — Proveedor de Servicios Electrónicos</option>
-        <option value="custom">Personalizado</option>
-      </select>
-    </div>
-    <div class="wz-field">
-      <label class="wz-label">URL del endpoint <span class="req">*</span></label>
-      <input type="text" id="ep-url" class="wz-input mono" value="https://apifas.disateq.com/produccion_text.php">
-    </div>
-    <div class="wz-grid2">
-      <div class="wz-field">
-        <label class="wz-label">Usuario API <span style="color:var(--muted);font-size:0.68rem;">(opcional)</span></label>
-        <input type="text" id="ep-usuario" class="wz-input" placeholder="Dejar vacío si no aplica">
-      </div>
-      <div class="wz-field">
-        <label class="wz-label">Token <span style="color:var(--muted);font-size:0.68rem;">(opcional)</span></label>
-        <input type="password" id="ep-token" class="wz-input" placeholder="Dejar vacío si no aplica">
-      </div>
-    </div>
-    <div id="ep-alert" class="wz-alert error" style="display:none"></div>
-    <div class="wz-actions">
-      <button class="btn btn-ghost" onclick="irPaso(4)">← Atrás</button>
-      <button class="btn btn-primary" onclick="validarEndpoint()">Siguiente →</button>
-    </div>
-  </div>
-
-  <!-- PASO 6: PRUEBA -->
-  <div class="wz-page" id="page-6">
-    <div class="wz-card-title"><span class="step-num">06</span> Prueba de Conexión</div>
-    <div class="wz-card-sub">Verifica que todo funciona antes de activar el sistema en producción.</div>
-    <div id="prueba-alert" class="wz-alert neutral">
-      ℹ️ La prueba procesará hasta 3 comprobantes en modo simulado (MOCK). No se enviará nada a SUNAT.
-    </div>
-    <div id="prueba-estado" style="display:none;"></div>
-    <div id="prueba-resultado" class="prueba-box" style="display:none;"></div>
-    <div id="prueba-real-section" style="display:none;margin-top:1rem;">
-      <div class="wz-alert warn">⚠️ Envío real: se procesará 1 comprobante y se enviará a SUNAT a través del endpoint configurado.</div>
-      <div style="display:flex;gap:0.75rem;margin-top:0.75rem;">
-        <button class="btn btn-warn" onclick="confirmarEnvioReal()">Enviar 1 real de prueba</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('prueba-real-section').style.display='none'">Cancelar</button>
-      </div>
-    </div>
-    <div class="wz-actions">
-      <button class="btn btn-ghost" onclick="irPaso(5)">← Atrás</button>
-      <div style="display:flex;gap:0.6rem;">
-        <button class="btn btn-ghost" id="btn-prueba" onclick="ejecutarPrueba()">▶ Ejecutar prueba</button>
-        <button class="btn btn-ghost" id="btn-envio-real" style="display:none;" onclick="mostrarEnvioReal()">📡 Enviar real</button>
-        <button class="btn btn-primary" id="btn-finalizar" onclick="finalizar()" disabled>✅ Finalizar instalación</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- PASO FINAL: ÉXITO -->
-  <div class="wz-page" id="page-final">
-    <div class="final-icon">✅</div>
-    <div style="text-align:center;margin-bottom:1.5rem;">
-      <div style="font-size:1.2rem;font-weight:600;margin-bottom:0.35rem;">Instalación completada</div>
-      <div style="color:var(--muted);font-size:0.85rem;">El Motor CPE DisateQ™ está listo para producción.</div>
-    </div>
-    <ul class="final-list" id="final-resumen"></ul>
-    <div class="wz-actions" style="justify-content:center;border-top:none;padding-top:1rem;">
-      <button class="btn btn-primary" onclick="abrirMotor()" style="padding:0.7rem 2.5rem;font-size:1rem;">
-        🚀 Abrir Motor CPE
-      </button>
-    </div>
-  </div>
-
-</div>
-
-<!-- toast -->
-<div id="toast" style="position:fixed;bottom:1.5rem;right:1.5rem;display:none;
-  background:var(--surface);border:1px solid var(--border);border-radius:8px;
-  padding:0.75rem 1.25rem;font-size:0.85rem;color:var(--text);
-  box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:999;max-width:320px;"></div>
+</div><!-- /main -->
 
 <script src="js/wizard.js"></script>
 </body>

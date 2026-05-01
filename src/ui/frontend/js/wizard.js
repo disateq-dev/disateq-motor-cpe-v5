@@ -1,742 +1,532 @@
-/**
- * wizard.js — DisateQ CPE™ v4.0
- * Lógica del asistente de instalación (6 pasos)
- */
+// ══════════════════════════════════════════════════════════════════
+//  DisateQ Motor CPE v5.0  —  Wizard JS
+//  Migrado: eel.xxx() → window.pywebview.api.xxx()
+//  TASK-005 — 2026-05-01
+// ══════════════════════════════════════════════════════════════════
 
-// ================================================================
-// ESTADO GLOBAL
-// ================================================================
+'use strict';
 
-var WZ = {
-    paso:        1,
-    modo:        'nuevo',   // 'nuevo' | 'reconfigurar'
-    licencia:    { valida: false, tipo: 'Trial', codigo: '' },
-    empresa:     { ruc: '', alias: '', razon_social: '', nombre_comercial: '' },
-    fuente:      { tipo: 'dbf', ruta: '', servidor: '', base_datos: '', usuario: '', clave: '', puerto: '' },
-    explorado:   false,
-    contrato:    null,
-    series:      { boleta: [], factura: [], nota_credito: [], nota_debito: [] },
-    endpoint:    { nombre: 'APIFAS', url: 'https://apifas.disateq.com/produccion_text.php', usuario: '', token: '' },
-    prueba_ok:   false
+// ── Metadatos de pasos ─────────────────────────────────────────
+const STEPS = {
+  1: { title: 'Datos del cliente',     desc: 'Información básica del emisor de comprobantes' },
+  2: { title: 'Fuente de datos',       desc: 'Tipo de sistema y ruta o conexión de origen' },
+  3: { title: 'Verificación',          desc: 'Lectura de muestra para confirmar acceso a la fuente' },
+  4: { title: 'Contrato de campos',    desc: 'Mapeo entre campos del sistema fuente y la estructura CPE' },
+  5: { title: 'Series habilitadas',    desc: 'Tipos y series de comprobantes que serán procesados' },
+  6: { title: 'Credenciales de envío', desc: 'Proveedor y token para envío a SUNAT' },
 };
 
-var PASOS = [
-    { num: 1, label: 'Licencia'  },
-    { num: 2, label: 'Empresa'   },
-    { num: 3, label: 'Fuente'    },
-    { num: 4, label: 'Series'    },
-    { num: 5, label: 'Endpoint'  },
-    { num: 6, label: 'Prueba'    }
-];
+const FILE_TYPES = new Set(['dbf', 'excel', 'csv', 'access']);
+const DB_PORTS   = { sqlserver: '1433', mysql: '3306', postgresql: '5432' };
 
-// ================================================================
-// INIT
-// ================================================================
+// ── Estado global ──────────────────────────────────────────────
+const W = {
+  step:       1,
+  maxStep:    1,      // máximo paso desbloqueado
+  conexionOk: false,  // paso 3 validado
+  endpoint:   'apifas',
+  data: {
+    cliente:      {},
+    fuente:       {},
+    contrato:     {},
+    series:       {},
+    credenciales: {},
+  },
+};
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Detectar modo reconfigurar desde URL
-    var params = new URLSearchParams(window.location.search);
-    if (params.get('modo') === 'reconfigurar') {
-        WZ.modo = 'reconfigurar';
-        cargarConfigExistente();
-    }
-    renderStepper();
-    renderSeriesDefault();
+// ── Init ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  bindSidebarClicks();
+  bindRucAutoId();
+  renderSidebar();
+  updateHeader();
 });
 
-function renderStepper() {
-    var html = '';
-    for (var i = 0; i < PASOS.length; i++) {
-        var p = PASOS[i];
-        var cls = p.num === WZ.paso ? 'active' : (p.num < WZ.paso ? 'done' : '');
-        html += '<div class="wz-step ' + cls + '">' +
-            '<div class="wz-step-dot">' + (p.num < WZ.paso ? '✓' : p.num) + '</div>' +
-            '<div class="wz-step-label">' + p.label + '</div>' +
-            '</div>';
-        if (i < PASOS.length - 1) {
-            html += '<div class="wz-step-line ' + (p.num < WZ.paso ? 'done' : '') + '"></div>';
-        }
+// ── Sidebar clicks ─────────────────────────────────────────────
+function bindSidebarClicks() {
+  document.querySelectorAll('.step-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const n = parseInt(el.dataset.step, 10);
+      if (n <= W.maxStep) goTo(n);
+    });
+  });
+}
+
+// ── RUC → clienteId automático ─────────────────────────────────
+function bindRucAutoId() {
+  document.getElementById('f_ruc').addEventListener('input', () => {
+    const ruc = document.getElementById('f_ruc').value.trim();
+    if (ruc.length >= 8) {
+      document.getElementById('f_id').value = 'cliente_' + ruc.slice(-6);
     }
-    document.getElementById('stepper').innerHTML = html;
+  });
 }
 
-function irPaso(n) {
-    document.getElementById('page-' + WZ.paso).classList.remove('active');
-    WZ.paso = n;
-    var page = document.getElementById('page-' + n);
-    if (page) page.classList.add('active');
-    renderStepper();
-    window.scrollTo(0, 0);
-
-    // Acciones al entrar a cada paso
-    if (n === 4) initSeries();
+// ── Navegación principal ───────────────────────────────────────
+function goTo(n) {
+  document.getElementById(`p${W.step}`).classList.add('hidden');
+  document.getElementById(`p${n}`).classList.remove('hidden');
+  W.step = n;
+  if (n > W.maxStep) W.maxStep = n;
+  renderSidebar();
+  updateHeader();
+  updateFooter();
 }
 
-// ================================================================
-// PASO 1 — LICENCIA
-// ================================================================
-
-function formatLicCode(input) {
-    var v = input.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().substring(0, 16);
-    var parts = [];
-    for (var i = 0; i < v.length; i += 4) parts.push(v.substring(i, i + 4));
-    input.value = parts.join('-');
+function goNext() {
+  clearErrors();
+  if (!validate(W.step)) return;
+  saveStep(W.step);
+  if (W.step === 6) { guardarWizard(); return; }
+  goTo(W.step + 1);
 }
 
-async function validarLicencia() {
-    var codigo = document.getElementById('lic-codigo').value.replace(/-/g, '');
-    if (codigo.length < 16) {
-        showAlert('lic-alert', 'warn', '⚠️ El código debe tener 16 caracteres (XXXX-XXXX-XXXX-XXXX)');
-        return;
-    }
-    var alert = document.getElementById('lic-alert');
-    alert.className = 'wz-alert neutral';
-    alert.style.display = 'flex';
-    alert.innerHTML = '<span class="spinner"></span> Validando licencia...';
-
-    try {
-        var result = await eel.wz_validar_licencia(codigo)();
-        if (result.valida) {
-            WZ.licencia = { valida: true, tipo: result.tipo || 'Full', codigo: codigo };
-            showAlert('lic-alert', 'info', '✅ Licencia válida — ' + WZ.licencia.tipo);
-            setTimeout(function() { irPaso(2); }, 800);
-        } else {
-            showAlert('lic-alert', 'error', '❌ Licencia inválida o expirada. Verifica el código o continúa en Trial.');
-        }
-    } catch(e) {
-        showAlert('lic-alert', 'error', '❌ No se pudo contactar el servidor de licencias. Continúa en Trial.');
-    }
+function goBack() {
+  if (W.step > 1) goTo(W.step - 1);
 }
 
-function usarTrial() {
-    WZ.licencia = { valida: true, tipo: 'Trial 30 días', codigo: 'TRIAL' };
-    showAlert('lic-alert', 'warn', '⚠️ Modo Trial activado — 30 días de uso.');
-    setTimeout(function() { irPaso(2); }, 600);
-}
-
-// ================================================================
-// PASO 2 — EMPRESA
-// ================================================================
-
-function validarEmpresa() {
-    var ruc   = document.getElementById('emp-ruc').value.trim();
-    var alias = document.getElementById('emp-alias').value.trim();
-    var razon = document.getElementById('emp-razon').value.trim();
-
-    if (ruc.length !== 11) {
-        showAlert('emp-alert', 'error', '❌ El RUC debe tener exactamente 11 dígitos.'); return;
-    }
-    if (!alias) {
-        showAlert('emp-alert', 'error', '❌ El alias es obligatorio (ej: farmacia_central).'); return;
-    }
-    if (!razon) {
-        showAlert('emp-alert', 'error', '❌ La razón social es obligatoria.'); return;
-    }
-
-    // Normalizar alias
-    alias = alias.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    document.getElementById('emp-alias').value = alias;
-
-    WZ.empresa = {
-        ruc:              ruc,
-        alias:            alias,
-        razon_social:     razon,
-        nombre_comercial: document.getElementById('emp-nombre').value.trim() || razon
-    };
-
-    hideAlert('emp-alert');
-    irPaso(3);
-}
-
-// ================================================================
-// PASO 3 — FUENTE DE DATOS
-// ================================================================
-
-var _tipoActual = 'dbf';
-
-function selTipo(tipo) {
-    _tipoActual = tipo;
-    document.querySelectorAll('.tipo-card').forEach(function(c) { c.classList.remove('selected'); });
-    document.getElementById('tipo-' + tipo).classList.add('selected');
-
-    var esSql = (tipo === 'sqlserver' || tipo === 'mysql' || tipo === 'postgres');
-    document.getElementById('fuente-ruta').style.display = esSql ? 'none' : 'block';
-    document.getElementById('fuente-sql').style.display  = esSql ? 'block' : 'none';
-
-    // Reset explorer
-    document.getElementById('explorer-status').style.display = 'none';
-    document.getElementById('explorer-result').style.display = 'none';
-    WZ.explorado = false;
-}
-
-async function seleccionarCarpeta() {
-    try {
-        var carpeta = await eel.seleccionar_carpeta()();
-        if (carpeta) document.getElementById('fuente-ruta-input').value = carpeta;
-    } catch(e) { toast('No se pudo abrir el explorador'); }
-}
-
-
-function getFuenteParams() {
-    var esSql = (_tipoActual === 'sqlserver' || _tipoActual === 'mysql' || _tipoActual === 'postgres');
-    if (esSql) {
-        var servidor = document.getElementById('sql-servidor').value.trim();
-        var db       = document.getElementById('sql-db').value.trim();
-        if (!servidor || !db) {
-            showAlert('fuente-alert', 'error', 'Servidor y base de datos son obligatorios.'); return null;
-        }
-        return {
-            tipo:       _tipoActual,
-            servidor:   servidor,
-            base_datos: db,
-            usuario:    document.getElementById('sql-usuario').value.trim(),
-            clave:      document.getElementById('sql-clave').value,
-            puerto:     parseInt(document.getElementById('sql-puerto').value) || 1433
-        };
+// ── Sidebar render ─────────────────────────────────────────────
+function renderSidebar() {
+  for (let i = 1; i <= 6; i++) {
+    const row = document.getElementById(`sr${i}`);
+    const bul = document.getElementById(`sb${i}`);
+    row.className = 'step-row';
+    if (i < W.step) {
+      row.classList.add('done');
+      bul.textContent = '✓';
+    } else if (i === W.step) {
+      row.classList.add('active');
+      bul.textContent = i;
+    } else if (i <= W.maxStep) {
+      bul.textContent = i;                     // unlocked, not active
     } else {
-        var ruta = document.getElementById('fuente-ruta-input').value.trim();
-        if (!ruta) {
-            showAlert('fuente-alert', 'error', 'Selecciona la ruta de los datos.'); return null;
-        }
-        return { tipo: _tipoActual, ruta: ruta };
+      row.classList.add('locked');
+      bul.textContent = i;
     }
+  }
 }
 
-async function explorarFuente() {
-    var status = document.getElementById('explorer-status');
-    var result_div = document.getElementById('explorer-result');
-    var btn = document.getElementById('btn-explorar');
-
-    var params = getFuenteParams();
-    if (!params) return;
-
-    status.style.display = 'block';
-    status.innerHTML = '<span class="spinner"></span> Analizando fuente de datos... (puede tardar hasta 2 minutos en fuentes grandes)';
-    result_div.style.display = 'none';
-    btn.disabled = true;
-
-    try {
-        var result = await eel.wz_explorar_fuente(params)();
-        btn.disabled = false;
-
-        if (result.exito) {
-            WZ.explorado = true;
-            WZ.contrato  = result.contrato;
-            status.innerHTML = '<span style="color:#7ee787">✅ Análisis completado — ' + (result.tablas || 0) + ' tabla(s) encontrada(s)</span>';
-            result_div.style.display = 'block';
-            result_div.innerHTML = formatExplorerResult(result);
-        } else {
-            status.innerHTML = '<span style="color:#e3b341">⚠️ No se pudo analizar automáticamente</span>';
-            document.getElementById('fuente-manual').style.display = 'block';
-            WZ.explorado = true; // Permite continuar con config manual
-        }
-    } catch(e) {
-        btn.disabled = false;
-        status.innerHTML = '<span style="color:#ff7b72">❌ Error al analizar: ' + e + '</span>';
-        document.getElementById('fuente-manual').style.display = 'block';
-        WZ.explorado = true;
-    }
+// ── Header y progress ──────────────────────────────────────────
+function updateHeader() {
+  const m = STEPS[W.step];
+  if (!m) return;
+  document.getElementById('stepTitle').textContent = m.title;
+  document.getElementById('stepDesc').textContent  = m.desc;
+  document.getElementById('stepBadge').textContent = `Paso ${W.step} de 6`;
+  document.getElementById('progressFill').style.width = ((W.step / 6) * 100) + '%';
 }
 
-// ================================================================
-// REEMPLAZAR en wizard.js:
-// La función formatExplorerResult y la sección de resultado del explorer
-// ================================================================
+function updateFooter() {
+  const back = document.getElementById('btnBack');
+  const next = document.getElementById('btnNext');
+  back.style.display = W.step > 1 ? 'inline-flex' : 'none';
+  if (W.step === 6) {
+    next.className  = 'btn btn-success';
+    next.textContent = 'Guardar configuración ✓';
+  } else {
+    next.className  = 'btn btn-primary';
+    next.textContent = 'Siguiente →';
+  }
+  next.disabled = false;
+}
 
-// NUEVA función formatExplorerResult — tabla visual de mapeo
-function formatExplorerResult(result) {
-    var html = '';
-    var confianza = Math.round((result.confianza || 0) * 100);
-    var metodo = result.metodo_mapeo === 'ia' ? '🤖 IA' : '🔍 Heurísticas';
-    var colorConf = confianza >= 80 ? '#7ee787' : confianza >= 50 ? '#e3b341' : '#ff7b72';
+// ══════════════════════════════════════════════════════════════
+//  VALIDACIONES
+// ══════════════════════════════════════════════════════════════
+function validate(step) {
+  switch (step) {
+    case 1: return v1();
+    case 2: return v2();
+    case 3: return v3();
+    case 4: return v4();
+    case 5: return v5();
+    case 6: return v6();
+    default: return true;
+  }
+}
 
-    // Header
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
-        '<span style="font-size:0.8rem;color:var(--muted);">' + metodo + '</span>' +
-        '<span style="font-size:0.8rem;font-weight:700;color:' + colorConf + ';">Confianza: ' + confianza + '%</span>' +
-        '</div>';
+function showErr(inputId, errId, msg) {
+  const el = document.getElementById(inputId);
+  const er = document.getElementById(errId);
+  if (el) el.classList.add('err');
+  if (er) { er.textContent = msg; er.classList.remove('hidden'); }
+}
 
-    // Tabla de mapeo comprobantes
-    var comp = result.mapeo_comprobantes || {};
-    var items = result.mapeo_items || {};
+function clearErrors() {
+  document.querySelectorAll('.err').forEach(e => e.classList.remove('err'));
+  document.querySelectorAll('.ferr').forEach(e => e.classList.add('hidden'));
+}
 
-    html += '<div style="font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:0.4rem;">Comprobantes — ' + (result.tabla_comp || '') + '</div>';
-    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:0.8rem;">';
-    html += '<thead><tr style="border-bottom:1px solid var(--border);">' +
-        '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Campo CPE</th>' +
-        '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Campo en sistema</th>' +
-        '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Estado</th>' +
-        '</tr></thead><tbody>';
+function v1() {
+  const ruc = document.getElementById('f_ruc').value.trim();
+  const rs  = document.getElementById('f_rs').value.trim();
+  const reg = document.getElementById('f_reg').value;
+  const id  = document.getElementById('f_id').value.trim();
+  let ok = true;
+  if (!/^\d{11}$/.test(ruc))    { showErr('f_ruc', 'e_ruc', 'El RUC debe tener exactamente 11 dígitos'); ok = false; }
+  if (rs.length < 3)            { showErr('f_rs',  'e_rs',  'Ingresa la razón social o nombre'); ok = false; }
+  if (!reg)                     { showErr('f_reg', 'e_reg', 'Selecciona el régimen fiscal'); ok = false; }
+  if (!id || /\s/.test(id))     { showErr('f_id',  'e_id',  'El ID no puede estar vacío ni contener espacios'); ok = false; }
+  return ok;
+}
 
-    var camposCpe = ['tipo_doc','serie','numero','fecha','total','ruc_cliente','nombre_cliente','estado_pendiente'];
-    var etiquetas = {
-        'tipo_doc': 'Tipo comprobante',
-        'serie': 'Serie',
-        'numero': 'Número',
-        'fecha': 'Fecha emisión',
-        'total': 'Total',
-        'ruc_cliente': 'RUC/DNI cliente',
-        'nombre_cliente': 'Nombre cliente',
-        'estado_pendiente': 'Estado pendiente'
+function v2() {
+  const tipo = document.getElementById('f_tipo').value;
+  if (!tipo) { alert('Selecciona el tipo de fuente de datos.'); return false; }
+  if (FILE_TYPES.has(tipo)) {
+    const ruta = document.getElementById('f_ruta').value.trim();
+    if (!ruta) { showErr('f_ruta', 'e_ruta', 'La ruta es obligatoria'); return false; }
+  } else {
+    const host = document.getElementById('f_host').value.trim();
+    const db   = document.getElementById('f_dbname').value.trim();
+    const user = document.getElementById('f_dbuser').value.trim();
+    if (!host || !db || !user) { alert('Host, base de datos y usuario son obligatorios.'); return false; }
+  }
+  return true;
+}
+
+function v3() {
+  if (!W.conexionOk) {
+    alert('Debes probar la conexión antes de continuar.\nHaz clic en "Probar conexión".');
+    return false;
+  }
+  return true;
+}
+
+function v4() {
+  const req = ['c_tabla', 'c_flag_c', 'c_flag_v', 'c_num', 'c_ser', 'c_tdc', 'c_fec', 'c_tot'];
+  for (const id of req) {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) {
+      el.classList.add('err');
+      el.focus();
+      alert(`El campo "${el.placeholder}" es obligatorio en el contrato.`);
+      return false;
+    }
+  }
+  return true;
+}
+
+function v5() {
+  const some = ['01','02','07','an'].some(k => document.getElementById(`tog_${k}`).checked);
+  if (!some) { alert('Habilita al menos una serie antes de continuar.'); return false; }
+  return true;
+}
+
+function v6() {
+  const ep = W.endpoint;
+  const tokens = { apifas: 'ap_tok', nubef: 'nb_tok', disateq: 'dq_key' };
+  const field = tokens[ep];
+  if (field && !document.getElementById(field).value.trim()) {
+    alert('El token / API key es obligatorio.');
+    return false;
+  }
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GUARDAR DATOS POR PASO → W.data
+// ══════════════════════════════════════════════════════════════
+function saveStep(step) {
+  switch (step) {
+    case 1: saveCliente();  break;
+    case 2: saveFuente();   break;
+    case 4: saveContrato(); break;
+    case 5: saveSeries();   break;
+    case 6: saveCreds();    break;
+  }
+}
+
+function saveCliente() {
+  W.data.cliente = {
+    ruc_emisor:   document.getElementById('f_ruc').value.trim(),
+    razon_social: document.getElementById('f_rs').value.trim(),
+    regimen:      document.getElementById('f_reg').value,
+    cliente_id:   document.getElementById('f_id').value.trim(),
+  };
+}
+
+function saveFuente() {
+  const tipo = document.getElementById('f_tipo').value;
+  if (FILE_TYPES.has(tipo)) {
+    W.data.fuente = { tipo, ruta: document.getElementById('f_ruta').value.trim() };
+  } else {
+    W.data.fuente = {
+      tipo,
+      host:     document.getElementById('f_host').value.trim(),
+      puerto:   document.getElementById('f_port').value.trim(),
+      database: document.getElementById('f_dbname').value.trim(),
+      usuario:  document.getElementById('f_dbuser').value.trim(),
+      password: document.getElementById('f_dbpass').value,
     };
-    var requeridos = ['tipo_doc','serie','numero','fecha','total','estado_pendiente'];
-
-    camposCpe.forEach(function(campo) {
-        var valorDetectado = comp[campo];
-        var esRequerido = requeridos.indexOf(campo) >= 0;
-        var estado = valorDetectado
-            ? '<span style="color:#7ee787;">✓ Auto</span>'
-            : (esRequerido ? '<span style="color:#ff7b72;">⚠ Req.</span>' : '<span style="color:var(--muted);">- Opcional</span>');
-
-        html += '<tr style="border-bottom:1px solid rgba(48,54,61,0.5);">' +
-            '<td style="padding:0.35rem 0.5rem;">' + (etiquetas[campo] || campo) + '</td>' +
-            '<td style="padding:0.35rem 0.5rem;">' +
-            '<input type="text" id="map-comp-' + campo + '" value="' + (valorDetectado || '') + '" ' +
-            'placeholder="[campo del sistema]" ' +
-            'style="background:var(--input-bg);border:1px solid ' + (valorDetectado ? 'var(--accent)' : 'var(--border)') + ';' +
-            'border-radius:4px;color:var(--text);padding:0.2rem 0.4rem;font-size:0.78rem;width:160px;">' +
-            '</td>' +
-            '<td style="padding:0.35rem 0.5rem;">' + estado + '</td>' +
-            '</tr>';
-    });
-    html += '</tbody></table>';
-
-    // Tabla items si hay
-    if (result.tabla_items) {
-        html += '<div style="font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:0.4rem;">Items / Detalle — ' + result.tabla_items + '</div>';
-        html += '<table style="width:100%;border-collapse:collapse;margin-bottom:0.75rem;font-size:0.8rem;">';
-        html += '<thead><tr style="border-bottom:1px solid var(--border);">' +
-            '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Campo CPE</th>' +
-            '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Campo en sistema</th>' +
-            '<th style="text-align:left;padding:0.3rem 0.5rem;color:var(--muted);">Estado</th>' +
-            '</tr></thead><tbody>';
-
-        var camposItems = ['descripcion','cantidad','precio','total','codigo','campo_union'];
-        var etiqItems = {
-            'descripcion': 'Descripción producto',
-            'cantidad': 'Cantidad',
-            'precio': 'Precio unitario',
-            'total': 'Total item',
-            'codigo': 'Código producto',
-            'campo_union': 'Campo unión (JOIN)'
-        };
-        var reqItems = ['descripcion','cantidad','precio','total','campo_union'];
-
-        camposItems.forEach(function(campo) {
-            var valorDetectado = items[campo];
-            var esRequerido = reqItems.indexOf(campo) >= 0;
-            var estado = valorDetectado
-                ? '<span style="color:#7ee787;">✓ Auto</span>'
-                : (esRequerido ? '<span style="color:#ff7b72;">⚠ Req.</span>' : '<span style="color:var(--muted);">- Opcional</span>');
-
-            html += '<tr style="border-bottom:1px solid rgba(48,54,61,0.5);">' +
-                '<td style="padding:0.35rem 0.5rem;">' + (etiqItems[campo] || campo) + '</td>' +
-                '<td style="padding:0.35rem 0.5rem;">' +
-                '<input type="text" id="map-items-' + campo + '" value="' + (valorDetectado || '') + '" ' +
-                'placeholder="[campo del sistema]" ' +
-                'style="background:var(--input-bg);border:1px solid ' + (valorDetectado ? 'var(--accent)' : 'var(--border)') + ';' +
-                'border-radius:4px;color:var(--text);padding:0.2rem 0.4rem;font-size:0.78rem;width:160px;">' +
-                '</td>' +
-                '<td style="padding:0.35rem 0.5rem;">' + estado + '</td>' +
-                '</tr>';
-        });
-        html += '</tbody></table>';
-    }
-
-    // Advertencias
-    if (result.advertencias && result.advertencias.length) {
-        html += '<div style="margin-top:0.5rem;">';
-        result.advertencias.forEach(function(a) {
-            html += '<div style="font-size:0.75rem;color:#e3b341;margin-bottom:0.25rem;">⚠ ' + a + '</div>';
-        });
-        html += '</div>';
-    }
-
-    // Guardar mapeo en WZ para usar al continuar
-    WZ.mapeo_detectado = result;
-
-    return html;
+  }
 }
 
-// NUEVA función leerMapeoVisual — lee los inputs de la tabla visual
-function leerMapeoVisual() {
-    if (!WZ.mapeo_detectado) return null;
-
-    var camposComp  = ['tipo_doc','serie','numero','fecha','total','ruc_cliente','nombre_cliente','estado_pendiente'];
-    var camposItems = ['descripcion','cantidad','precio','total','codigo','campo_union'];
-
-    var comp = {};
-    camposComp.forEach(function(c) {
-        var el = document.getElementById('map-comp-' + c);
-        if (el && el.value) comp[c] = el.value;
-    });
-
-    var items = {};
-    camposItems.forEach(function(c) {
-        var el = document.getElementById('map-items-' + c);
-        if (el && el.value) items[c] = el.value;
-    });
-
-    return {
-        comprobantes:   comp,
-        items:          items,
-        anulaciones:    WZ.mapeo_detectado.mapeo_anulaciones || {},
-        transformaciones: WZ.mapeo_detectado.transformaciones || {},
-        tabla_comp:     WZ.mapeo_detectado.tabla_comp,
-        tabla_items:    WZ.mapeo_detectado.tabla_items,
-        tabla_anulaciones: WZ.mapeo_detectado.tabla_anulaciones
-    };
+function saveContrato() {
+  W.data.contrato = {
+    tabla:      document.getElementById('c_tabla').value.trim(),
+    flag_campo: document.getElementById('c_flag_c').value.trim(),
+    flag_valor: document.getElementById('c_flag_v').value.trim(),
+    flag_tipo:  document.getElementById('c_flag_t').value,
+    campos: {
+      numero:         document.getElementById('c_num').value.trim(),
+      serie:          document.getElementById('c_ser').value.trim(),
+      tipo_doc:       document.getElementById('c_tdc').value.trim(),
+      fecha:          document.getElementById('c_fec').value.trim(),
+      ruc_cliente:    document.getElementById('c_ruc').value.trim(),
+      nombre_cliente: document.getElementById('c_nom').value.trim(),
+      total:          document.getElementById('c_tot').value.trim(),
+    },
+    items: {
+      tabla:       document.getElementById('c_ti').value.trim(),
+      join_campo:  document.getElementById('c_tj').value.trim(),
+      codigo:      document.getElementById('c_tc').value.trim(),
+      descripcion: document.getElementById('c_td').value.trim(),
+      cantidad:    document.getElementById('c_tq').value.trim(),
+      precio:      document.getElementById('c_tp').value.trim(),
+    },
+  };
 }
 
-
-function validarFuente() {
-    var params = getFuenteParams();
-    if (!params) return;
-
-    if (!WZ.explorado) {
-        showAlert('fuente-alert', 'warn', '⚠️ Se recomienda analizar la fuente antes de continuar. Puedes hacerlo o continuar sin análisis.');
-        WZ.explorado = true; // Permite continuar al segundo intento
-        return;
-    }
-
-    WZ.fuente = params;
-    // Incluir mapeo detectado en el contrato
-    var mapeoVisual = leerMapeoVisual();
-    if (mapeoVisual) {
-        WZ.contrato = Object.assign(WZ.contrato || {}, { mapeo: mapeoVisual });
-    }
-    hideAlert('fuente-alert');
-    irPaso(4);
+function saveSeries() {
+  const s = {};
+  const get = id => document.getElementById(id).value.trim();
+  if (document.getElementById('tog_01').checked) s['01'] = [get('s_01') || 'F001'];
+  if (document.getElementById('tog_02').checked) s['02'] = [get('s_02') || 'B001'];
+  if (document.getElementById('tog_07').checked) {
+    const vals = [get('s_07a'), get('s_07b')].filter(Boolean);
+    s['07'] = vals.length ? vals : ['FC01'];
+  }
+  if (document.getElementById('tog_an').checked) s['anulacion'] = [get('s_an') || 'BEE1'];
+  W.data.series = s;
 }
 
-// ================================================================
-// PASO 4 — SERIES
-// ================================================================
+function saveCreds() {
+  const ep = W.endpoint;
+  const c  = { proveedor: ep };
+  if (ep === 'apifas')  { c.token = document.getElementById('ap_tok').value; c.url_base = document.getElementById('ap_url').value.trim(); }
+  if (ep === 'nubef')   { c.token = document.getElementById('nb_tok').value; }
+  if (ep === 'disateq') { c.api_key = document.getElementById('dq_key').value; c.url_base = document.getElementById('dq_url').value.trim(); }
+  W.data.credenciales = c;
+}
 
-function renderSeriesDefault() {
-    // Series por defecto sugeridas
-    var defaults = {
-        boleta:       [{ serie: 'B001', correlativo_inicio: 1, activa: true }],
-        factura:      [{ serie: 'F001', correlativo_inicio: 1, activa: true }],
-        nota_credito: [],
-        nota_debito:  []
-    };
-    Object.keys(defaults).forEach(function(tipo) {
-        WZ.series[tipo] = defaults[tipo];
+// ══════════════════════════════════════════════════════════════
+//  PASO 2 — cambio de tipo fuente
+// ══════════════════════════════════════════════════════════════
+function onTipoFuente() {
+  const tipo  = document.getElementById('f_tipo').value;
+  const isFile = FILE_TYPES.has(tipo);
+
+  // archivo
+  document.getElementById('grp_file').classList.toggle('hidden', !isFile);
+
+  // db
+  ['grp_db_host','grp_db_port','grp_db_name','grp_db_user','grp_db_pass'].forEach(id => {
+    document.getElementById(id).classList.toggle('hidden', isFile || !tipo);
+  });
+
+  if (isFile) {
+    const labels = { dbf: 'de la carpeta DBF', excel: 'del archivo Excel', csv: 'del archivo CSV', access: 'del archivo Access' };
+    const hints  = { dbf: 'Carpeta que contiene los archivos .DBF', excel: 'Archivo .xlsx o .xls', csv: 'Ruta completa al .csv', access: 'Archivo .mdb o .accdb' };
+    document.getElementById('lbl_file').textContent  = labels[tipo] ? labels[tipo] + ' ' : '';
+    document.getElementById('hint_ruta').textContent = hints[tipo]  || '';
+  }
+  if (!isFile && DB_PORTS[tipo]) {
+    document.getElementById('f_port').value = DB_PORTS[tipo];
+  }
+
+  W.conexionOk = false; // resetear verificación al cambiar fuente
+}
+
+// ── Explorar ruta (diálogo nativo via PyWebView) ───────────────
+function explorarRuta() {
+  const tipo = document.getElementById('f_tipo').value;
+  window.pywebview.api.explorar_ruta(tipo === 'dbf').then(ruta => {
+    if (ruta) document.getElementById('f_ruta').value = ruta;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PASO 3 — TEST CONEXIÓN
+// ══════════════════════════════════════════════════════════════
+function testConexion() {
+  saveFuente();
+
+  const btn  = document.getElementById('btnTest');
+  const spin = document.getElementById('spinTest');
+  const res  = document.getElementById('resTest');
+  const al   = document.getElementById('alTest');
+
+  btn.disabled = true;
+  spin.classList.remove('hidden');
+  res.classList.add('hidden');
+  document.getElementById('tblWrap').classList.add('hidden');
+  document.getElementById('tblInfo').textContent = '';
+  W.conexionOk = false;
+
+  window.pywebview.api.wizard_test_fuente(W.data.fuente)
+    .then(r => {
+      btn.disabled = false;
+      spin.classList.add('hidden');
+      res.classList.remove('hidden');
+
+      if (r.ok) {
+        W.conexionOk = true;
+        al.className   = 'al al-success';
+        al.innerHTML   = `<span>✓</span><span>${r.mensaje}</span>`;
+        if (r.columnas && r.filas) renderTabla(r.columnas, r.filas);
+        document.getElementById('tblInfo').textContent =
+          `Mostrando ${r.filas ? r.filas.length : 0} de ${r.total_registros || 0} registros`;
+      } else {
+        al.className = 'al al-error';
+        al.innerHTML = `<span>✗</span><span>${r.error}</span>`;
+      }
+    })
+    .catch(err => {
+      btn.disabled = false;
+      spin.classList.add('hidden');
+      res.classList.remove('hidden');
+      al.className = 'al al-error';
+      al.innerHTML = `<span>✗</span><span>Error inesperado: ${err}</span>`;
     });
 }
 
-function initSeries() {
-    var tipos = ['boleta', 'factura', 'nota_credito', 'nota_debito'];
-    tipos.forEach(function(tipo) {
-        renderSeriesTipo(tipo);
-    });
+function renderTabla(cols, rows) {
+  const head = document.getElementById('tblHead');
+  const body = document.getElementById('tblBody');
+  const wrap = document.getElementById('tblWrap');
 
-    // Modo reconfigurar: mostrar aviso y bloquear edición
-    if (WZ.modo === 'reconfigurar') {
-        document.getElementById('modo-reconf-aviso').style.display = 'block';
-        setSeriesReadonly(true);
-    }
+  head.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  body.innerHTML = rows.map(row =>
+    '<tr>' + cols.map(c => `<td title="${row[c] ?? ''}">${row[c] ?? '—'}</td>`).join('') + '</tr>'
+  ).join('');
+  wrap.classList.remove('hidden');
 }
 
-function renderSeriesTipo(tipo) {
-    var container = document.getElementById('series-' + tipo);
-    if (!container) return;
-    container.innerHTML = '';
-    (WZ.series[tipo] || []).forEach(function(s, i) {
-        container.appendChild(crearSerieRow(tipo, i, s));
-    });
-}
+// ══════════════════════════════════════════════════════════════
+//  PASO 4 — AUTOCONTRATO IA
+// ══════════════════════════════════════════════════════════════
+function autoContrato() {
+  const btn = document.getElementById('btnAuto');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analizando...';
 
-function crearSerieRow(tipo, idx, s) {
-    var div = document.createElement('div');
-    div.className = 'serie-row';
-    div.id = 'serie-row-' + tipo + '-' + idx;
-    div.innerHTML =
-        '<span class="serie-badge">' + s.serie + '</span>' +
-        '<span class="serie-muted">desde:</span>' +
-        '<input type="number" id="serie-' + tipo + '-' + idx + '-corr" value="' + s.correlativo_inicio + '" min="0">' +
-        '<input type="hidden" id="serie-' + tipo + '-' + idx + '-cod" value="' + s.serie + '">' +
-        '<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.75rem;cursor:pointer;">' +
-        '<input type="checkbox" id="serie-' + tipo + '-' + idx + '-activa" ' + (s.activa ? 'checked' : '') + '> Activa</label>' +
-        '<button onclick="eliminarSerie(\'' + tipo + '\',' + idx + ')" ' +
-        'style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--error);">✕</button>';
-    return div;
-}
-
-function addSerie(tipo, prefijo) {
-    var codigo = prompt('Código de serie (ej: ' + prefijo + '001):');
-    if (!codigo) return;
-    codigo = codigo.toUpperCase().trim();
-    var corr = parseInt(prompt('Correlativo de inicio:', '1')) || 1;
-    WZ.series[tipo].push({ serie: codigo, correlativo_inicio: corr, activa: true });
-    renderSeriesTipo(tipo);
-}
-
-function eliminarSerie(tipo, idx) {
-    WZ.series[tipo].splice(idx, 1);
-    renderSeriesTipo(tipo);
-}
-
-function leerSeries() {
-    var tipos = ['boleta', 'factura', 'nota_credito', 'nota_debito'];
-    var resultado = {};
-    tipos.forEach(function(tipo) {
-        var container = document.getElementById('series-' + tipo);
-        if (!container) { resultado[tipo] = []; return; }
-        var items = [];
-        var inputs = container.querySelectorAll('input[type=number]');
-        inputs.forEach(function(inp) {
-            var m = inp.id.match(/^serie-[^-]+-(\d+)-corr$/);
-            if (!m) return;
-            var i = m[1];
-            var cod = document.getElementById('serie-' + tipo + '-' + i + '-cod');
-            var act = document.getElementById('serie-' + tipo + '-' + i + '-activa');
-            if (!cod) return;
-            items.push({ serie: cod.value, correlativo_inicio: parseInt(inp.value) || 0, activa: act ? act.checked : true });
-        });
-        resultado[tipo] = items;
-    });
-    return resultado;
-}
-
-function setSeriesReadonly(readonly) {
-    document.querySelectorAll('#series-container input').forEach(function(el) {
-        el.disabled = readonly;
-    });
-    document.querySelectorAll('#series-container button').forEach(function(el) {
-        el.disabled = readonly;
-        el.style.opacity = readonly ? '0.4' : '1';
+  window.pywebview.api.wizard_generar_contrato_auto(W.data.fuente)
+    .then(r => {
+      btn.disabled = false;
+      btn.textContent = '✦ Generar automático (IA)';
+      if (r.ok) {
+        poblarContrato(r.contrato);
+        showAlAuto('Contrato generado. Revisa y ajusta si es necesario.', 'success');
+      } else {
+        showAlAuto(`No fue posible generar automáticamente: ${r.error}. Completa los campos manualmente.`, 'warn');
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = '✦ Generar automático (IA)';
+      showAlAuto('Función disponible próximamente (TASK-009). Completa los campos manualmente.', 'info');
     });
 }
 
-function toggleEditarSeries(editar) {
-    setSeriesReadonly(!editar);
+function poblarContrato(c) {
+  const set = (id, v) => { if (v) document.getElementById(id).value = v; };
+  set('c_tabla',  c.tabla);
+  set('c_flag_c', c.flag_campo);
+  set('c_flag_v', c.flag_valor);
+  if (c.flag_tipo) document.getElementById('c_flag_t').value = c.flag_tipo;
+  const cm = c.campos || {};
+  set('c_num', cm.numero);    set('c_ser', cm.serie);
+  set('c_tdc', cm.tipo_doc);  set('c_fec', cm.fecha);
+  set('c_ruc', cm.ruc_cliente); set('c_nom', cm.nombre_cliente);
+  set('c_tot', cm.total);
+  const ci = c.items || {};
+  set('c_ti', ci.tabla);      set('c_tj', ci.join_campo);
+  set('c_tc', ci.codigo);     set('c_td', ci.descripcion);
+  set('c_tq', ci.cantidad);   set('c_tp', ci.precio);
 }
 
-// ================================================================
-// PASO 5 — ENDPOINT
-// ================================================================
-
-var EP_URLS = {
-    apifas: 'https://apifas.disateq.com/produccion_text.php',
-    ose:    '',
-    pse:    '',
-    custom: ''
-};
-
-function onEpTipoChange(tipo) {
-    var url = EP_URLS[tipo] || '';
-    document.getElementById('ep-url').value = url;
-    document.getElementById('ep-url').readOnly = (tipo === 'apifas');
+function showAlAuto(msg, tipo) {
+  const el = document.getElementById('alAuto');
+  const icon = { success: '✓', warn: '⚠', info: 'ℹ', error: '✗' }[tipo] || 'ℹ';
+  el.className = `al al-${tipo}`;
+  el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  el.classList.remove('hidden');
 }
 
-function validarEndpoint() {
-    var url = document.getElementById('ep-url').value.trim();
-    if (!url || !url.startsWith('http')) {
-        showAlert('ep-alert', 'error', '❌ URL del endpoint inválida.'); return;
-    }
-    WZ.endpoint = {
-        nombre:  document.getElementById('ep-tipo').options[document.getElementById('ep-tipo').selectedIndex].text.split('—')[0].trim(),
-        url:     url,
-        usuario: document.getElementById('ep-usuario').value.trim(),
-        token:   document.getElementById('ep-token').value.trim()
-    };
-    hideAlert('ep-alert');
-    irPaso(6);
+// ══════════════════════════════════════════════════════════════
+//  PASO 5 — TOGGLES DE SERIES
+// ══════════════════════════════════════════════════════════════
+function toggleSerie(k) {
+  const on  = document.getElementById(`tog_${k}`).checked;
+  document.getElementById(`sc_${k}`).classList.toggle('on', on);
+  const ids = k === '07' ? ['s_07a','s_07b'] : [`s_${k}`];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    el.disabled = !on;
+    el.style.opacity = on ? '1' : '0.4';
+  });
 }
 
-// ================================================================
-// PASO 6 — PRUEBA
-// ================================================================
-
-async function ejecutarPrueba() {
-    var btn = document.getElementById('btn-prueba');
-    var estado = document.getElementById('prueba-estado');
-    var resultado = document.getElementById('prueba-resultado');
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Procesando...';
-    estado.style.display = 'block';
-    estado.innerHTML = '<span class="spinner"></span> Guardando configuración y ejecutando prueba mock...';
-    resultado.style.display = 'none';
-
-    // Guardar config antes de probar
-    WZ.series = leerSeries();
-    var payload = construirPayload();
-
-    try {
-        var saveResult = await eel.wz_guardar_config(payload)();
-        if (!saveResult.exito) {
-            estado.innerHTML = '<span style="color:var(--error)">❌ Error al guardar config: ' + saveResult.error + '</span>';
-            btn.disabled = false; btn.innerHTML = '▶ Ejecutar prueba';
-            return;
-        }
-
-        var pruebaResult = await eel.wz_ejecutar_prueba(WZ.empresa.alias)();
-        btn.disabled = false;
-        btn.innerHTML = '▶ Ejecutar prueba';
-
-        if (pruebaResult.exito) {
-            var r = pruebaResult.resultados;
-            estado.innerHTML = '<span style="color:#7ee787">✅ Prueba completada</span>';
-            resultado.style.display = 'block';
-            resultado.innerHTML =
-                '<div class="prueba-stat"><span>Procesados</span><span class="val">' + r.procesados + '</span></div>' +
-                '<div class="prueba-stat"><span>Enviados (mock)</span><span class="val">' + r.enviados + '</span></div>' +
-                '<div class="prueba-stat"><span>Errores</span><span class="val ' + (r.errores > 0 ? 'err' : '') + '">' + r.errores + '</span></div>' +
-                '<div class="prueba-stat"><span>Ignorados</span><span class="val">' + r.ignorados + '</span></div>';
-
-            WZ.prueba_ok = true;
-            document.getElementById('btn-finalizar').disabled = false;
-            document.getElementById('btn-envio-real').style.display = 'inline-flex';
-        } else {
-            estado.innerHTML = '<span style="color:var(--error)">❌ ' + pruebaResult.error + '</span>';
-        }
-    } catch(e) {
-        btn.disabled = false;
-        btn.innerHTML = '▶ Ejecutar prueba';
-        estado.innerHTML = '<span style="color:var(--error)">❌ Error inesperado: ' + e + '</span>';
-    }
+// ══════════════════════════════════════════════════════════════
+//  PASO 6 — ENDPOINT TABS
+// ══════════════════════════════════════════════════════════════
+function selectEp(ep) {
+  W.endpoint = ep;
+  ['apifas','nubef','disateq'].forEach(e => {
+    document.getElementById(`et_${e}`).classList.toggle('active', e === ep);
+    document.getElementById(`cred_${e}`).classList.toggle('hidden', e !== ep);
+  });
 }
 
-function mostrarEnvioReal() {
-    document.getElementById('prueba-real-section').style.display = 'block';
+// ══════════════════════════════════════════════════════════════
+//  GUARDAR WIZARD — llamada final a Python
+// ══════════════════════════════════════════════════════════════
+function guardarWizard() {
+  saveCreds();
+
+  const btn = document.getElementById('btnNext');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+
+  const payload = {
+    cliente:      W.data.cliente,
+    fuente:       W.data.fuente,
+    contrato:     W.data.contrato,
+    series:       W.data.series,
+    credenciales: W.data.credenciales,
+  };
+
+  window.pywebview.api.wizard_guardar(payload)
+    .then(r => {
+      btn.disabled = false;
+      if (r.ok) {
+        // mostrar pantalla de éxito
+        document.getElementById('p6').classList.add('hidden');
+        document.getElementById('pOK').classList.remove('hidden');
+        document.getElementById('okId').textContent = r.cliente_id;
+        document.getElementById('navFooter').classList.add('hidden');
+        document.getElementById('mainHeader').classList.add('hidden');
+        document.getElementById('progressFill').style.width = '100%';
+        W.step = 7;
+        renderSidebar();
+      } else {
+        updateFooter();
+        alert(`Error al guardar: ${r.error}`);
+      }
+    })
+    .catch(err => {
+      btn.disabled = false;
+      updateFooter();
+      alert(`Error inesperado: ${err}`);
+    });
 }
 
-async function confirmarEnvioReal() {
-    if (!confirm('¿Confirmas enviar 1 comprobante REAL a SUNAT?\nEsto generará un comprobante electrónico válido.')) return;
-    var btn = document.querySelector('#prueba-real-section .btn-warn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Enviando...';
-    try {
-        var result = await eel.wz_enviar_real(WZ.empresa.alias)();
-        btn.disabled = false;
-        btn.innerHTML = 'Enviar 1 real de prueba';
-        if (result.exito) {
-            toast('✅ Envío real exitoso — ' + (result.cdr || 'CDR recibido'));
-        } else {
-            toast('❌ Error en envío real: ' + result.error);
-        }
-    } catch(e) {
-        btn.disabled = false;
-        btn.innerHTML = 'Enviar 1 real de prueba';
-        toast('❌ Error: ' + e);
-    }
-}
-
-// ================================================================
-// FINALIZAR
-// ================================================================
-
-function construirPayload() {
-    return {
-        licencia:  WZ.licencia,
-        empresa:   WZ.empresa,
-        fuente:    WZ.fuente,
-        contrato:  WZ.contrato,
-        series:    WZ.series,
-        endpoint:  WZ.endpoint,
-        modo:      WZ.modo
-    };
-}
-
-async function finalizar() {
-    // Guardar config final
-    WZ.series = leerSeries();
-    var payload = construirPayload();
-    try {
-        await eel.wz_guardar_config(payload)();
-    } catch(e) {}
-
-    // Mostrar pantalla final
-    document.getElementById('page-6').classList.remove('active');
-    document.getElementById('page-final').classList.add('active');
-
-    // Resumen
-    var html =
-        '<li><span class="check">✓</span><span>Empresa: <strong>' + WZ.empresa.razon_social + '</strong> (RUC ' + WZ.empresa.ruc + ')</span></li>' +
-        '<li><span class="check">✓</span><span>Fuente: <strong>' + WZ.fuente.tipo.toUpperCase() + '</strong> — ' + (WZ.fuente.ruta || WZ.fuente.servidor) + '</span></li>' +
-        '<li><span class="check">✓</span><span>Endpoint: <strong>' + WZ.endpoint.nombre + '</strong></span></li>' +
-        '<li><span class="check">✓</span><span>Series configuradas: boleta, factura</span></li>' +
-        '<li><span class="check">✓</span><span>Licencia: <strong>' + WZ.licencia.tipo + '</strong></span></li>';
-    document.getElementById('final-resumen').innerHTML = html;
-
-    // Ocultar stepper
-    document.getElementById('stepper').style.display = 'none';
-}
-
-async function abrirMotor() {
-    try {
-        await eel.wz_abrir_motor()();
-    } catch(e) {
-        toast('Abriendo Motor CPE...');
-        setTimeout(function() { window.location.href = 'index.html'; }, 1000);
-    }
-}
-
-// ================================================================
-// MODO RECONFIGURAR — Cargar config existente
-// ================================================================
-
-async function cargarConfigExistente() {
-    try {
-        var result = await eel.get_config_cliente()();
-        if (!result.exito) return;
-
-        // Pre-rellenar empresa
-        var e = result.empresa;
-        document.getElementById('emp-ruc').value    = e.ruc         || '';
-        document.getElementById('emp-alias').value  = e.alias       || '';
-        document.getElementById('emp-razon').value  = e.razon_social|| '';
-        document.getElementById('emp-nombre').value = e.nombre_comercial || '';
-
-        // Pre-rellenar fuente
-        if (result.fuente) {
-            var tipo = result.fuente.tipo || 'dbf';
-            selTipo(tipo);
-            if (result.fuente.rutas && result.fuente.rutas[0]) {
-                document.getElementById('fuente-ruta-input').value = result.fuente.rutas[0];
-            }
-        }
-
-        // Pre-rellenar series
-        if (result.series) {
-            WZ.series = result.series;
-        }
-
-        // Pre-rellenar endpoint
-        if (result.endpoints && result.endpoints[0]) {
-            var ep = result.endpoints[0];
-            document.getElementById('ep-url').value     = ep.url || '';
-            document.getElementById('ep-usuario').value = (ep.credenciales && ep.credenciales.usuario) || '';
-        }
-
-        WZ.empresa = { ruc: e.ruc, alias: e.alias, razon_social: e.razon_social, nombre_comercial: e.nombre_comercial };
-
-    } catch(err) { console.error('Error cargando config:', err); }
-}
-
-// ================================================================
-// UTILS
-// ================================================================
-
-function showAlert(id, tipo, msg) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.className = 'wz-alert ' + tipo;
-    el.innerHTML = msg;
-    el.style.display = 'flex';
-}
-
-function hideAlert(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-}
-
-function toast(msg) {
-    var t = document.getElementById('toast');
-    t.textContent = msg;
-    t.style.display = 'block';
-    setTimeout(function() { t.style.display = 'none'; }, 3000);
+// ── Acciones post-éxito ────────────────────────────────────────
+function irDashboard()  { window.location.href = 'index.html'; }
+function nuevoCliente() { window.location.reload(); }
+function cancelar() {
+  if (confirm('¿Cancelar la configuración? Los datos no serán guardados.')) {
+    window.location.href = 'index.html';
+  }
 }
