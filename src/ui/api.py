@@ -261,6 +261,7 @@ class DisateQAPI:
                 cfg = loader.cargar(alias)
                 resultado.append({
                     'alias':       alias,
+                    'id':          alias,
                     'ruc':         cfg.ruc,
                     'nombre':      cfg.empresa.get('nombre_comercial', cfg.razon_social),
                     'tipo_fuente': cfg.tipo_fuente,

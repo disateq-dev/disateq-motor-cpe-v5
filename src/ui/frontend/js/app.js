@@ -1,4 +1,4 @@
-/**
+﻿/**
  * app.js — DisateQ Motor CPE v5.0
  * TASK-004 JS: migrado eel → window.pywebview.api
  */
@@ -37,7 +37,7 @@ async function inicializarSistema() {
         if (!result.success) { showToast(result.error || 'Error al inicializar', 'error'); return; }
         var clientes = await api('get_clientes_disponibles');
         if (clientes.exito && clientes.clientes.length > 0) {
-            appState.clienteAlias = clientes.clientes[0].alias;
+            appState.clienteAlias = clientes.clientes[0].id || clientes.clientes[0].alias;
         }
         appState.initialized = true;
         cargarDashboard();
