@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -35,15 +35,22 @@
             </div>
         </div>
         <div class="header-right">
+
+            <!-- FIX-UI-01/02: empresa/RUC/alias con dividers, fecha separada -->
             <div class="header-info">
-                <span><strong id="empresa-nombre">EMPRESA DEMO S.A.C.</strong></span>
+                <strong id="empresa-nombre">EMPRESA DEMO S.A.C.</strong>
                 <span class="divider"></span>
                 <span>RUC: <strong id="empresa-ruc">20123456789</strong></span>
                 <span class="divider"></span>
                 <span id="empresa-alias" style="font-weight:500;">-</span>
-                <span class="divider"></span>
+            </div>
+
+            <!-- FIX-UI-02: fecha/hora en pill separado -->
+            <div class="header-datetime">
+                <i data-feather="clock"></i>
                 <span id="fecha-hora">—</span>
             </div>
+
             <div class="header-actions">
                 <button class="header-btn btn-procesar" onclick="procesarPendientes()" data-tooltip="Procesar">
                     <i data-feather="play-circle"></i>
@@ -169,7 +176,7 @@
                         </button>
                     </div>
 
-                    <!-- Spinner overlay con animación -->
+                    <!-- Spinner overlay -->
                     <div id="proc-spinner" style="display:none;position:absolute;inset:0;background:rgba(247,248,252,0.88);z-index:50;border-radius:var(--radius-lg);flex-direction:column;align-items:center;justify-content:center;gap:0.75rem;">
                         <div class="proc-spinner-ring"></div>
                         <div id="proc-spinner-msg" style="font-size:0.82rem;color:var(--text-muted);font-weight:500;">Cargando...</div>
