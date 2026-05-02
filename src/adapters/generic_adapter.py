@@ -1,6 +1,7 @@
 # src/adapters/generic_adapter.py
 # DisateQ Motor CPE v5.0
 # FIX-DBF-01: SafeFieldParser — parseN + parseF para floats nulos b'\x00\x00'
+# TASK-008: encoding cp850, _norm_num para NUMERO_FAC en todos los caches
 # ─────────────────────────────────────────────────────────────────────────────
 
 import os
@@ -29,7 +30,19 @@ CLIENTE_TIPO_DOC_MAP = {
 }
 
 
-def _safe_read_dbf(path: str, encoding: str = 'latin-1') -> List[Dict]:
+def _norm_num(numero: str) -> str:
+    """
+    Normaliza NUMERO_FAC quitando ceros a la izquierda.
+    Resuelve mismatch entre tablas:
+      enviosffee:    '00016377'   (8 chars)
+      factura:       '0000016377' (10 chars)
+      detalleventa:  '0000016377' (10 chars)
+    Normalizando a '16377' en todos los caches el join matchea.
+    """
+    return numero.lstrip('0') or '0'
+
+
+def _safe_read_dbf(path: str, encoding: str = 'cp850') -> List[Dict]:
     """
     Lee un DBF completo con manejo de fechas, enteros y floats nulos.
     Retorna lista de dicts. Nunca lanza excepción.
@@ -183,7 +196,7 @@ class GenericAdapter(BaseAdapter):
     def _read_items_dbf(self, comprobante: Dict[str, Any]) -> List[Dict[str, Any]]:
         tipo   = str(comprobante.get('TIPO_FACTU', '')).strip()
         serie  = str(comprobante.get('SERIE_FACT', '')).strip()
-        numero = str(comprobante.get('NUMERO_FAC', '')).strip()
+        numero = _norm_num(str(comprobante.get('NUMERO_FAC', '')).strip())
 
         cache = self._load_items_cache()
         items = cache.get((tipo, serie, numero), [])
@@ -205,7 +218,7 @@ class GenericAdapter(BaseAdapter):
         for r in _safe_read_dbf(tabla_path, self.encoding):
             tipo   = str(r.get('TIPO_FACTU', '')).strip()
             serie  = str(r.get('SERIE_FACT', '')).strip()
-            numero = str(r.get('NUMERO_FAC', '')).strip()
+            numero = _norm_num(str(r.get('NUMERO_FAC', '')).strip())
             key    = (tipo, serie, numero)
             if key not in self._cache_items:
                 self._cache_items[key] = []
@@ -441,7 +454,7 @@ class GenericAdapter(BaseAdapter):
             key = (
                 str(r.get('TIPO_FACTU', '')).strip(),
                 str(r.get('SERIE_FACT', '')).strip(),
-                str(r.get('NUMERO_FAC', '')).strip(),
+                _norm_num(str(r.get('NUMERO_FAC', '')).strip()),
             )
             self._cache_factura[key] = r
         logger.info(f"Cache factura: {len(self._cache_factura)} registros")
@@ -486,7 +499,9 @@ class GenericAdapter(BaseAdapter):
 
     def _get_factura(self, tipo: str, serie: str, numero: str) -> Dict:
         cache = self._load_factura_cache()
-        return cache.get((tipo.strip(), serie.strip(), numero.strip()), {})
+        return cache.get(
+            (tipo.strip(), serie.strip(), _norm_num(numero.strip())), {}
+        )
 
     def _cliente_data(self, record: Dict) -> tuple:
         cfg_varios = self.contrato.get('cliente_varios', {})
