@@ -1,5 +1,5 @@
-﻿# src/ui/api.py
-# DisateQ Motor CPE v5.0 — TASK-004 + TASK-005
+# src/ui/api.py
+# DisateQ Motor CPE v5.0 — TASK-004 + TASK-005 + TASK-006
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
@@ -382,6 +382,12 @@ class DisateQAPI:
             return {'exito': False, 'error': str(e)}
 
     def guardar_config(self, payload: dict):
+        """
+        TASK-006:
+        - sort_keys=False para preservar orden del YAML (BUG-1)
+        - Filtra series vacias antes de escribir (BUG-2)
+        - Dispara actualizacion de stat-pendientes en JS (GAP)
+        """
         try:
             import yaml
             loader   = ClientLoader()
@@ -417,25 +423,40 @@ class DisateQAPI:
                     for ep in payload['endpoints']
                 ]}
 
+            # BUG-2: filtrar series vacías antes de escribir al YAML
             if payload.get('series') is not None:
-                data['series'] = {}
+                series_limpias = {}
                 for tipo, lista in payload['series'].items():
-                    data['series'][tipo] = [
+                    items_validos = [
                         {
                             'serie':              s.get('serie', ''),
                             'correlativo_inicio': int(s.get('correlativo_inicio', 0)),
                             'activa':             bool(s.get('activa', True)),
                         }
                         for s in lista
+                        if s.get('serie', '').strip()   # solo series con código
                     ]
+                    if items_validos:
+                        series_limpias[tipo] = items_validos
+                data['series'] = series_limpias
 
             if payload.get('clave_nueva'):
                 data.setdefault('instalador', {})['clave'] = payload['clave_nueva']
 
+            # BUG-1: sort_keys=False para preservar orden del YAML
             with open(cfg_path, 'w', encoding='utf-8') as f:
-                yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+                yaml.dump(data, f, allow_unicode=True,
+                          default_flow_style=False, sort_keys=False)
 
             self._cargar_cliente()
+
+            # GAP: refrescar stat-pendientes en dashboard tras guardar series
+            try:
+                pendientes = self.get_pendientes_fuente()
+                self._js_call('actualizarStatPendientes', pendientes.get('count', 0))
+            except Exception:
+                pass
+
             return {'exito': True}
         except Exception as e:
             return {'exito': False, 'error': str(e)}
@@ -679,7 +700,8 @@ class DisateQAPI:
                 contrato_path = Path('config/contratos') / f'{alias}.yaml'
                 contrato_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(contrato_path, 'w', encoding='utf-8') as f:
-                    yaml.dump(contrato, f, allow_unicode=True, default_flow_style=False)
+                    yaml.dump(contrato, f, allow_unicode=True,
+                              default_flow_style=False, sort_keys=False)
                 data['fuente']['contrato_path'] = str(contrato_path)
 
             cliente_path = Path('config/clientes') / f'{alias}.yaml'
@@ -770,6 +792,7 @@ class DisateQAPI:
         except Exception as exc:
             return {"ok": False, "error": str(exc), "score_global": 0,
                     "contrato": {}, "scores": {}, "sin_resolver": []}
+
     def wizard_probar_mapeo(self, fuente: dict, contrato: dict) -> dict:
         """
         Paso 4 — lee 5 registros reales usando el contrato actual
@@ -780,6 +803,7 @@ class DisateQAPI:
             return probar_mapeo(fuente, contrato)
         except Exception as exc:
             return {"ok": False, "error": str(exc), "filas": []}
+
     def wizard_guardar(self, payload: dict) -> dict:
         """Paso 6 final — guarda config/clientes y config/contratos YAML."""
         try:
@@ -801,6 +825,7 @@ class DisateQAPI:
             return {"ok": True}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
+
     def _cargar_cliente(self) -> None:
         try:
             loader   = ClientLoader()

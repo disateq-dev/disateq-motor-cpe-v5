@@ -1,6 +1,7 @@
 # ══════════════════════════════════════════════════════════════════
 #  DisateQ Motor CPE v5.0  —  wizard_service.py
-#  2026-05-02  fix: YAML generado compatible con ClientLoader
+#  TASK-006: _build_contrato_yaml estructura flag_lectura/flag_escritura
+#            correcta para GenericAdapter
 # ══════════════════════════════════════════════════════════════════
 
 from __future__ import annotations
@@ -246,7 +247,7 @@ def probar_mapeo(fuente: dict, contrato: dict) -> dict:
 def guardar_wizard(payload: dict) -> dict:
     """
     Genera config/clientes/{id}.yaml y config/contratos/{id}.yaml
-    en el formato que ClientLoader espera.
+    en el formato que ClientLoader y GenericAdapter esperan.
     """
     try:
         cfg_root   = _ruta_config()
@@ -263,7 +264,7 @@ def guardar_wizard(payload: dict) -> dict:
         d.mkdir(parents=True, exist_ok=True)
         _write_yaml(d / f"{cliente_id}.yaml", cliente_yaml)
 
-        # ── YAML contrato ────────────────────────────────────────
+        # ── YAML contrato (formato GenericAdapter) ───────────────
         contrato_yaml = _build_contrato_yaml(cliente_id, fuente, contrato)
         d = cfg_root / "contratos"
         d.mkdir(parents=True, exist_ok=True)
@@ -282,7 +283,12 @@ def _build_cliente_yaml(cliente: dict, fuente: dict, series_raw: dict, creds: di
     """
     # ── Series: convertir { '01': [{serie,correlativo_inicio}] }
     # al formato { boleta: [{serie, correlativo_inicio, activa}] }
-    tipo_a_nombre = {"01": "factura", "02": "boleta", "07": "nota_credito", "anulacion": "nota_debito"}
+    tipo_a_nombre = {
+        "01":       "factura",
+        "02":       "boleta",
+        "07":       "nota_credito",
+        "anulacion": "nota_debito",
+    }
     series_out = {}
     for tipo_cod, lista in series_raw.items():
         nombre = tipo_a_nombre.get(tipo_cod, tipo_cod)
@@ -296,10 +302,10 @@ def _build_cliente_yaml(cliente: dict, fuente: dict, series_raw: dict, creds: di
                 })
             else:
                 items.append({"serie": str(item), "correlativo_inicio": 1, "activa": True})
-        series_out[nombre] = items
+        if items:
+            series_out[nombre] = items
 
     # ── Endpoints: convertir lista dinámica del wizard
-    # al formato envio.endpoints que ClientLoader espera
     endpoints_out = []
     nombre_sv = creds.get("nombre", "Servicio 1")
     tipo_sv   = creds.get("tipo",   "api_rest")
@@ -307,30 +313,22 @@ def _build_cliente_yaml(cliente: dict, fuente: dict, series_raw: dict, creds: di
     token     = creds.get("token",   "")
     eps_lista = creds.get("endpoints", [])
 
-    # Agrupar URLs por tipo de endpoint
-    url_comp = ""
-    url_anul = ""
-    url_guia = ""
-    url_ret  = ""
-    url_perc = ""
+    url_comp = url_anul = url_guia = url_ret = url_perc = ""
     for ep in eps_lista:
         t = ep.get("tipo", "")
         u = ep.get("url",  "").strip()
-        if t == "comprobantes": url_comp = u
-        elif t == "anulaciones": url_anul = u
-        elif t == "guias":       url_guia = u
-        elif t == "retenciones": url_ret  = u
+        if   t == "comprobantes": url_comp = u
+        elif t == "anulaciones":  url_anul = u
+        elif t == "guias":        url_guia = u
+        elif t == "retenciones":  url_ret  = u
         elif t == "percepciones": url_perc = u
 
     endpoints_out.append({
-        "nombre":  nombre_sv,
-        "activo":  True,
-        "formato": "txt",
+        "nombre":           nombre_sv,
+        "activo":           True,
+        "formato":          "txt",
         "tipo_integracion": tipo_sv,
-        "credenciales": {
-            "usuario": usuario,
-            "token":   token,
-        },
+        "credenciales":     {"usuario": usuario, "token": token},
         "timeout":          30,
         "url_comprobantes": url_comp,
         "url_anulaciones":  url_anul,
@@ -349,9 +347,9 @@ def _build_cliente_yaml(cliente: dict, fuente: dict, series_raw: dict, creds: di
         fuente_out["base_datos"] = fuente.get("database", "")
         fuente_out["usuario"]    = fuente.get("usuario", "")
         fuente_out["puerto"]     = int(fuente.get("puerto") or
-                                       {"sqlserver":1433,"mysql":3306,"postgresql":5432}.get(tipo_fuente, 0))
-    if contrato_path := f"contratos/{cliente['cliente_id']}.yaml":
-        fuente_out["contrato_path"] = contrato_path
+                                       {"sqlserver": 1433, "mysql": 3306,
+                                        "postgresql": 5432}.get(tipo_fuente, 0))
+    fuente_out["contrato_path"] = f"contratos/{cliente['cliente_id']}.yaml"
 
     return {
         "empresa": {
@@ -361,14 +359,10 @@ def _build_cliente_yaml(cliente: dict, fuente: dict, series_raw: dict, creds: di
             "alias":            cliente.get("alias", ""),
             "regimen":          cliente.get("regimen", ""),
         },
-        "fuente": fuente_out,
-        "series": series_out,
-        "envio":  {"endpoints": endpoints_out},
-        "scheduler": {
-            "modo": "manual",
-            "intervalo_boletas": 10,
-            "activo": True,
-        },
+        "fuente":    fuente_out,
+        "series":    series_out,
+        "envio":     {"endpoints": endpoints_out},
+        "scheduler": {"modo": "manual", "intervalo_boletas": 10, "activo": True},
         "instalador": {"clave": "1234"},
         "licencia": {
             "clave": "",
@@ -378,6 +372,20 @@ def _build_cliente_yaml(cliente: dict, fuente: dict, series_raw: dict, creds: di
 
 
 def _build_contrato_yaml(cliente_id: str, fuente: dict, contrato: dict) -> dict:
+    """
+    TASK-006 FIX: genera estructura flag_lectura/flag_escritura anidada
+    que GenericAdapter._read_pending_comprobantes_dbf() espera.
+
+    Antes (plano — roto):
+        comprobantes:
+          flag_campo: FLAG_ENVIO
+          flag_valor: '2'
+
+    Ahora (anidado — correcto):
+        comprobantes:
+          flag_lectura:  {campo: FLAG_ENVIO, valor: 2}
+          flag_escritura: {campo: FLAG_ENVIO, enviado: 3, error: 4}
+    """
     tipo = fuente.get("tipo", "")
     if tipo in ("dbf", "excel", "csv", "access"):
         source = {"type": tipo, "path": fuente.get("ruta", "")}
@@ -388,30 +396,74 @@ def _build_contrato_yaml(cliente_id: str, fuente: dict, contrato: dict) -> dict:
             "type":     tipo,
             "host":     fuente.get("host", "localhost"),
             "port":     int(fuente.get("puerto") or
-                           {"sqlserver":1433,"mysql":3306,"postgresql":5432}.get(tipo, 0)),
+                           {"sqlserver": 1433, "mysql": 3306,
+                            "postgresql": 5432}.get(tipo, 0)),
             "database": fuente.get("database", ""),
             "username": fuente.get("usuario", ""),
             "password": fuente.get("password", ""),
         }
-    c = contrato; cm = c.get("campos", {}); ci = c.get("items", {})
-    return {
-        "cliente_id": cliente_id,
-        "source":     source,
-        "comprobantes": {
-            "tabla":      c.get("tabla", ""),
-            "flag_campo": c.get("flag_campo", ""),
-            "flag_valor": c.get("flag_valor", ""),
-            "flag_tipo":  c.get("flag_tipo", "integer"),
-            "campos":     {k: v for k, v in cm.items() if v},
+
+    c        = contrato
+    cm       = c.get("campos", {})
+    ci       = c.get("items", {})
+    flag_c   = c.get("flag_campo", "").strip()
+    flag_v   = c.get("flag_valor", "2").strip()
+    flag_t   = c.get("flag_tipo", "integer")
+
+    # Convertir valor al tipo correcto
+    try:
+        flag_v_typed = int(flag_v) if flag_t == "integer" else flag_v
+    except (ValueError, TypeError):
+        flag_v_typed = flag_v
+
+    # Valor enviado/error: convencion +1 / +2 respecto al pendiente
+    try:
+        flag_enviado = (flag_v_typed + 1) if flag_t == "integer" else "3"
+        flag_error   = (flag_v_typed + 2) if flag_t == "integer" else "4"
+    except TypeError:
+        flag_enviado = 3
+        flag_error   = 4
+
+    comprobantes_yaml = {
+        "tabla": c.get("tabla", ""),
+        "flag_lectura": {
+            "campo": flag_c,
+            "valor": flag_v_typed,
         },
-        "items": {k: v for k, v in {
-            "tabla":       ci.get("tabla", ""),
-            "join_campo":  ci.get("join_campo", ""),
-            "codigo":      ci.get("codigo", ""),
-            "descripcion": ci.get("descripcion", ""),
-            "cantidad":    ci.get("cantidad", ""),
-            "precio":      ci.get("precio", ""),
-        }.items() if v},
+        "flag_escritura": {
+            "campo":   flag_c,
+            "enviado": flag_enviado,
+            "error":   flag_error,
+        },
+    }
+
+    # Items — solo incluir si hay datos
+    items_yaml = {k: v for k, v in {
+        "tabla":      ci.get("tabla", ""),
+        "join_campo": ci.get("join_campo", ""),
+    }.items() if v}
+
+    # Totales — placeholder: misma tabla que comprobantes si no se especifica
+    totales_yaml = {"tabla": c.get("tabla", "")}
+
+    # Productos — placeholder vacío; el técnico lo completa en el YAML
+    productos_yaml = {
+        "tabla":      "",
+        "join_campo": ci.get("codigo", "CODIGO_PRO"),
+    }
+
+    return {
+        "cliente_id":    cliente_id,
+        "source":        source,
+        "comprobantes":  comprobantes_yaml,
+        "items":         items_yaml,
+        "totales":       totales_yaml,
+        "productos":     productos_yaml,
+        "cliente_varios": {
+            "tipo_doc": "-",
+            "num_doc":  "00000000",
+            "nombre":   "CLIENTE VARIOS",
+        },
     }
 
 
