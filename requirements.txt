@@ -1,9 +1,9 @@
-# DisateQ™ Motor CPE v4.0 — Dependencias de Producción
-
+# DisateQ™ Motor CPE v5.0 — Dependencias de Produccion
 # ================================================================
 # Core Framework
 # ================================================================
-Eel==0.16.0                     # Python ↔ HTML/JS bridge
+pywebview==6.2.1                # PyWebView — UI nativa Windows (WebView2)
+pythonnet==3.0.3                # Requerido por pywebview en Windows
 
 # ================================================================
 # Lectura de Fuentes de Datos
@@ -13,14 +13,14 @@ dbfread==2.0.7                  # DBF (FoxPro, dBase)
 pyodbc==5.0.1                   # ODBC / SQL Server / Access
 
 # ================================================================
-# Configuración
+# Configuracion
 # ================================================================
 PyYAML==6.0.1                   # Archivos YAML
 
 # ================================================================
-# HTTP / Envío
+# HTTP / Envio
 # ================================================================
-requests==2.31.0                # HTTP requests para APIFAS
+requests==2.31.0                # HTTP requests para APIFAS / OSE
 
 # ================================================================
 # Licenciamiento
@@ -28,34 +28,17 @@ requests==2.31.0                # HTTP requests para APIFAS
 cryptography==42.0.5            # RSA-2048 para licencias
 
 # ================================================================
-# Base de Datos (Futuro)
+# Build
 # ================================================================
-# SQLAlchemy==2.0.27            # ORM
-# alembic==1.13.1               # Migraciones DB
+pyinstaller==6.9.0              # Empaquetado Windows (.exe)
 
 # ================================================================
-# Scheduler (Futuro)
-# ================================================================
-# APScheduler==3.10.4           # Tareas programadas
-
-# ================================================================
-# Logging
-# ================================================================
-# structlog==24.1.0             # Logging estructurado
-
-# ================================================================
-# Opcional - Bases de Datos Específicas
+# Opcional — Bases de Datos Especificas
 # ================================================================
 # psycopg2-binary==2.9.9        # PostgreSQL
 # mysql-connector-python==8.2.0 # MySQL
-# cx-Oracle==8.3.0              # Oracle
 
 # ================================================================
-# XML (Futuro)
+# Opcional — XML (Futuro)
 # ================================================================
 # lxml==5.1.0                   # XML UBL 2.1
-
-# ================================================================
-# GUI (incluido en Python estándar)
-# ================================================================
-# tkinter                       # Diálogos nativos Windows
