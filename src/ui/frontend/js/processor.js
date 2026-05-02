@@ -1,6 +1,8 @@
 /**
  * processor.js — DisateQ Motor CPE v5.0
  * TASK-004 JS: migrado eel → window.pywebview.api
+ * TASK-011: columna Tipo (B/F/NC/ND) en tabla de pendientes
+ * TASK-013: label fuente muestra ruta real desde arranque
  */
 
 'use strict';
@@ -15,11 +17,8 @@ async function initProcesar() {
     const clientes = await window.pywebview.api.get_clientes_disponibles();
     if (clientes.exito && clientes.clientes.length) {
         const rutaResult = await window.pywebview.api.get_ruta_fuente(clientes.clientes[0].alias);
-        const el = document.getElementById('archivo-seleccionado');
-        if (el && rutaResult.ruta) {
-            el.textContent = rutaResult.ruta;
-            el.style.color = 'var(--text-primary)';
-        }
+        // TASK-013: setear ruta real desde arranque, no "Cargando..."
+        _setFuenteLabel(rutaResult.ruta);
     }
     await cargarPendientesDesdeMotor();
 }
@@ -50,11 +49,8 @@ async function cargarPendientesDesdeMotor() {
     const cfg        = clientes.clientes[0];
     const rutaResult = await window.pywebview.api.get_ruta_fuente(cfg.alias);
 
-    const el = document.getElementById('archivo-seleccionado');
-    if (el && rutaResult.ruta) {
-        el.textContent = rutaResult.ruta;
-        el.style.color = 'var(--text-primary)';
-    }
+    // TASK-013: actualizar label con ruta real
+    _setFuenteLabel(rutaResult.ruta);
 
     const result = await window.pywebview.api.conectar_fuente(cfg.tipo_fuente, rutaResult.ruta || cfg.alias);
     hideProcSpinner();
@@ -73,6 +69,30 @@ async function cargarPendientesDesdeMotor() {
     if (typeof feather !== 'undefined') feather.replace();
 }
 
+// TASK-011: extraer tipo legible desde serie
+function _tipoDesde(serie) {
+    if (!serie) return '—';
+    const s = serie.toUpperCase();
+    if (s.startsWith('F'))  return 'Factura';
+    if (s.startsWith('B'))  return 'Boleta';
+    if (s.startsWith('FC') || s.startsWith('BC')) return 'N.Crédito';
+    if (s.startsWith('FD') || s.startsWith('BD')) return 'N.Débito';
+    return serie;
+}
+
+// TASK-011: badge de tipo
+function _tipoBadge(serie) {
+    const tipo = _tipoDesde(serie);
+    const map  = {
+        'Factura':    'badge-factura',
+        'Boleta':     'badge-boleta',
+        'N.Crédito':  'badge-nc',
+        'N.Débito':   'badge-nd',
+    };
+    const cls = map[tipo] || 'badge-neutral';
+    return '<span class="badge ' + cls + '">' + tipo + '</span>';
+}
+
 function mostrarTabla(comprobantes, total) {
     const tbody   = document.getElementById('preview-tbody');
     const counter = document.getElementById('proc-count');
@@ -80,17 +100,29 @@ function mostrarTabla(comprobantes, total) {
     if (!tbody || !counter || !preview) return;
 
     counter.textContent = 'Mostrando ' + comprobantes.length + ' de ' + total + ' pendientes';
+
+    // TASK-011: cabecera con columna Tipo
+    const thead = document.querySelector('#preview-tbody').closest('table').querySelector('thead tr');
+    if (thead && thead.children.length < 5) {
+        // Insertar <th>Tipo</th> después de Comprobante
+        const thTipo = document.createElement('th');
+        thTipo.textContent = 'Tipo';
+        thead.children[1].after(thTipo);
+    }
+
     tbody.innerHTML = comprobantes.map((c, i) => {
         const totalHtml = c.total > 0
             ? '<strong>S/ ' + Number(c.total).toFixed(2) + '</strong>'
             : '<span style="color:var(--text-muted)">—</span>';
         return '<tr>' +
             '<td style="width:40px;"><input type="checkbox" class="comp-check" data-index="' + i + '" checked></td>' +
-            '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8,'0') + '</strong></td>' +
+            '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8, '0') + '</strong></td>' +
+            '<td>' + _tipoBadge(c.serie) + '</td>' +
             '<td>' + (c.cliente || 'CLIENTES VARIOS') + '</td>' +
             '<td style="text-align:right;">' + totalHtml + '</td>' +
             '</tr>';
     }).join('');
+
     preview.style.display = 'block';
     if (typeof feather !== 'undefined') feather.replace();
 }
