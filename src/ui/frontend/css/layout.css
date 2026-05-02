@@ -22,7 +22,7 @@
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 1px 0 rgba(255,255,255,0.05);
-  border-bottom: 2px solid #f59e0b;
+  border-bottom: 1px solid rgba(245,158,11,.35);
   z-index: 100;
   min-height: 58px;
 }
@@ -157,7 +157,7 @@ $115px !important;
    NAV TABS — oscuro, línea activa de color
    ============================================ */
 .nav-tabs {
-  background: var(--navy-900);
+  background: var(--bg-nav);
   display: flex;
   gap: 0;
   padding: 0 var(--space-6);
