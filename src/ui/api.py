@@ -363,6 +363,23 @@ class DisateQAPI:
         except Exception:
             return {'valida': False}
 
+    def validar_contrato(self, alias: str = None):
+        """
+        TASK-007 — Valida el contrato YAML del cliente contra la fuente real.
+        Retorna score 0-1 + errores/advertencias/info.
+        """
+        try:
+            from src.tools.contract_validator import validar_contrato_desde_alias
+            stem = alias or getattr(self, '_cliente_stem', None)
+            if not stem:
+                return {'ok': False, 'score': 0, 'errores': ['Sin cliente configurado'],
+                        'advertencias': [], 'info': []}
+            resultado = validar_contrato_desde_alias(stem)
+            return resultado.to_dict()
+        except Exception as e:
+            return {'ok': False, 'score': 0, 'errores': [str(e)],
+                    'advertencias': [], 'info': []}
+
     def get_config_cliente(self):
         try:
             if not self._client_config:
