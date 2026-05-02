@@ -359,15 +359,21 @@ function saveContrato() {
 }
 
 function saveSeries() {
-  const s = {};
-  const get = id => document.getElementById(id).value.trim();
-  if (document.getElementById('tog_01').checked) s['01'] = [get('s_01') || 'F001'];
-  if (document.getElementById('tog_02').checked) s['02'] = [get('s_02') || 'B001'];
+  const s   = {};
+  const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const getCorr = id => { const el = document.getElementById(id); return el ? (parseInt(el.value)||1) : 1; };
+  if (document.getElementById('tog_01').checked)
+    s['01'] = [{ serie: get('s_01') || 'F001', correlativo_inicio: getCorr('corr_01') }];
+  if (document.getElementById('tog_02').checked)
+    s['02'] = [{ serie: get('s_02') || 'B001', correlativo_inicio: getCorr('corr_02') }];
   if (document.getElementById('tog_07').checked) {
-    const vals = [get('s_07a'), get('s_07b')].filter(Boolean);
-    s['07'] = vals.length ? vals : ['FC01'];
+    const arr = [];
+    if (get('s_07a')) arr.push({ serie: get('s_07a'), correlativo_inicio: getCorr('corr_07a') });
+    if (get('s_07b')) arr.push({ serie: get('s_07b'), correlativo_inicio: getCorr('corr_07b') });
+    s['07'] = arr.length ? arr : [{ serie: 'FC01', correlativo_inicio: 1 }];
   }
-  if (document.getElementById('tog_an').checked) s['anulacion'] = [get('s_an') || 'BEE1'];
+  if (document.getElementById('tog_an').checked)
+    s['anulacion'] = [{ serie: get('s_an') || 'BEE1', correlativo_inicio: getCorr('corr_an') }];
   W.data.series = s;
 }
 
@@ -533,9 +539,14 @@ function toggleSerie(k) {
   const ids = k === '07' ? ['s_07a','s_07b'] : [`s_${k}`];
   ids.forEach(id => {
     const el = document.getElementById(id);
+    if (!el) return;
     el.disabled = !on;
     el.style.opacity = on ? '1' : '0.4';
   });
+  // correlativo
+  const corrId = `corr_${k}`;
+  const corr   = document.getElementById(corrId);
+  if (corr) { corr.disabled = !on; corr.style.opacity = on ? '1' : '0.4'; }
 }
 
 // ══════════════════════════════════════════════════════════════

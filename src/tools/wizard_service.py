@@ -1,4 +1,4 @@
-# ══════════════════════════════════════════════════════════════════
+﻿# ══════════════════════════════════════════════════════════════════
 #  DisateQ Motor CPE v5.0  —  wizard_service.py
 #  2026-05-01  + mapeo heurístico en analizar_fuente()
 # ══════════════════════════════════════════════════════════════════
@@ -322,3 +322,76 @@ def _write_yaml(path: Path, data: dict) -> None:
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, allow_unicode=True,
                   default_flow_style=False, sort_keys=False)
+
+
+# ══════════════════════════════════════════════════════════════════
+#  PROBAR MAPEO — lee 5 registros reales con el contrato actual
+# ══════════════════════════════════════════════════════════════════
+
+def probar_mapeo(fuente: dict, contrato: dict) -> dict:
+    """
+    Lee hasta 5 registros reales de la tabla de comprobantes
+    usando el contrato actual y retorna los valores extraídos.
+    """
+    tipo = fuente.get("tipo", "").lower()
+    if tipo != "dbf":
+        return {"ok": False, "error": "Prueba disponible solo para DBF por ahora."}
+
+    try:
+        from dbfread import DBF as DbfReader
+    except ImportError:
+        return {"ok": False, "error": "dbfread no instalado."}
+
+    ruta   = fuente.get("ruta", "").strip()
+    tabla  = contrato.get("tabla", "").strip()
+    campos = contrato.get("campos", {})
+    flag_c = contrato.get("flag_campo", "").strip()
+
+    if not tabla:
+        return {"ok": False, "error": "Tabla de comprobantes no definida en el contrato."}
+
+    dbf_path = Path(ruta) / f"{tabla}.dbf"
+    if not dbf_path.exists():
+        dbf_path = Path(ruta) / f"{tabla.upper()}.DBF"
+    if not dbf_path.exists():
+        return {"ok": False, "error": f"Archivo no encontrado: {tabla}.dbf en {ruta}"}
+
+    try:
+        t = DbfReader(str(dbf_path), encoding="latin-1", load=False)
+        # Columnas a mostrar: campos mapeados + flag
+        cols_cpe = {
+            "serie":          campos.get("serie", ""),
+            "numero":         campos.get("numero", ""),
+            "tipo_doc":       campos.get("tipo_doc", ""),
+            "fecha":          campos.get("fecha", ""),
+            "ruc_cliente":    campos.get("ruc_cliente", ""),
+            "nombre_cliente": campos.get("nombre_cliente", ""),
+            "total":          campos.get("total", ""),
+        }
+        if flag_c:
+            cols_cpe["flag"] = flag_c
+
+        cols_mostrar = [k for k, v in cols_cpe.items() if v]
+
+        filas = []
+        for i, rec in enumerate(t):
+            if i >= 5:
+                break
+            fila = {}
+            for col_cpe in cols_mostrar:
+                campo_real = cols_cpe[col_cpe]
+                v = rec.get(campo_real, "")
+                fila[col_cpe] = str(v).strip() if v is not None else ""
+            filas.append(fila)
+
+        if not filas:
+            return {"ok": False, "error": "La tabla está vacía o no tiene registros."}
+
+        return {
+            "ok":      True,
+            "columnas": cols_mostrar,
+            "filas":    filas,
+            "tabla":    tabla,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": f"Error leyendo {tabla}.dbf: {exc}"}
