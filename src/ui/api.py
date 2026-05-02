@@ -90,7 +90,7 @@ class DisateQAPI:
 
     def get_dashboard_stats(self):
         try:
-            cliente_id = self._client_config.alias if self._client_config else None
+            cliente_id = getattr(self, '_cliente_stem', None)
             resumen    = self._log.conteo_por_estado(cliente_id)
             return {
                 'remitidos':      resumen.get('REMITIDO',  0),
@@ -117,7 +117,7 @@ class DisateQAPI:
 
     def get_recent_comprobantes(self):
         try:
-            cliente_id = self._client_config.alias if self._client_config else None
+            cliente_id = getattr(self, '_cliente_stem', None)
             rows = self._log.historial(cliente_id=cliente_id, estado='REMITIDO', limit=20)
             return [
                 {
@@ -140,7 +140,7 @@ class DisateQAPI:
 
     def get_logs(self, estado=None, limit=100):
         try:
-            cliente_id = self._client_config.alias if self._client_config else None
+            cliente_id = getattr(self, '_cliente_stem', None)
             rows = self._log.historial(cliente_id=cliente_id, estado=estado, limit=limit)
             return {'exito': True, 'logs': rows}
         except Exception as e:
@@ -148,7 +148,7 @@ class DisateQAPI:
 
     def get_logs_resumen(self):
         try:
-            cliente_id = self._client_config.alias if self._client_config else None
+            cliente_id = getattr(self, '_cliente_stem', None)
             return {'exito': True, 'resumen': self._log.conteo_por_estado(cliente_id)}
         except Exception as e:
             return {'exito': False, 'error': str(e), 'resumen': {}}
@@ -156,7 +156,7 @@ class DisateQAPI:
     def get_historial(self, limit=200, tipo_doc=None, estado=None):
         """Una fila por comprobante con su ultimo estado."""
         try:
-            cliente_id = self._client_config.alias if self._client_config else None
+            cliente_id = getattr(self, '_cliente_stem', None)
             rows = self._log.historial(
                 cliente_id=cliente_id, estado=estado, limit=9999)
 
@@ -858,7 +858,7 @@ class DisateQAPI:
 
     def _ultimos_7_dias(self) -> list:
         try:
-            cliente_id = self._client_config.alias if self._client_config else None
+            cliente_id = getattr(self, '_cliente_stem', None)
             resultado  = []
             for i in range(6, -1, -1):
                 fecha = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
