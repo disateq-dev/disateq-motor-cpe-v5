@@ -167,6 +167,8 @@ function v1() {
   if (rs.length < 3)            { showErr('f_rs',  'e_rs',  'Ingresa la razón social o nombre'); ok = false; }
   if (!reg)                     { showErr('f_reg', 'e_reg', 'Selecciona el régimen fiscal'); ok = false; }
   if (!id || /\s/.test(id))     { showErr('f_id',  'e_id',  'El ID no puede estar vacío ni contener espacios'); ok = false; }
+  const alias = document.getElementById('f_alias').value.trim();
+  if (!alias)                       { showErr('f_alias','e_alias','El alias del local es obligatorio'); ok = false; }
   return ok;
 }
 
@@ -239,10 +241,12 @@ function saveStep(step) {
 
 function saveCliente() {
   W.data.cliente = {
-    ruc_emisor:   document.getElementById('f_ruc').value.trim(),
-    razon_social: document.getElementById('f_rs').value.trim(),
-    regimen:      document.getElementById('f_reg').value,
-    cliente_id:   document.getElementById('f_id').value.trim(),
+    ruc_emisor:      document.getElementById('f_ruc').value.trim(),
+    razon_social:    document.getElementById('f_rs').value.trim(),
+    nombre_comercial:document.getElementById('f_nc').value.trim(),
+    alias:           document.getElementById('f_alias').value.trim(),
+    regimen:         document.getElementById('f_reg').value,
+    cliente_id:      document.getElementById('f_id').value.trim(),
   };
 }
 

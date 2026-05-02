@@ -462,21 +462,44 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
     <!-- ── PASO 1 — CLIENTE ─────────────────────────────── -->
     <div class="panel" id="p1">
       <div class="fg">
+
+        <!-- RUC -->
         <div class="f s2">
           <label>RUC Emisor <span class="req">*</span></label>
           <input type="text" id="f_ruc" class="mono" maxlength="11" placeholder="20XXXXXXXXX" autocomplete="off">
           <div class="hint">11 dígitos — persona natural (10) o empresa (20)</div>
           <div class="ferr hidden" id="e_ruc"></div>
         </div>
+
+        <!-- Razón Social -->
         <div class="f s2">
-          <label>Razón Social / Nombre <span class="req">*</span></label>
-          <input type="text" id="f_rs" placeholder="Ej: Farmacia Central SAC" autocomplete="off">
+          <label>Razón Social <span class="req">*</span></label>
+          <input type="text" id="f_rs" placeholder="Nombre legal/tributario — Ej: Farmacia Central SAC" autocomplete="off">
+          <div class="hint">Tal como figura en SUNAT</div>
           <div class="ferr hidden" id="e_rs"></div>
         </div>
+
+        <!-- Nombre Comercial -->
+        <div class="f s2">
+          <label>Nombre Comercial</label>
+          <input type="text" id="f_nc" placeholder="Marca o nombre de fantasía — Ej: FarmaPlus" autocomplete="off">
+          <div class="hint">Si es distinto a la razón social. Opcional.</div>
+        </div>
+
+        <!-- Alias -->
+        <div class="f s2">
+          <label>Alias / Local <span class="req">*</span></label>
+          <input type="text" id="f_alias" placeholder="Ej: Local Cercado Piura, Sta. Eulalia Castilla" autocomplete="off">
+          <div class="hint">Nombre corto para identificar este punto de venta o local</div>
+          <div class="ferr hidden" id="e_alias"></div>
+        </div>
+
+        <!-- Régimen -->
         <div class="f">
-          <label>Régimen Fiscal <span class="req">*</span></label>
+          <label>Régimen Tributario <span class="req">*</span></label>
           <select id="f_reg">
             <option value="">— Seleccionar —</option>
+            <option value="NRUS">NRUS — Nuevo RUS</option>
             <option value="RER">RER — Régimen Especial</option>
             <option value="RMT">RMT — MYPE Tributario</option>
             <option value="MYPE">MYPE — Pequeña empresa</option>
