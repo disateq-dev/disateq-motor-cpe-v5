@@ -1,6 +1,6 @@
-﻿# ══════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
 #  DisateQ Motor CPE v5.0  —  wizard_service.py
-#  2026-05-01  + mapeo heurístico en analizar_fuente()
+#  2026-05-02  fix: YAML generado compatible con ClientLoader
 # ══════════════════════════════════════════════════════════════════
 
 from __future__ import annotations
@@ -18,18 +18,18 @@ def _ruta_config() -> Path:
 
 
 # ══════════════════════════════════════════════════════════════════
-#  TEST FUENTE — paso 3: lista archivos, no datos
+#  TEST FUENTE — paso 3
 # ══════════════════════════════════════════════════════════════════
 
 def test_fuente(fuente: dict) -> dict:
     tipo = fuente.get("tipo", "").lower()
     try:
-        if tipo == "dbf":       return _test_dbf(fuente)
-        elif tipo == "excel":   return _test_excel(fuente)
-        elif tipo == "csv":     return _test_csv(fuente)
+        if tipo == "dbf":     return _test_dbf(fuente)
+        elif tipo == "excel": return _test_excel(fuente)
+        elif tipo == "csv":   return _test_csv(fuente)
         elif tipo in ("sqlserver", "mysql", "postgresql"):
             return _test_db(fuente)
-        elif tipo == "access":  return _test_access(fuente)
+        elif tipo == "access": return _test_access(fuente)
         else:
             return {"ok": False, "error": f"Tipo no soportado: '{tipo}'"}
     except Exception as exc:
@@ -45,16 +45,13 @@ def _test_dbf(fuente: dict) -> dict:
     ruta = fuente.get("ruta", "").strip()
     if not ruta:
         return {"ok": False, "error": "Ruta de carpeta no especificada"}
-
     carpeta = Path(ruta)
     if not carpeta.exists():
         return {"ok": False, "error": f"La ruta no existe: {ruta}"}
 
-    # Sin duplicados en Windows
     dbfs = sorted({p.stem.lower(): p for p in
                    list(carpeta.glob("*.dbf")) +
                    list(carpeta.glob("*.DBF"))}.values())
-
     if not dbfs:
         return {"ok": False, "error": f"No se encontraron archivos .DBF en: {ruta}"}
 
@@ -98,8 +95,7 @@ def _test_excel(fuente: dict) -> dict:
     cols  = [str(c) if c is not None else f"Col{i}" for i, c in enumerate(rows[0])]
     filas = [{cols[j]: str(v) for j, v in enumerate(r)} for r in rows[1:6]]
     return {"ok": True, "mensaje": f"Excel OK — {ws.max_row - 1} filas.",
-            "columnas": cols[:12], "filas": filas,
-            "total_registros": ws.max_row - 1}
+            "columnas": cols[:12], "filas": filas, "total_registros": ws.max_row - 1}
 
 
 def _test_csv(fuente: dict) -> dict:
@@ -112,8 +108,7 @@ def _test_csv(fuente: dict) -> dict:
         cols   = reader.fieldnames or []
         filas  = [row for i, row in enumerate(reader) if i < 5]
     return {"ok": True, "mensaje": f"CSV OK — {len(cols)} columnas.",
-            "columnas": list(cols)[:12], "filas": filas,
-            "total_registros": len(filas)}
+            "columnas": list(cols)[:12], "filas": filas, "total_registros": len(filas)}
 
 
 def _test_db(fuente: dict) -> dict:
@@ -124,19 +119,18 @@ def _test_db(fuente: dict) -> dict:
         if tipo == "sqlserver":
             import pyodbc
             cs   = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={host},{puerto or 1433};DATABASE={database};UID={usuario};PWD={password}"
-            conn = pyodbc.connect(cs, timeout=5)
-            cur  = conn.cursor()
+            conn = pyodbc.connect(cs, timeout=5); cur = conn.cursor()
             cur.execute("SELECT TOP 10 TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'")
         elif tipo == "mysql":
             import mysql.connector
             conn = mysql.connector.connect(host=host, port=int(puerto or 3306),
                 database=database, user=usuario, password=password, connection_timeout=5)
-            cur  = conn.cursor(); cur.execute("SHOW TABLES")
+            cur = conn.cursor(); cur.execute("SHOW TABLES")
         elif tipo == "postgresql":
             import psycopg2
             conn = psycopg2.connect(host=host, port=int(puerto or 5432),
                 dbname=database, user=usuario, password=password, connect_timeout=5)
-            cur  = conn.cursor()
+            cur = conn.cursor()
             cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public' LIMIT 10")
         else:
             return {"ok": False, "error": f"DB tipo no soportado: {tipo}"}
@@ -170,82 +164,110 @@ def _test_access(fuente: dict) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════
-#  ANALIZAR FUENTE — paso 3→4: mapeo heurístico
+#  ANALIZAR FUENTE — heurística DBF → contrato
 # ══════════════════════════════════════════════════════════════════
 
 def analizar_fuente(fuente: dict) -> dict:
-    """
-    Corre el motor heurístico sobre la fuente y retorna
-    el contrato pre-llenado con scores de confianza.
-
-    Solo DBF por ahora — Excel/CSV/DB retornan contrato vacío
-    para que el usuario lo llene manualmente.
-
-    Retorna:
-    {
-      ok: bool,
-      score_global: float,
-      contrato: { ... },
-      scores: { campo: float },
-      sin_resolver: [ campo ],
-      metodo: 'heuristica' | 'manual',
-    }
-    """
     tipo = fuente.get("tipo", "").lower()
-
     if tipo == "dbf":
         try:
             from src.tools.wizard_mapper import mapear_dbf
-            ruta    = fuente.get("ruta", "").strip()
-            result  = mapear_dbf(ruta)
+            result = mapear_dbf(fuente.get("ruta", "").strip())
             result["metodo"] = "heuristica"
             return result
         except Exception as exc:
-            return {
-                "ok":          False,
-                "error":       str(exc),
-                "metodo":      "manual",
-                "score_global": 0,
-                "contrato":    {},
-                "scores":      {},
-                "sin_resolver": [],
-            }
-
-    # Para otros tipos — contrato vacío, llenado manual
-    return {
-        "ok":           True,
-        "score_global": 0,
-        "metodo":       "manual",
-        "contrato":     {},
-        "scores":       {},
-        "sin_resolver": [],
-        "tablas_analizadas": 0,
-    }
+            return {"ok": False, "error": str(exc), "metodo": "manual",
+                    "score_global": 0, "contrato": {}, "scores": {}, "sin_resolver": []}
+    return {"ok": True, "score_global": 0, "metodo": "manual",
+            "contrato": {}, "scores": {}, "sin_resolver": [], "tablas_analizadas": 0}
 
 
 # ══════════════════════════════════════════════════════════════════
-#  GUARDAR WIZARD
+#  PROBAR MAPEO — lee 5 registros reales con el contrato actual
+# ══════════════════════════════════════════════════════════════════
+
+def probar_mapeo(fuente: dict, contrato: dict) -> dict:
+    tipo = fuente.get("tipo", "").lower()
+    if tipo != "dbf":
+        return {"ok": False, "error": "Prueba disponible solo para DBF por ahora."}
+    try:
+        from dbfread import DBF as DbfReader
+    except ImportError:
+        return {"ok": False, "error": "dbfread no instalado."}
+
+    ruta   = fuente.get("ruta", "").strip()
+    tabla  = contrato.get("tabla", "").strip()
+    campos = contrato.get("campos", {})
+    flag_c = contrato.get("flag_campo", "").strip()
+
+    if not tabla:
+        return {"ok": False, "error": "Tabla de comprobantes no definida."}
+
+    dbf_path = Path(ruta) / f"{tabla}.dbf"
+    if not dbf_path.exists():
+        dbf_path = Path(ruta) / f"{tabla.upper()}.DBF"
+    if not dbf_path.exists():
+        return {"ok": False, "error": f"Archivo no encontrado: {tabla}.dbf en {ruta}"}
+
+    try:
+        t = DbfReader(str(dbf_path), encoding="latin-1", load=False)
+        cols_cpe = {
+            "serie":          campos.get("serie", ""),
+            "numero":         campos.get("numero", ""),
+            "tipo_doc":       campos.get("tipo_doc", ""),
+            "fecha":          campos.get("fecha", ""),
+            "ruc_cliente":    campos.get("ruc_cliente", ""),
+            "nombre_cliente": campos.get("nombre_cliente", ""),
+            "total":          campos.get("total", ""),
+        }
+        if flag_c:
+            cols_cpe["flag"] = flag_c
+        cols_mostrar = [k for k, v in cols_cpe.items() if v]
+        filas = []
+        for i, rec in enumerate(t):
+            if i >= 5: break
+            fila = {}
+            for col_cpe in cols_mostrar:
+                campo_real = cols_cpe[col_cpe]
+                v = rec.get(campo_real, "")
+                fila[col_cpe] = str(v).strip() if v is not None else ""
+            filas.append(fila)
+        if not filas:
+            return {"ok": False, "error": "La tabla está vacía."}
+        return {"ok": True, "columnas": cols_mostrar, "filas": filas, "tabla": tabla}
+    except Exception as exc:
+        return {"ok": False, "error": f"Error leyendo {tabla}.dbf: {exc}"}
+
+
+# ══════════════════════════════════════════════════════════════════
+#  GUARDAR WIZARD → YAML compatible con ClientLoader
 # ══════════════════════════════════════════════════════════════════
 
 def guardar_wizard(payload: dict) -> dict:
+    """
+    Genera config/clientes/{id}.yaml y config/contratos/{id}.yaml
+    en el formato que ClientLoader espera.
+    """
     try:
         cfg_root   = _ruta_config()
         cliente    = payload["cliente"]
         fuente     = payload["fuente"]
         contrato   = payload["contrato"]
-        series     = payload["series"]
-        creds      = payload["credenciales"]
+        series_raw = payload["series"]       # { '01': [{serie,correlativo_inicio}], ... }
+        creds      = payload["credenciales"] # { nombre, tipo, usuario, token, endpoints: [{tipo,url}] }
         cliente_id = cliente["cliente_id"]
 
+        # ── YAML cliente (formato ClientLoader) ─────────────────
+        cliente_yaml = _build_cliente_yaml(cliente, fuente, series_raw, creds)
         d = cfg_root / "clientes"
         d.mkdir(parents=True, exist_ok=True)
-        _write_yaml(d / f"{cliente_id}.yaml",
-                    _build_cliente_yaml(cliente, fuente, series, creds))
+        _write_yaml(d / f"{cliente_id}.yaml", cliente_yaml)
 
+        # ── YAML contrato ────────────────────────────────────────
+        contrato_yaml = _build_contrato_yaml(cliente_id, fuente, contrato)
         d = cfg_root / "contratos"
         d.mkdir(parents=True, exist_ok=True)
-        _write_yaml(d / f"{cliente_id}.yaml",
-                    _build_contrato_yaml(cliente_id, fuente, contrato))
+        _write_yaml(d / f"{cliente_id}.yaml", contrato_yaml)
 
         return {"ok": True, "cliente_id": cliente_id}
     except Exception as exc:
@@ -253,34 +275,109 @@ def guardar_wizard(payload: dict) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
-def _build_cliente_yaml(cliente, fuente, series, creds):
-    tipo_map    = {"01": "01", "02": "02", "07": "07", "anulacion": "AN"}
-    series_list = [{"tipo": tipo_map.get(k, k), "serie": v}
-                   for k, vals in series.items() for v in vals]
-    proveedor = creds.get("proveedor", "apifas")
-    ep = {"proveedor": proveedor, "activo": True}
-    if proveedor == "apifas":
-        ep["token"]    = creds.get("token", "")
-        ep["url_base"] = creds.get("url_base", "https://api.apifas.com/v1")
-    elif proveedor == "nubef":
-        ep["token"] = creds.get("token", "")
-    elif proveedor == "disateq":
-        ep["api_key"]  = creds.get("api_key", "")
-        ep["url_base"] = creds.get("url_base", "https://platform.disateq.com/api/v1")
+def _build_cliente_yaml(cliente: dict, fuente: dict, series_raw: dict, creds: dict) -> dict:
+    """
+    Genera YAML en el mismo formato que farmacia_central.yaml
+    para que ClientLoader lo lea sin cambios.
+    """
+    # ── Series: convertir { '01': [{serie,correlativo_inicio}] }
+    # al formato { boleta: [{serie, correlativo_inicio, activa}] }
+    tipo_a_nombre = {"01": "factura", "02": "boleta", "07": "nota_credito", "anulacion": "nota_debito"}
+    series_out = {}
+    for tipo_cod, lista in series_raw.items():
+        nombre = tipo_a_nombre.get(tipo_cod, tipo_cod)
+        items  = []
+        for item in lista:
+            if isinstance(item, dict):
+                items.append({
+                    "serie":              item.get("serie", ""),
+                    "correlativo_inicio": int(item.get("correlativo_inicio", 1)),
+                    "activa":             True,
+                })
+            else:
+                items.append({"serie": str(item), "correlativo_inicio": 1, "activa": True})
+        series_out[nombre] = items
+
+    # ── Endpoints: convertir lista dinámica del wizard
+    # al formato envio.endpoints que ClientLoader espera
+    endpoints_out = []
+    nombre_sv = creds.get("nombre", "Servicio 1")
+    tipo_sv   = creds.get("tipo",   "api_rest")
+    usuario   = creds.get("usuario", "")
+    token     = creds.get("token",   "")
+    eps_lista = creds.get("endpoints", [])
+
+    # Agrupar URLs por tipo de endpoint
+    url_comp = ""
+    url_anul = ""
+    url_guia = ""
+    url_ret  = ""
+    url_perc = ""
+    for ep in eps_lista:
+        t = ep.get("tipo", "")
+        u = ep.get("url",  "").strip()
+        if t == "comprobantes": url_comp = u
+        elif t == "anulaciones": url_anul = u
+        elif t == "guias":       url_guia = u
+        elif t == "retenciones": url_ret  = u
+        elif t == "percepciones": url_perc = u
+
+    endpoints_out.append({
+        "nombre":  nombre_sv,
+        "activo":  True,
+        "formato": "txt",
+        "tipo_integracion": tipo_sv,
+        "credenciales": {
+            "usuario": usuario,
+            "token":   token,
+        },
+        "timeout":          30,
+        "url_comprobantes": url_comp,
+        "url_anulaciones":  url_anul,
+        "url_guias":        url_guia,
+        "url_retenciones":  url_ret,
+        "url_percepciones": url_perc,
+    })
+
+    # ── Fuente
+    tipo_fuente = fuente.get("tipo", "dbf")
+    fuente_out  = {"tipo": tipo_fuente}
+    if tipo_fuente in ("dbf", "excel", "csv", "access"):
+        fuente_out["rutas"] = [fuente.get("ruta", "")]
+    else:
+        fuente_out["servidor"]   = fuente.get("host", "")
+        fuente_out["base_datos"] = fuente.get("database", "")
+        fuente_out["usuario"]    = fuente.get("usuario", "")
+        fuente_out["puerto"]     = int(fuente.get("puerto") or
+                                       {"sqlserver":1433,"mysql":3306,"postgresql":5432}.get(tipo_fuente, 0))
+    if contrato_path := f"contratos/{cliente['cliente_id']}.yaml":
+        fuente_out["contrato_path"] = contrato_path
+
     return {
-        "cliente_id":        cliente["cliente_id"],
-        "ruc_emisor":        cliente["ruc_emisor"],
-        "razon_social":      cliente["razon_social"],
-        "nombre_comercial":  cliente.get("nombre_comercial", ""),
-        "alias":             cliente.get("alias", ""),
-        "regimen":           cliente["regimen"],
-        "contrato":          f"contratos/{cliente['cliente_id']}.yaml",
-        "series":            series_list,
-        "endpoints":         [ep],
+        "empresa": {
+            "ruc":              cliente["ruc_emisor"],
+            "razon_social":     cliente["razon_social"],
+            "nombre_comercial": cliente.get("nombre_comercial", cliente["razon_social"]),
+            "alias":            cliente.get("alias", ""),
+            "regimen":          cliente.get("regimen", ""),
+        },
+        "fuente": fuente_out,
+        "series": series_out,
+        "envio":  {"endpoints": endpoints_out},
+        "scheduler": {
+            "modo": "manual",
+            "intervalo_boletas": 10,
+            "activo": True,
+        },
+        "instalador": {"clave": "1234"},
+        "licencia": {
+            "clave": "",
+            "endpoint_validacion": "https://licenses.disateq.com/v1/validate",
+        },
     }
 
 
-def _build_contrato_yaml(cliente_id, fuente, contrato):
+def _build_contrato_yaml(cliente_id: str, fuente: dict, contrato: dict) -> dict:
     tipo = fuente.get("tipo", "")
     if tipo in ("dbf", "excel", "csv", "access"):
         source = {"type": tipo, "path": fuente.get("ruta", "")}
@@ -322,76 +419,3 @@ def _write_yaml(path: Path, data: dict) -> None:
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, allow_unicode=True,
                   default_flow_style=False, sort_keys=False)
-
-
-# ══════════════════════════════════════════════════════════════════
-#  PROBAR MAPEO — lee 5 registros reales con el contrato actual
-# ══════════════════════════════════════════════════════════════════
-
-def probar_mapeo(fuente: dict, contrato: dict) -> dict:
-    """
-    Lee hasta 5 registros reales de la tabla de comprobantes
-    usando el contrato actual y retorna los valores extraídos.
-    """
-    tipo = fuente.get("tipo", "").lower()
-    if tipo != "dbf":
-        return {"ok": False, "error": "Prueba disponible solo para DBF por ahora."}
-
-    try:
-        from dbfread import DBF as DbfReader
-    except ImportError:
-        return {"ok": False, "error": "dbfread no instalado."}
-
-    ruta   = fuente.get("ruta", "").strip()
-    tabla  = contrato.get("tabla", "").strip()
-    campos = contrato.get("campos", {})
-    flag_c = contrato.get("flag_campo", "").strip()
-
-    if not tabla:
-        return {"ok": False, "error": "Tabla de comprobantes no definida en el contrato."}
-
-    dbf_path = Path(ruta) / f"{tabla}.dbf"
-    if not dbf_path.exists():
-        dbf_path = Path(ruta) / f"{tabla.upper()}.DBF"
-    if not dbf_path.exists():
-        return {"ok": False, "error": f"Archivo no encontrado: {tabla}.dbf en {ruta}"}
-
-    try:
-        t = DbfReader(str(dbf_path), encoding="latin-1", load=False)
-        # Columnas a mostrar: campos mapeados + flag
-        cols_cpe = {
-            "serie":          campos.get("serie", ""),
-            "numero":         campos.get("numero", ""),
-            "tipo_doc":       campos.get("tipo_doc", ""),
-            "fecha":          campos.get("fecha", ""),
-            "ruc_cliente":    campos.get("ruc_cliente", ""),
-            "nombre_cliente": campos.get("nombre_cliente", ""),
-            "total":          campos.get("total", ""),
-        }
-        if flag_c:
-            cols_cpe["flag"] = flag_c
-
-        cols_mostrar = [k for k, v in cols_cpe.items() if v]
-
-        filas = []
-        for i, rec in enumerate(t):
-            if i >= 5:
-                break
-            fila = {}
-            for col_cpe in cols_mostrar:
-                campo_real = cols_cpe[col_cpe]
-                v = rec.get(campo_real, "")
-                fila[col_cpe] = str(v).strip() if v is not None else ""
-            filas.append(fila)
-
-        if not filas:
-            return {"ok": False, "error": "La tabla está vacía o no tiene registros."}
-
-        return {
-            "ok":      True,
-            "columnas": cols_mostrar,
-            "filas":    filas,
-            "tabla":    tabla,
-        }
-    except Exception as exc:
-        return {"ok": False, "error": f"Error leyendo {tabla}.dbf: {exc}"}
