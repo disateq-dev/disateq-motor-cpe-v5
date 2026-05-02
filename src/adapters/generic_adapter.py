@@ -1,5 +1,6 @@
 # src/adapters/generic_adapter.py
 # DisateQ Motor CPE v5.0
+# FIX-DBF-01: SafeFieldParser — parseN + parseF para floats nulos b'\x00\x00'
 # ─────────────────────────────────────────────────────────────────────────────
 
 import os
@@ -30,18 +31,37 @@ CLIENTE_TIPO_DOC_MAP = {
 
 def _safe_read_dbf(path: str, encoding: str = 'latin-1') -> List[Dict]:
     """
-    Lee un DBF completo con manejo de fechas nulas y registros corruptos.
+    Lee un DBF completo con manejo de fechas, enteros y floats nulos.
     Retorna lista de dicts. Nunca lanza excepción.
     """
     from dbfread import DBF as _DBF, FieldParser
 
     class SafeFieldParser(FieldParser):
+
         def parseD(self, field, data):
             """Fecha: retorna None si el valor es nulo o inválido."""
             try:
                 if not data or data.strip() == b'' or b'\x00' in data:
                     return None
                 return super().parseD(field, data)
+            except Exception:
+                return None
+
+        def parseN(self, field, data):
+            """Entero/decimal: retorna None si el valor es nulo o vacío."""
+            try:
+                if not data or data.strip() == b'' or b'\x00' in data:
+                    return None
+                return super().parseN(field, data)
+            except Exception:
+                return None
+
+        def parseF(self, field, data):
+            """Float: retorna None si el valor es nulo (b'\\x00\\x00' o vacío)."""
+            try:
+                if not data or data.strip() == b'' or b'\x00' in data:
+                    return None
+                return super().parseF(field, data)
             except Exception:
                 return None
 
@@ -67,7 +87,7 @@ def _safe_read_dbf(path: str, encoding: str = 'latin-1') -> List[Dict]:
 class GenericAdapter(BaseAdapter):
     """
     Adaptador universal — lee cualquier fuente via contrato YAML.
-    DBF optimizado: items en cache, parser de fechas robusto.
+    DBF optimizado: items en cache, parser de fechas y floats robusto.
     """
 
     def __init__(self, contrato: dict, config_cliente: dict):
@@ -80,7 +100,7 @@ class GenericAdapter(BaseAdapter):
         self._cache_factura:   Optional[Dict] = None
         self._cache_productos: Optional[Dict] = None
         self._cache_motivos:   Optional[Dict] = None
-        self._cache_items:     Optional[Dict] = None  # ← NUEVO: items por clave
+        self._cache_items:     Optional[Dict] = None
 
     # ═════════════════════════════════════════════════════════════════════════
     # INTERFAZ PUBLICA
