@@ -283,11 +283,20 @@ function v5() {
 
 function v6() {
   const ep = W.endpoint;
-  const tokens = { apifas: 'ap_tok', nubef: 'nb_tok', disateq: 'dq_key' };
-  const field = tokens[ep];
-  if (field && !document.getElementById(field).value.trim()) {
-    alert('El token / API key es obligatorio.');
-    return false;
+  // APIFAS requiere al menos la URL de comprobantes
+  if (ep === 'apifas') {
+    const urlEl = document.getElementById('ap_url_comp');
+    if (urlEl && !urlEl.value.trim()) {
+      alert('La URL de comprobantes es obligatoria para APIFAS.');
+      return false;
+    }
+  }
+  // Nubefact y DisateQ requieren token
+  if (ep === 'nubef' && !document.getElementById('nb_tok').value.trim()) {
+    alert('El token de Nubefact es obligatorio.'); return false;
+  }
+  if (ep === 'disateq' && !document.getElementById('dq_key').value.trim()) {
+    alert('La API Key de DisateQ es obligatoria.'); return false;
   }
   return true;
 }
@@ -380,7 +389,12 @@ function saveSeries() {
 function saveCreds() {
   const ep = W.endpoint;
   const c  = { proveedor: ep };
-  if (ep === 'apifas')  { c.token = document.getElementById('ap_tok').value; c.url_base = document.getElementById('ap_url').value.trim(); }
+  if (ep === 'apifas')  {
+    c.url_comprobantes = document.getElementById('ap_url_comp') ? document.getElementById('ap_url_comp').value.trim() : '';
+    c.url_anulaciones  = document.getElementById('ap_url_anul') ? document.getElementById('ap_url_anul').value.trim() : '';
+    const tok = document.getElementById('ap_tok');
+    if (tok && tok.value.trim()) c.token = tok.value.trim();
+  }
   if (ep === 'nubef')   { c.token = document.getElementById('nb_tok').value; }
   if (ep === 'disateq') { c.api_key = document.getElementById('dq_key').value; c.url_base = document.getElementById('dq_url').value.trim(); }
   W.data.credenciales = c;

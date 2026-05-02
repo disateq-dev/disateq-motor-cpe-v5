@@ -701,6 +701,10 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
               <label class="tog"><input type="checkbox" id="tog_01" onchange="toggleSerie('01')"><span class="tog-s"></span></label>
             </div>
             <div class="f"><input type="text" id="s_01" class="mono" placeholder="F001" disabled></div>
+            <div class="f mt8">
+              <label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">Correlativo inicio</label>
+              <input type="number" id="corr_01" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
+            </div>
           </div>
           <!-- 02 Boletas -->
           <div class="scard" id="sc_02">
@@ -709,6 +713,10 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
               <label class="tog"><input type="checkbox" id="tog_02" onchange="toggleSerie('02')"><span class="tog-s"></span></label>
             </div>
             <div class="f"><input type="text" id="s_02" class="mono" placeholder="B001" disabled></div>
+            <div class="f mt8">
+              <label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">Correlativo inicio</label>
+              <input type="number" id="corr_02" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
+            </div>
           </div>
           <!-- 07 Notas crédito -->
           <div class="scard" id="sc_07">
@@ -716,9 +724,13 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
               <div><div class="scard-name">Notas de crédito</div><div class="scard-type">Tipo 07 — FC / BC</div></div>
               <label class="tog"><input type="checkbox" id="tog_07" onchange="toggleSerie('07')"><span class="tog-s"></span></label>
             </div>
-            <div class="row">
+            <div class="row" style="gap:6px">
               <input type="text" id="s_07a" class="mono" placeholder="FC01" disabled style="flex:1">
               <input type="text" id="s_07b" class="mono" placeholder="BC01" disabled style="flex:1">
+            </div>
+            <div class="f mt8">
+              <label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">Correlativo inicio</label>
+              <input type="number" id="corr_07" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
             </div>
           </div>
           <!-- AN Anulaciones -->
@@ -728,6 +740,10 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
               <label class="tog"><input type="checkbox" id="tog_an" onchange="toggleSerie('an')"><span class="tog-s"></span></label>
             </div>
             <div class="f"><input type="text" id="s_an" class="mono" placeholder="BEE1" disabled></div>
+            <div class="f mt8">
+              <label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">Correlativo inicio</label>
+              <input type="number" id="corr_an" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
+            </div>
           </div>
         </div>
       </div>
@@ -747,14 +763,20 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
 
         <div id="cred_apifas" class="fg w1">
           <div class="f">
-            <label>Token API <span class="req">*</span></label>
-            <input type="password" id="ap_tok" class="mono" placeholder="••••••••••••" autocomplete="new-password">
+            <label>URL Comprobantes <span class="req">*</span></label>
+            <input type="text" id="ap_url_comp" class="mono" placeholder="https://..." autocomplete="off">
+            <div class="hint">Endpoint para envío de facturas y boletas</div>
           </div>
           <div class="f">
-            <label>URL Base</label>
-            <input type="text" id="ap_url" class="mono" value="https://api.apifas.com/v1">
+            <label>URL Anulaciones</label>
+            <input type="text" id="ap_url_anul" class="mono" placeholder="https://..." autocomplete="off">
+            <div class="hint">Endpoint para resúmenes de anulación. Opcional.</div>
           </div>
-          <div class="al al-info"><span>ℹ</span><span>Test de envío real en TASK-008. Aquí solo se guardan las credenciales.</span></div>
+          <div class="f">
+            <label>Token / API Key</label>
+            <input type="password" id="ap_tok" class="mono" placeholder="Opcional — dejar vacío si no aplica" autocomplete="new-password">
+          </div>
+          <div class="al al-info"><span>ℹ</span><span>Test de envío real en TASK-008. Aquí solo se guardan los endpoints.</span></div>
         </div>
 
         <div id="cred_nubef" class="fg w1 hidden">
