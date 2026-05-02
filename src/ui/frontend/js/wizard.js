@@ -78,7 +78,73 @@ function goNext() {
   if (!validate(W.step)) return;
   saveStep(W.step);
   if (W.step === 6) { guardarWizard(); return; }
+  if (W.step === 3) { analizarYAvanzar(); return; }
   goTo(W.step + 1);
+}
+
+function analizarYAvanzar() {
+  const btn  = document.getElementById('btnNext');
+  const orig = btn.textContent;
+  btn.disabled    = true;
+  btn.textContent = '⏳ Analizando campos...';
+
+  window.pywebview.api.wizard_analizar_fuente(W.data.fuente)
+    .then(r => {
+      btn.disabled    = false;
+      btn.textContent = orig;
+      if (r.ok) {
+        W.mapeo = r;
+        poblarContrato(r.contrato);
+        aplicarScores(r.scores, r.sin_resolver);
+        mostrarScoreGlobal(r.score_global, r.metodo, r.sin_resolver);
+      }
+      goTo(4);
+    })
+    .catch(() => {
+      btn.disabled    = false;
+      btn.textContent = orig;
+      goTo(4);
+    });
+}
+
+function aplicarScores(scores, sinResolver) {
+  const MAP = {
+    'numero':         'c_num', 'serie':         'c_ser',
+    'tipo_doc':       'c_tdc', 'fecha':         'c_fec',
+    'ruc_cliente':    'c_ruc', 'nombre_cliente':'c_nom',
+    'total':          'c_tot', 'flag_campo':    'c_flag_c',
+    'join_campo':     'c_tj',  'codigo':        'c_tc',
+    'descripcion':    'c_td',  'cantidad':      'c_tq',
+    'precio':         'c_tp',
+  };
+  for (const [campo, inputId] of Object.entries(MAP)) {
+    const el    = document.getElementById(inputId);
+    const score = scores[campo] || 0;
+    if (!el) continue;
+    el.style.borderColor = score >= 0.8 ? 'var(--success)' :
+                           score >= 0.5 ? 'var(--accent)'  : 'var(--error)';
+    el.title = `Confianza: ${Math.round(score * 100)}%`;
+    if (score >= 0.8) {
+      el.style.background = 'rgba(16,185,129,.07)';
+    } else if (score < 0.5 && el.value === '') {
+      el.style.background = 'rgba(239,68,68,.07)';
+    }
+  }
+}
+
+function mostrarScoreGlobal(score, metodo, sinResolver) {
+  const el = document.getElementById('alAuto');
+  if (!el) return;
+  const pct  = Math.round(score * 100);
+  const icon = pct >= 80 ? '✓' : pct >= 50 ? '⚠' : '✗';
+  const tipo = pct >= 80 ? 'success' : pct >= 50 ? 'warn' : 'error';
+  let msg = `${icon} Análisis completado — Confianza global: <strong>${pct}%</strong>`;
+  if (metodo === 'heuristica') msg += ' (motor heurístico)';
+  if (sinResolver && sinResolver.length > 0)
+    msg += `<br><span style="font-size:11px;opacity:.8">Campos a completar: ${sinResolver.join(', ')}</span>`;
+  el.className = `al al-${tipo}`;
+  el.innerHTML = msg;
+  el.classList.remove('hidden');
 }
 
 function goBack() {

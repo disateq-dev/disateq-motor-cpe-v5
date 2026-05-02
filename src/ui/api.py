@@ -762,6 +762,14 @@ class DisateQAPI:
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
+    def wizard_analizar_fuente(self, fuente: dict) -> dict:
+        """Paso 3->4: corre heuristica de mapeo sobre la fuente."""
+        try:
+            from src.tools.wizard_service import analizar_fuente
+            return analizar_fuente(fuente)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "score_global": 0,
+                    "contrato": {}, "scores": {}, "sin_resolver": []}
     def wizard_guardar(self, payload: dict) -> dict:
         """Paso 6 final — guarda config/clientes y config/contratos YAML."""
         try:
