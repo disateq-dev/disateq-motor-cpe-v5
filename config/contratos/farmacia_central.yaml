@@ -1,0 +1,27 @@
+cliente_id: farmacia_central
+source:
+  type: dbf
+  path: D:/FFEESUNAT/test
+  encoding: latin-1
+
+comprobantes:
+  tabla: enviosffee
+  flag_campo: FLAG_ENVIO
+  flag_valor: '2'
+  flag_tipo: integer
+  campos:
+    numero: NRO_MOVIM
+    serie: SERIE_FACT
+    tipo_doc: TIPO_FACTU
+    fecha: FECHA_EMIS
+    ruc_cliente: RUC_CLIEN
+    nombre_cliente: NOM_CLIEN
+    total: TOT_PAGAR
+
+items:
+  tabla: detalleventa
+  join_campo: NRO_MOVIM
+  codigo: COD_PROD
+  descripcion: NOM_PROD
+  cantidad: CANT_VEND
+  precio: PRE_VENTA
