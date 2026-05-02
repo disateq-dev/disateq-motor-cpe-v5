@@ -107,8 +107,7 @@ class DisateQAPI:
         try:
             if self._client_config:
                 from src.adapters.adapter_factory import AdapterFactory
-                adapter    = AdapterFactory.create_from_cliente_id(
-                    self._client_config.alias)
+                adapter    = AdapterFactory.create_from_cliente_id(getattr(self, "_cliente_stem", self._client_config.alias))
                 pendientes = adapter.read_pending()
                 return {'count': len(pendientes)}
             return {'count': 0}
@@ -208,7 +207,7 @@ class DisateQAPI:
             if not self._client_config:
                 return {'exito': False, 'error': 'Sin cliente configurado'}
 
-            adapter    = AdapterFactory.create_from_cliente_id(self._client_config.alias)
+            adapter    = AdapterFactory.create_from_cliente_id(getattr(self, "_cliente_stem", self._client_config.alias))
             pendientes = adapter.read_pending()
 
             return {
@@ -481,7 +480,7 @@ class DisateQAPI:
                 return {'exito': True, 'resultado': result}
             if self._client_config:
                 motor = Motor(
-                    cliente_alias=self._client_config.alias,
+                    cliente_alias=getattr(self, "_cliente_stem", self._client_config.alias),
                     output_dir='output',
                     db_path=self._db_path,
                 )
@@ -807,6 +806,7 @@ class DisateQAPI:
             clientes = loader.listar()
             if clientes:
                 self._client_config = loader.cargar(clientes[0])
+            self._cliente_stem = clientes[0]
         except Exception as e:
             logger.warning(f"[API] No se pudo cargar cliente: {e}")
 
