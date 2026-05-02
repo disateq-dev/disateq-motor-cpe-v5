@@ -1,4 +1,5 @@
 cliente_id: farmacia_central
+
 source:
   type: dbf
   path: D:/FFEESUNAT/test
@@ -6,22 +7,25 @@ source:
 
 comprobantes:
   tabla: enviosffee
-  flag_campo: FLAG_ENVIO
-  flag_valor: '2'
-  flag_tipo: integer
-  campos:
-    numero: NRO_MOVIM
-    serie: SERIE_FACT
-    tipo_doc: TIPO_FACTU
-    fecha: FECHA_EMIS
-    ruc_cliente: RUC_CLIEN
-    nombre_cliente: NOM_CLIEN
-    total: TOT_PAGAR
+  flag_lectura:
+    campo: FLAG_ENVIO
+    valor: 2                  # integer — pendiente
+
+notas:
+  tabla: notacredito
+  flag_lectura:
+    campo_pendiente:  PENDIENTE_
+    valor_pendiente:  '2'     # string
+    campo_tipo_movim: TIPO_MOVIM
+    valor_tipo_movim: 2       # integer
 
 items:
   tabla: detalleventa
-  join_campo: NRO_MOVIM
-  codigo: COD_PROD
-  descripcion: NOM_PROD
-  cantidad: CANT_VEND
-  precio: PRE_VENTA
+
+referencias:
+  factura:
+    tabla: factura
+  productos:
+    tabla: productox
+  motivos:
+    tabla: motivonota
