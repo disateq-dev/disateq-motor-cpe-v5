@@ -1,6 +1,7 @@
 /**
  * dashboard.js — DisateQ Motor CPE v5.0
  * TASK-004 JS: migrado eel → window.pywebview.api
+ * TASK-006: actualizarStatPendientes — callback desde guardar_config
  */
 
 'use strict';
@@ -34,11 +35,7 @@ async function cargarDashboard() {
         verificarConexionAPI();
 
         window.pywebview.api.get_pendientes_fuente().then(r => {
-            const val = r ? (r.count || 0) : 0;
-            const ep  = document.getElementById('stat-pendientes');
-            const eb  = document.getElementById('badge-pendientes');
-            if (ep) ep.textContent = val;
-            if (eb) eb.textContent = val;
+            actualizarStatPendientes(r ? (r.count || 0) : 0);
         }).catch(() => {
             const ep = document.getElementById('stat-pendientes');
             if (ep) ep.textContent = '?';
@@ -46,6 +43,22 @@ async function cargarDashboard() {
 
     } catch(e) {
         console.error('Error cargando dashboard:', e);
+    }
+}
+
+/**
+ * Actualiza el stat-card de pendientes y el badge del tab Procesar.
+ * Llamado desde: cargarDashboard() y desde api.py via evaluate_js
+ * tras guardar_config (TASK-006 GAP fix).
+ */
+function actualizarStatPendientes(count) {
+    const val = Number(count) || 0;
+    const ep  = document.getElementById('stat-pendientes');
+    const eb  = document.getElementById('badge-pendientes');
+    if (ep) ep.textContent = val;
+    if (eb) {
+        eb.textContent    = val;
+        eb.style.display  = val > 0 ? 'inline-flex' : 'none';
     }
 }
 
