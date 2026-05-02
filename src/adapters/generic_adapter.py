@@ -1,4 +1,4 @@
-# src/adapters/generic_adapter.py
+﻿# src/adapters/generic_adapter.py
 # DisateQ Motor CPE v5.0
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -109,7 +109,7 @@ class GenericAdapter(BaseAdapter):
         flag_valor = cfg['flag_lectura']['valor']
 
         pendientes = []
-        for r in DBF(tabla_path, encoding=self.encoding, raw=False):
+        for r in DBF(tabla_path, encoding=self.encoding, raw=False, ignore_missing_memofile=True):
             if r.get(flag_campo) == flag_valor:
                 rec = dict(r)
                 rec['_tipo_registro'] = 'comprobante'
@@ -128,7 +128,7 @@ class GenericAdapter(BaseAdapter):
         valor_movim = fl['valor_tipo_movim']
 
         pendientes = []
-        for r in DBF(tabla_path, encoding=self.encoding, raw=False):
+        for r in DBF(tabla_path, encoding=self.encoding, raw=False, ignore_missing_memofile=True):
             if (str(r.get(campo_pend, '')).strip() == valor_pend and
                     r.get(campo_movim) == valor_movim):
                 rec = dict(r)
@@ -152,7 +152,7 @@ class GenericAdapter(BaseAdapter):
         tabla_path = self._tabla_path(cfg['tabla'])
 
         items = []
-        for r in _DBF(tabla_path, encoding=self.encoding, raw=False):
+        for r in _DBF(tabla_path, encoding=self.encoding, raw=True, ignore_missing_memofile=True):
             if (str(r['TIPO_FACTU']).strip() == tipo and
                     str(r['SERIE_FACT']).strip() == serie and
                     str(r['NUMERO_FAC']).strip() == numero):
