@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -31,6 +31,14 @@ body {
   color: var(--text);
   font-family: var(--sans);
   display: flex;
+  flex-direction: column;
+}
+
+/* ─── LAYOUT ──────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
 /* ─── SIDEBAR ─────────────────────────────────────────────── */
@@ -41,9 +49,7 @@ body {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 0;
 }
-
 .sidebar-brand {
   padding: 22px 22px 20px;
   border-bottom: 1px solid var(--border);
@@ -55,11 +61,7 @@ body {
   color: var(--accent);
   letter-spacing: .06em;
 }
-.brand-sub {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 3px;
-}
+.brand-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
 .steps-nav {
   flex: 1;
@@ -67,7 +69,6 @@ body {
   display: flex;
   flex-direction: column;
 }
-
 .step-row {
   display: flex;
   align-items: center;
@@ -76,39 +77,28 @@ body {
   border-radius: 8px;
   cursor: pointer;
   transition: background .15s;
-  position: relative;
 }
 .step-row.locked  { cursor: default; opacity: .38; pointer-events: none; }
 .step-row.active  { background: var(--accent-dim); }
 .step-row:not(.locked):not(.active):hover { background: var(--surface-2); }
 
 .step-bullet {
-  width: 26px;
-  height: 26px;
+  width: 26px; height: 26px;
   border-radius: 50%;
   border: 1.5px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text-muted);
   flex-shrink: 0;
   transition: all .2s;
 }
-.step-row.active  .step-bullet { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
-.step-row.done    .step-bullet { border-color: var(--success); color: var(--success); background: rgba(16,185,129,.1); font-size: 13px; }
-
+.step-row.active .step-bullet { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.step-row.done   .step-bullet { border-color: var(--success); color: var(--success); background: rgba(16,185,129,.1); font-size: 13px; }
 .step-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.2; }
 .step-row.active .step-text { color: var(--text); font-weight: 500; }
 .step-row.done   .step-text { color: var(--text); }
-
-.step-wire {
-  width: 1.5px;
-  height: 14px;
-  background: var(--border);
-  margin: 0 0 0 22px;
-}
+.step-wire { width: 1.5px; height: 14px; background: var(--border); margin: 0 0 0 22px; }
 
 /* ─── MAIN ────────────────────────────────────────────────── */
 .main {
@@ -118,43 +108,38 @@ body {
   overflow: hidden;
   min-width: 0;
 }
-
-.progress-bar { height: 2px; background: var(--border); }
+.progress-bar  { height: 2px; background: var(--border); flex-shrink: 0; }
 .progress-fill { height: 100%; background: var(--accent); transition: width .45s ease; }
 
 .main-header {
   padding: 22px 34px 18px;
   border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   flex-shrink: 0;
 }
 .step-title { font-size: 19px; font-weight: 600; }
 .step-desc  { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
-
 .badge {
-  padding: 4px 13px;
-  border-radius: 20px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 500;
-  background: var(--accent-dim);
-  border: 1px solid rgba(245,158,11,.25);
-  color: var(--accent);
-  white-space: nowrap;
+  padding: 4px 13px; border-radius: 20px;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  background: var(--accent-dim); border: 1px solid rgba(245,158,11,.25); color: var(--accent);
 }
 
-.panel-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding: 30px 34px;
-}
+.panel-scroll { flex: 1; overflow-y: auto; padding: 30px 34px; }
 .panel-scroll::-webkit-scrollbar { width: 5px; }
-.panel-scroll::-webkit-scrollbar-track { background: transparent; }
 .panel-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-/* ─── FORM BASE ───────────────────────────────────────────── */
+/* ─── NAV FOOTER ──────────────────────────────────────────── */
+.nav-footer {
+  padding: 16px 34px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.nav-l, .nav-r { display: flex; gap: 10px; align-items: center; }
+
+/* ─── FORM ────────────────────────────────────────────────── */
 .fg {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -162,15 +147,11 @@ body {
   max-width: 580px;
 }
 .fg.w1 { grid-template-columns: 1fr; }
-
 .f { display: flex; flex-direction: column; gap: 7px; }
 .f.s2 { grid-column: span 2; }
-
 .f label {
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: .07em;
+  font-size: 11px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .07em;
   color: var(--text-muted);
 }
 .f label .req { color: var(--accent); margin-left: 2px; }
@@ -187,34 +168,22 @@ input, select, textarea {
   width: 100%;
   transition: border-color .15s, background .15s;
 }
-input:focus, select:focus, textarea:focus {
-  border-color: var(--accent);
-  background: var(--surface);
-}
+input:focus, select:focus { border-color: var(--accent); background: var(--surface); }
 input.err, select.err { border-color: var(--error) !important; }
 input:disabled { opacity: .4; cursor: not-allowed; }
-
 .mono { font-family: var(--mono); font-size: 13px; }
 select option { background: var(--surface-2); }
 input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
-
+input[type=number]   { font-family: var(--mono); }
 .hint { font-size: 11px; color: var(--text-muted); }
 .ferr { font-size: 11px; color: var(--error); }
 
 /* ─── BUTTONS ─────────────────────────────────────────────── */
 .btn {
-  padding: 9px 20px;
-  border-radius: 8px;
-  border: none;
-  font-family: var(--sans);
-  font-size: 13.5px;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  transition: all .15s;
-  white-space: nowrap;
+  padding: 9px 20px; border-radius: 8px; border: none;
+  font-family: var(--sans); font-size: 13.5px; font-weight: 500;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  transition: all .15s; white-space: nowrap;
 }
 .btn-primary  { background: var(--accent); color: #000; }
 .btn-primary:hover  { background: #fbbf24; }
@@ -228,27 +197,10 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
 .btn-success:disabled { opacity: .4; cursor: default; }
 .btn-sm { padding: 6px 13px; font-size: 12.5px; }
 
-/* ─── NAV FOOTER ──────────────────────────────────────────── */
-.nav-footer {
-  padding: 16px 34px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--surface);
-  flex-shrink: 0;
-}
-.nav-l, .nav-r { display: flex; gap: 10px; align-items: center; }
-
 /* ─── ALERTS ──────────────────────────────────────────────── */
 .al {
-  padding: 11px 15px;
-  border-radius: 8px;
-  font-size: 13px;
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  line-height: 1.4;
+  padding: 11px 15px; border-radius: 8px; font-size: 13px;
+  display: flex; align-items: flex-start; gap: 9px; line-height: 1.4;
 }
 .al-info    { background: rgba(99,102,241,.1);  border: 1px solid rgba(99,102,241,.25);  color: #a5b4fc; }
 .al-success { background: rgba(16,185,129,.1);  border: 1px solid rgba(16,185,129,.25);  color: #34d399; }
@@ -258,133 +210,93 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
 /* ─── SPINNER ─────────────────────────────────────────────── */
 .spin {
   width: 17px; height: 17px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: rot .65s linear infinite;
-  flex-shrink: 0;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: rot .65s linear infinite; flex-shrink: 0;
 }
 @keyframes rot { to { transform: rotate(360deg); } }
 
-/* ─── STEP 3 table ────────────────────────────────────────── */
-.tbl-wrap {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: auto;
-  margin-top: 16px;
-  max-width: 800px;
-}
-.tbl {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.tbl th {
-  background: var(--surface-2);
-  padding: 9px 13px;
-  text-align: left;
-  color: var(--accent);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-.tbl td {
-  padding: 8px 13px;
-  border-bottom: 1px solid rgba(36,40,64,.5);
-  color: var(--text);
-  max-width: 180px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* ─── TABLE ───────────────────────────────────────────────── */
+.tbl-wrap { border: 1px solid var(--border); border-radius: 8px; overflow: auto; margin-top: 16px; max-width: 800px; }
+.tbl { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+.tbl th { background: var(--surface-2); padding: 9px 13px; text-align: left; color: var(--accent); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.tbl td { padding: 8px 13px; border-bottom: 1px solid rgba(36,40,64,.5); color: var(--text); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tbl tr:last-child td { border-bottom: none; }
 .tbl tr:hover td { background: var(--surface-2); }
 
-/* ─── STEP 4 contract ─────────────────────────────────────── */
+/* ─── SCORE ───────────────────────────────────────────────── */
+.score-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.score-pct { font-family: var(--mono); font-size: 22px; font-weight: 500; }
+.score-pct.hi  { color: var(--success); }
+.score-pct.mid { color: var(--accent); }
+.score-pct.lo  { color: var(--error); }
+
+/* ─── PRUEBA MAPEO ────────────────────────────────────────── */
+.prueba-wrap { border: 1px solid var(--border); border-radius: 8px; overflow: auto; max-width: 100%; margin-top: 8px; }
+.prueba-tbl  { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--mono); }
+.prueba-tbl th { background: var(--surface-2); padding: 8px 12px; text-align: left; color: var(--accent); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.prueba-tbl td { padding: 7px 12px; border-bottom: 1px solid rgba(36,40,64,.4); color: var(--text); white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.prueba-tbl td.vacio { color: var(--error); font-style: italic; }
+.prueba-tbl tr:last-child td { border-bottom: none; }
+
+/* ─── CONTRATO ────────────────────────────────────────────── */
 .csec { margin-bottom: 26px; }
 .csec-title {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: var(--accent);
-  font-family: var(--mono);
-  padding-bottom: 9px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 14px;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--accent); font-family: var(--mono);
+  padding-bottom: 9px; border-bottom: 1px solid var(--border); margin-bottom: 14px;
 }
-.fmap {
-  display: grid;
-  grid-template-columns: 150px 1fr;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.fmap-label {
-  font-size: 13px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+.fmap { display: grid; grid-template-columns: 160px 1fr; align-items: center; gap: 10px; margin-bottom: 10px; }
+.fmap-label { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
-/* ─── STEP 5 series ───────────────────────────────────────── */
-.series-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  max-width: 560px;
-}
+/* ─── SERIES ──────────────────────────────────────────────── */
+.series-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 560px; }
 .scard {
-  background: var(--surface-2);
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-  transition: border-color .2s;
+  background: var(--surface-2); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 16px; transition: border-color .2s;
 }
 .scard.on { border-color: rgba(245,158,11,.4); }
-.scard-hdr {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
+.scard-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .scard-name { font-size: 13px; font-weight: 500; }
 .scard-type { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); }
+.corr-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 4px; margin-top: 10px; }
 
-/* toggle */
 .tog { position: relative; width: 38px; height: 21px; flex-shrink: 0; }
 .tog input { opacity: 0; width: 0; height: 0; }
-.tog-s {
-  position: absolute; inset: 0;
-  background: var(--border); border-radius: 11px;
-  cursor: pointer; transition: background .2s;
-}
+.tog-s { position: absolute; inset: 0; background: var(--border); border-radius: 11px; cursor: pointer; transition: background .2s; }
 .tog-s::before {
-  content: '';
-  position: absolute;
-  width: 15px; height: 15px;
-  left: 3px; top: 3px;
-  background: var(--text-muted);
-  border-radius: 50%;
-  transition: transform .2s, background .2s;
+  content: ''; position: absolute;
+  width: 15px; height: 15px; left: 3px; top: 3px;
+  background: var(--text-muted); border-radius: 50%; transition: transform .2s, background .2s;
 }
 .tog input:checked ~ .tog-s { background: var(--accent-dim); border: 1px solid var(--accent); }
 .tog input:checked ~ .tog-s::before { transform: translateX(17px); background: var(--accent); }
 
-/* ─── STEP 6 endpoint tabs ────────────────────────────────── */
+/* ─── ENDPOINTS ───────────────────────────────────────────── */
+.ep-card {
+  background: var(--surface-2); border: 1.5px solid var(--border);
+  border-radius: 9px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.ep-card select {
+  background: var(--bg); border: 1.5px solid var(--border); border-radius: 7px;
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 7px 10px; outline: none; width: 190px; flex-shrink: 0;
+}
+.ep-card input {
+  background: var(--bg); border: 1.5px solid var(--border); border-radius: 7px;
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 7px 10px; outline: none; flex: 1; min-width: 0; width: auto;
+}
+.ep-card select:focus, .ep-card input:focus { border-color: var(--accent); }
+.ep-del {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 6px; cursor: pointer; padding: 5px 9px; font-size: 14px; flex-shrink: 0;
+}
+.ep-del:hover { border-color: var(--error); color: var(--error); }
+.ep-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 8px 2px; }
 
-/* ─── STEP 6 endpoints ────────────────────────────────────── */
-.ep-card { background:var(--surface-2); border:1.5px solid var(--border); border-radius:9px; padding:14px 16px; display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-.ep-card select, .ep-card input { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; color:var(--text); font-family:var(--mono); font-size:13px; padding:7px 10px; outline:none; }
-.ep-card select:focus, .ep-card input:focus { border-color:var(--accent); }
-.ep-card select { width:170px; flex-shrink:0; }
-.ep-card input  { flex:1; min-width:0; }
-.ep-card .ep-del { background:transparent; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; cursor:pointer; padding:5px 9px; font-size:13px; flex-shrink:0; }
-.ep-card .ep-del:hover { border-color:var(--error); color:var(--error); }
-.ep-empty { font-size:12px; color:var(--text-muted); font-style:italic; padding:8px 0; }
-
-/* ─── SUCCESS screen ──────────────────────────────────────── */
+/* ─── SUCCESS ─────────────────────────────────────────────── */
 .ok-screen {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
@@ -393,14 +305,12 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
 .ok-icon {
   width: 62px; height: 62px; border-radius: 50%;
   background: rgba(16,185,129,.1); border: 2px solid var(--success);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 26px;
+  display: flex; align-items: center; justify-content: center; font-size: 26px;
 }
 .ok-title { font-size: 21px; font-weight: 600; }
 .ok-sub   { font-size: 13.5px; color: var(--text-muted); max-width: 360px; line-height: 1.5; }
 .id-pill  {
-  font-family: var(--mono); font-size: 13px;
-  padding: 5px 16px;
+  font-family: var(--mono); font-size: 13px; padding: 5px 16px;
   background: var(--accent-dim); border: 1px solid rgba(245,158,11,.3);
   border-radius: 20px; color: var(--accent);
 }
@@ -408,426 +318,419 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
 /* ─── UTILS ───────────────────────────────────────────────── */
 .hidden  { display: none !important; }
 .panel   { animation: fadeup .2s ease; }
-@keyframes fadeup { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
-
+@keyframes fadeup { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
 .row     { display: flex; align-items: center; gap: 10px; }
 .col     { display: flex; flex-direction: column; gap: 10px; }
 .mt8     { margin-top: 8px; }
 .mt16    { margin-top: 16px; }
 .mt22    { margin-top: 22px; }
-/* ─── STEP 4 prueba mapeo ─────────────────────────────────── */
-.prueba-wrap { margin-top:18px; border:1px solid var(--border); border-radius:8px; overflow:auto; max-width:100%; }
-.prueba-tbl  { width:100%; border-collapse:collapse; font-size:12px; font-family:var(--mono); }
-.prueba-tbl th { background:var(--surface-2); padding:8px 12px; text-align:left; color:var(--accent); border-bottom:1px solid var(--border); white-space:nowrap; }
-.prueba-tbl td { padding:7px 12px; border-bottom:1px solid rgba(36,40,64,.4); color:var(--text); white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis; }
-.prueba-tbl td.vacio { color:var(--error); font-style:italic; }
-.prueba-tbl tr:last-child td { border-bottom:none; }
-.score-bar { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-.score-pct  { font-family:var(--mono); font-size:20px; font-weight:500; }
-.score-pct.hi  { color:var(--success); }
-.score-pct.mid { color:var(--accent); }
-.score-pct.lo  { color:var(--error); }
 </style>
 </head>
 <body>
 
-<!-- ══════════════ SIDEBAR ══════════════ -->
-<aside class="sidebar">
-  <div class="sidebar-brand">
-    <div class="brand-name">DISATEQ</div>
-    <div class="brand-sub">Nuevo cliente — Wizard</div>
-  </div>
-  <nav class="steps-nav" id="stepsNav">
-    <div class="step-row active" data-step="1" id="sr1"><div class="step-bullet" id="sb1">1</div><div class="step-text">Datos del cliente</div></div>
-    <div class="step-wire"></div>
-    <div class="step-row locked" data-step="2" id="sr2"><div class="step-bullet" id="sb2">2</div><div class="step-text">Fuente de datos</div></div>
-    <div class="step-wire"></div>
-    <div class="step-row locked" data-step="3" id="sr3"><div class="step-bullet" id="sb3">3</div><div class="step-text">Verificación</div></div>
-    <div class="step-wire"></div>
-    <div class="step-row locked" data-step="4" id="sr4"><div class="step-bullet" id="sb4">4</div><div class="step-text">Contrato</div></div>
-    <div class="step-wire"></div>
-    <div class="step-row locked" data-step="5" id="sr5"><div class="step-bullet" id="sb5">5</div><div class="step-text">Series</div></div>
-    <div class="step-wire"></div>
-    <div class="step-row locked" data-step="6" id="sr6"><div class="step-bullet" id="sb6">6</div><div class="step-text">Credenciales</div></div>
-  </nav>
-</aside>
+<div class="app">
 
-<!-- ══════════════ MAIN ══════════════ -->
-<div class="main">
-  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:16.6%"></div></div>
-
-  <div class="main-header" id="mainHeader">
-    <div>
-      <div class="step-title" id="stepTitle">Datos del cliente</div>
-      <div class="step-desc" id="stepDesc">Información básica del emisor de comprobantes</div>
+  <!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-name">DISATEQ</div>
+      <div class="brand-sub">Nuevo cliente — Wizard</div>
     </div>
-    <div class="badge" id="stepBadge">Paso 1 de 6</div>
-  </div>
+    <nav class="steps-nav" id="stepsNav">
+      <div class="step-row active" data-step="1" id="sr1"><div class="step-bullet" id="sb1">1</div><div class="step-text">Datos del cliente</div></div>
+      <div class="step-wire"></div>
+      <div class="step-row locked" data-step="2" id="sr2"><div class="step-bullet" id="sb2">2</div><div class="step-text">Fuente de datos</div></div>
+      <div class="step-wire"></div>
+      <div class="step-row locked" data-step="3" id="sr3"><div class="step-bullet" id="sb3">3</div><div class="step-text">Verificación</div></div>
+      <div class="step-wire"></div>
+      <div class="step-row locked" data-step="4" id="sr4"><div class="step-bullet" id="sb4">4</div><div class="step-text">Contrato</div></div>
+      <div class="step-wire"></div>
+      <div class="step-row locked" data-step="5" id="sr5"><div class="step-bullet" id="sb5">5</div><div class="step-text">Series</div></div>
+      <div class="step-wire"></div>
+      <div class="step-row locked" data-step="6" id="sr6"><div class="step-bullet" id="sb6">6</div><div class="step-text">Servicio de envío</div></div>
+    </nav>
+  </aside>
 
-  <div class="panel-scroll" id="panelScroll">
+  <!-- ══ MAIN ═════════════════════════════════════════════════ -->
+  <div class="main">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:16.6%"></div></div>
 
-    <!-- ── PASO 1 — CLIENTE ─────────────────────────────── -->
-    <div class="panel" id="p1">
-      <div class="fg">
+    <div class="main-header" id="mainHeader">
+      <div>
+        <div class="step-title" id="stepTitle">Datos del cliente</div>
+        <div class="step-desc"  id="stepDesc">Información básica del emisor de comprobantes</div>
+      </div>
+      <div class="badge" id="stepBadge">Paso 1 de 6</div>
+    </div>
 
-        <!-- RUC -->
-        <div class="f s2">
-          <label>RUC Emisor <span class="req">*</span></label>
-          <input type="text" id="f_ruc" class="mono" maxlength="11" placeholder="20XXXXXXXXX" autocomplete="off">
-          <div class="hint">11 dígitos — persona natural (10) o empresa (20)</div>
-          <div class="ferr hidden" id="e_ruc"></div>
-        </div>
+    <div class="panel-scroll">
 
-        <!-- Razón Social -->
-        <div class="f s2">
-          <label>Razón Social <span class="req">*</span></label>
-          <input type="text" id="f_rs" placeholder="Nombre legal/tributario — Ej: Farmacia Central SAC" autocomplete="off">
-          <div class="hint">Tal como figura en SUNAT</div>
-          <div class="ferr hidden" id="e_rs"></div>
-        </div>
+      <!-- ── PASO 1 ──────────────────────────────────────────── -->
+      <div class="panel" id="p1">
+        <div class="fg">
 
-        <!-- Nombre Comercial -->
-        <div class="f s2">
-          <label>Nombre Comercial</label>
-          <input type="text" id="f_nc" placeholder="Marca o nombre de fantasía — Ej: FarmaPlus" autocomplete="off">
-          <div class="hint">Si es distinto a la razón social. Opcional.</div>
-        </div>
+          <div class="f s2">
+            <label>RUC Emisor <span class="req">*</span></label>
+            <input type="text" id="f_ruc" class="mono" maxlength="11" placeholder="20XXXXXXXXX" autocomplete="off">
+            <div class="hint">11 dígitos — persona natural (10) o empresa (20)</div>
+            <div class="ferr hidden" id="e_ruc"></div>
+          </div>
 
-        <!-- Alias -->
-        <div class="f s2">
-          <label>Alias / Local <span class="req">*</span></label>
-          <input type="text" id="f_alias" placeholder="Ej: Local Cercado Piura, Sta. Eulalia Castilla" autocomplete="off">
-          <div class="hint">Nombre corto para identificar este punto de venta o local</div>
-          <div class="ferr hidden" id="e_alias"></div>
-        </div>
+          <div class="f s2">
+            <label>Razón Social <span class="req">*</span></label>
+            <input type="text" id="f_rs" placeholder="Nombre legal/tributario — Ej: Farmacia Central SAC" autocomplete="off">
+            <div class="hint">Tal como figura en SUNAT</div>
+            <div class="ferr hidden" id="e_rs"></div>
+          </div>
 
-        <!-- Régimen -->
-        <div class="f">
-          <label>Régimen Tributario <span class="req">*</span></label>
-          <select id="f_reg">
-            <option value="">— Seleccionar —</option>
-            <option value="NRUS">NRUS — Nuevo RUS</option>
-            <option value="RER">RER — Régimen Especial</option>
-            <option value="RMT">RMT — MYPE Tributario</option>
-            <option value="RG">RG — General</option>
-          </select>
-          <div class="ferr hidden" id="e_reg"></div>
-        </div>
-        <div class="f">
-          <label>ID Cliente <span class="req">*</span></label>
-          <input type="text" id="f_id" class="mono" placeholder="Auto-generado" autocomplete="off">
-          <div class="hint">Identificador interno único, sin espacios</div>
-          <div class="ferr hidden" id="e_id"></div>
+          <div class="f s2">
+            <label>Nombre Comercial</label>
+            <input type="text" id="f_nc" placeholder="Marca o nombre de fantasía — Ej: FarmaPlus" autocomplete="off">
+            <div class="hint">Opcional — si es distinto a la razón social</div>
+          </div>
+
+          <div class="f s2">
+            <label>Alias / Local <span class="req">*</span></label>
+            <input type="text" id="f_alias" placeholder="Ej: Local Cercado Piura, Sta. Eulalia Castilla" autocomplete="off">
+            <div class="hint">Nombre corto para identificar este punto de venta o local</div>
+            <div class="ferr hidden" id="e_alias"></div>
+          </div>
+
+          <div class="f">
+            <label>Régimen Tributario <span class="req">*</span></label>
+            <select id="f_reg">
+              <option value="">— Seleccionar —</option>
+              <option value="NRUS">NRUS — Nuevo RUS</option>
+              <option value="RER">RER — Régimen Especial</option>
+              <option value="RMT">RMT — MYPE Tributario</option>
+              <option value="RG">RG — Régimen General</option>
+            </select>
+            <div class="ferr hidden" id="e_reg"></div>
+          </div>
+
+          <div class="f">
+            <label>ID Cliente <span class="req">*</span></label>
+            <input type="text" id="f_id" class="mono" placeholder="Auto-generado" autocomplete="off">
+            <div class="hint">Identificador interno único, sin espacios</div>
+            <div class="ferr hidden" id="e_id"></div>
+          </div>
+
         </div>
       </div>
-    </div>
 
-    <!-- ── PASO 2 — FUENTE ──────────────────────────────── -->
-    <div class="panel hidden" id="p2">
-      <div class="fg" style="max-width:560px">
-        <div class="f s2">
-          <label>Tipo de fuente <span class="req">*</span></label>
-          <select id="f_tipo" onchange="onTipoFuente()">
-            <option value="">— Seleccionar —</option>
-            <option value="dbf">DBF (FoxPro / Clipper)</option>
-            <option value="excel">Excel (.xlsx / .xls)</option>
-            <option value="csv">CSV</option>
-            <option value="sqlserver">SQL Server</option>
-            <option value="mysql">MySQL / MariaDB</option>
-            <option value="postgresql">PostgreSQL</option>
-            <option value="access">Access (.mdb / .accdb)</option>
-          </select>
-        </div>
+      <!-- ── PASO 2 ──────────────────────────────────────────── -->
+      <div class="panel hidden" id="p2">
+        <div class="fg" style="max-width:560px">
 
-        <!-- archivos -->
-        <div class="f s2 hidden" id="grp_file">
-          <label>Ruta <span id="lbl_file"></span><span class="req">*</span></label>
-          <div class="row">
-            <input type="text" id="f_ruta" class="mono" placeholder="C:\sistemas\data" style="flex:1">
-            <button class="btn btn-outline btn-sm" onclick="explorarRuta()">Explorar</button>
+          <div class="f s2">
+            <label>Tipo de fuente <span class="req">*</span></label>
+            <select id="f_tipo" onchange="onTipoFuente()">
+              <option value="">— Seleccionar —</option>
+              <option value="dbf">DBF (FoxPro / Clipper)</option>
+              <option value="excel">Excel (.xlsx / .xls)</option>
+              <option value="csv">CSV</option>
+              <option value="sqlserver">SQL Server</option>
+              <option value="mysql">MySQL / MariaDB</option>
+              <option value="postgresql">PostgreSQL</option>
+              <option value="access">Access (.mdb / .accdb)</option>
+            </select>
           </div>
-          <div class="hint" id="hint_ruta"></div>
-          <div class="ferr hidden" id="e_ruta"></div>
-        </div>
 
-        <!-- bases de datos -->
-        <div class="f s2 hidden" id="grp_db_host">
-          <label>Host <span class="req">*</span></label>
-          <input type="text" id="f_host" class="mono" value="localhost">
-        </div>
-        <div class="f hidden" id="grp_db_port">
-          <label>Puerto</label>
-          <input type="text" id="f_port" class="mono">
-        </div>
-        <div class="f hidden" id="grp_db_name">
-          <label>Base de datos <span class="req">*</span></label>
-          <input type="text" id="f_dbname" class="mono" placeholder="nombre_bd">
-        </div>
-        <div class="f hidden" id="grp_db_user">
-          <label>Usuario <span class="req">*</span></label>
-          <input type="text" id="f_dbuser" class="mono" autocomplete="off">
-        </div>
-        <div class="f hidden" id="grp_db_pass">
-          <label>Contraseña</label>
-          <input type="password" id="f_dbpass" placeholder="••••••••" autocomplete="new-password">
+          <div class="f s2 hidden" id="grp_file">
+            <label>Ruta <span id="lbl_file"></span><span class="req">*</span></label>
+            <div class="row">
+              <input type="text" id="f_ruta" class="mono" placeholder="C:\sistemas\data" style="flex:1">
+              <button class="btn btn-outline btn-sm" onclick="explorarRuta()">Explorar</button>
+            </div>
+            <div class="hint" id="hint_ruta"></div>
+            <div class="ferr hidden" id="e_ruta"></div>
+          </div>
+
+          <div class="f s2 hidden" id="grp_db_host">
+            <label>Host <span class="req">*</span></label>
+            <input type="text" id="f_host" class="mono" value="localhost">
+          </div>
+          <div class="f hidden" id="grp_db_port">
+            <label>Puerto</label>
+            <input type="text" id="f_port" class="mono">
+          </div>
+          <div class="f hidden" id="grp_db_name">
+            <label>Base de datos <span class="req">*</span></label>
+            <input type="text" id="f_dbname" class="mono" placeholder="nombre_bd">
+          </div>
+          <div class="f hidden" id="grp_db_user">
+            <label>Usuario <span class="req">*</span></label>
+            <input type="text" id="f_dbuser" class="mono" autocomplete="off">
+          </div>
+          <div class="f hidden" id="grp_db_pass">
+            <label>Contraseña</label>
+            <input type="password" id="f_dbpass" placeholder="••••••••" autocomplete="new-password">
+          </div>
+
         </div>
       </div>
-    </div>
 
-    <!-- ── PASO 3 — VERIFICACIÓN ────────────────────────── -->
-    <div class="panel hidden" id="p3">
-      <div style="max-width:760px">
-        <div class="al al-info mt8" style="margin-bottom:20px">
-          <span>ℹ</span>
-          <span>El motor leerá los primeros registros de la fuente. Confirma que el acceso es correcto antes de continuar.</span>
-        </div>
-        <div class="row" style="margin-bottom:18px">
-          <button class="btn btn-primary" id="btnTest" onclick="testConexion()">Probar conexión</button>
-          <div class="spin hidden" id="spinTest"></div>
-          <span id="lblTest" style="font-size:13px; color:var(--text-muted)"></span>
-        </div>
-        <div id="resTest" class="hidden col" style="gap:12px">
-          <div class="al" id="alTest"></div>
-          <div class="tbl-wrap hidden" id="tblWrap">
-            <table class="tbl">
-              <thead id="tblHead"></thead>
-              <tbody id="tblBody"></tbody>
-            </table>
+      <!-- ── PASO 3 ──────────────────────────────────────────── -->
+      <div class="panel hidden" id="p3">
+        <div style="max-width:760px">
+          <div class="al al-info mt8" style="margin-bottom:20px">
+            <span>ℹ</span>
+            <span>El motor leerá los archivos de la fuente. Confirma que el acceso es correcto antes de continuar.</span>
           </div>
-          <div style="font-size:11.5px; color:var(--text-muted)" id="tblInfo"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── PASO 4 — CONTRATO ────────────────────────────── -->
-    <div class="panel hidden" id="p4">
-      <div style="max-width:660px">
-        <!-- Score global + acciones -->
-        <div class="row" style="justify-content:space-between; align-items:flex-start; margin-bottom:18px; gap:12px; flex-wrap:wrap">
-          <div id="scoreWrap" class="hidden" style="flex:1; min-width:200px">
-            <div class="score-bar">
-              <div class="score-pct hi" id="scorePct">—</div>
-              <div style="font-size:12px; color:var(--text-muted); line-height:1.4" id="scoreDesc">Analizando...</div>
+          <div class="row" style="margin-bottom:18px">
+            <button class="btn btn-primary" id="btnTest" onclick="testConexion()">Probar conexión</button>
+            <div class="spin hidden" id="spinTest"></div>
+            <span id="lblTest" style="font-size:13px;color:var(--text-muted)"></span>
+          </div>
+          <div id="resTest" class="hidden col" style="gap:12px">
+            <div class="al" id="alTest"></div>
+            <div class="tbl-wrap hidden" id="tblWrap">
+              <table class="tbl"><thead id="tblHead"></thead><tbody id="tblBody"></tbody></table>
             </div>
-          </div>
-          <div class="row" style="gap:8px; flex-shrink:0">
-            <button class="btn btn-outline btn-sm" id="btnPrueba" onclick="probarMapeo()">▶ Probar mapeo</button>
-            <button class="btn btn-outline btn-sm" id="btnAuto" onclick="autoContrato()">✦ IA</button>
-          </div>
-        </div>
-        <div id="alAuto" class="hidden" style="margin-bottom:12px"></div>
-        <!-- Tabla resultado prueba -->
-        <div id="pruebaSec" class="hidden" style="margin-bottom:20px">
-          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin-bottom:8px; font-family:var(--mono)">Muestra de datos reales</div>
-          <div id="alPrueba" class="hidden" style="margin-bottom:8px"></div>
-          <div class="prueba-wrap hidden" id="pruebaWrap">
-            <table class="prueba-tbl"><thead id="pruebaTHead"></thead><tbody id="pruebaTBody"></tbody></table>
-          </div>
-        </div>
-
-        <!-- Tabla de comprobantes -->
-        <div class="csec">
-          <div class="csec-title">Tabla de comprobantes</div>
-          <div class="fg" style="max-width:100%">
-            <div class="f">
-              <label>Tabla / archivo <span class="req">*</span></label>
-              <input type="text" id="c_tabla" class="mono" placeholder="ej: enviosffee">
-            </div>
-            <div class="f">
-              <label>Campo flag <span class="req">*</span></label>
-              <input type="text" id="c_flag_c" class="mono" placeholder="ej: FLAG_ENVIO">
-            </div>
-            <div class="f">
-              <label>Valor pendiente <span class="req">*</span></label>
-              <input type="text" id="c_flag_v" class="mono" placeholder="ej: 2">
-            </div>
-            <div class="f">
-              <label>Tipo del valor</label>
-              <select id="c_flag_t">
-                <option value="integer">integer</option>
-                <option value="string">string</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Campos -->
-        <div class="csec">
-          <div class="csec-title">Campos del comprobante</div>
-          <div class="col" style="gap:9px">
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Número</span><input type="text" id="c_num" class="mono" placeholder="ej: NRO_MOVIM"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Serie</span><input type="text" id="c_ser" class="mono" placeholder="ej: SERIE_FACT"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Tipo doc.</span><input type="text" id="c_tdc" class="mono" placeholder="ej: TIPO_FACTU"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Fecha</span><input type="text" id="c_fec" class="mono" placeholder="ej: FECHA_EMIS"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>RUC cliente</span><input type="text" id="c_ruc" class="mono" placeholder="ej: RUC_CLIEN"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Nombre cliente</span><input type="text" id="c_nom" class="mono" placeholder="ej: NOM_CLIEN"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Total <span class="req">*</span></span><input type="text" id="c_tot" class="mono" placeholder="ej: TOT_PAGAR"></div>
-          </div>
-        </div>
-
-        <!-- Items -->
-        <div class="csec">
-          <div class="csec-title">Tabla de ítems (detalle)</div>
-          <div class="col" style="gap:9px">
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Tabla ítems</span><input type="text" id="c_ti" class="mono" placeholder="ej: detalleventa"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Join campo</span><input type="text" id="c_tj" class="mono" placeholder="ej: NRO_MOVIM"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Código prod.</span><input type="text" id="c_tc" class="mono" placeholder="ej: COD_PROD"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Descripción</span><input type="text" id="c_td" class="mono" placeholder="ej: NOM_PROD"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Cantidad</span><input type="text" id="c_tq" class="mono" placeholder="ej: CANT_VEND"></div>
-            <div class="fmap"><span class="fmap-label"><span class="dot"></span>Precio unit.</span><input type="text" id="c_tp" class="mono" placeholder="ej: PRE_VENTA"></div>
+            <div style="font-size:11.5px;color:var(--text-muted)" id="tblInfo"></div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ── PASO 5 — SERIES ──────────────────────────────── -->
-    <div class="panel hidden" id="p5">
-      <div style="max-width:560px">
-        <div class="al al-warn" style="margin-bottom:22px">
-          <span>⚠</span>
-          <span>Solo se procesarán comprobantes cuya serie esté habilitada. Las demás quedarán como IGNORADO.</span>
-        </div>
-                <div class="series-grid">
+      <!-- ── PASO 4 ──────────────────────────────────────────── -->
+      <div class="panel hidden" id="p4">
+        <div style="max-width:660px">
 
-          <!-- 01 Facturas -->
-          <div class="scard" id="sc_01">
-            <div class="scard-hdr">
-              <div><div class="scard-name">Facturas</div><div class="scard-type">Tipo 01 — F</div></div>
-              <label class="tog"><input type="checkbox" id="tog_01" onchange="toggleSerie('01')"><span class="tog-s"></span></label>
-            </div>
-            <div class="f"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Serie</label>
-              <input type="text" id="s_01" class="mono" placeholder="F001" disabled></div>
-            <div class="f mt8"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Correlativo inicio</label>
-              <input type="number" id="corr_01" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4"></div>
-          </div>
-
-          <!-- 02 Boletas -->
-          <div class="scard" id="sc_02">
-            <div class="scard-hdr">
-              <div><div class="scard-name">Boletas</div><div class="scard-type">Tipo 02 — B</div></div>
-              <label class="tog"><input type="checkbox" id="tog_02" onchange="toggleSerie('02')"><span class="tog-s"></span></label>
-            </div>
-            <div class="f"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Serie</label>
-              <input type="text" id="s_02" class="mono" placeholder="B001" disabled></div>
-            <div class="f mt8"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Correlativo inicio</label>
-              <input type="number" id="corr_02" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4"></div>
-          </div>
-
-          <!-- 07 Notas crédito -->
-          <div class="scard" id="sc_07">
-            <div class="scard-hdr">
-              <div><div class="scard-name">Notas de crédito</div><div class="scard-type">Tipo 07 — FC / BC</div></div>
-              <label class="tog"><input type="checkbox" id="tog_07" onchange="toggleSerie('07')"><span class="tog-s"></span></label>
-            </div>
-            <div class="f"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Series (FC / BC)</label>
-              <div class="row" style="gap:6px">
-                <input type="text" id="s_07a" class="mono" placeholder="FC01" disabled style="flex:1">
-                <input type="text" id="s_07b" class="mono" placeholder="BC01" disabled style="flex:1">
+          <!-- Score + acciones -->
+          <div class="row" style="justify-content:space-between;align-items:flex-start;margin-bottom:18px;gap:12px;flex-wrap:wrap">
+            <div id="scoreWrap" class="hidden" style="flex:1;min-width:180px">
+              <div class="score-bar">
+                <div class="score-pct hi" id="scorePct">—</div>
+                <div style="font-size:12px;color:var(--text-muted);line-height:1.4" id="scoreDesc"></div>
               </div>
             </div>
-            <div class="f mt8"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Correlativo inicio</label>
-              <input type="number" id="corr_07" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4"></div>
-          </div>
-
-          <!-- AN Anulaciones -->
-          <div class="scard" id="sc_an">
-            <div class="scard-hdr">
-              <div><div class="scard-name">Anulaciones</div><div class="scard-type">Resumen — BEE / FEE</div></div>
-              <label class="tog"><input type="checkbox" id="tog_an" onchange="toggleSerie('an')"><span class="tog-s"></span></label>
+            <div class="row" style="gap:8px;flex-shrink:0">
+              <button class="btn btn-outline btn-sm" id="btnPrueba" onclick="probarMapeo()">▶ Probar mapeo</button>
+              <button class="btn btn-outline btn-sm" id="btnAuto"   onclick="autoContrato()">✦ IA</button>
             </div>
-            <div class="f"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Serie</label>
-              <input type="text" id="s_an" class="mono" placeholder="BEE1" disabled></div>
-            <div class="f mt8"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Correlativo inicio</label>
-              <input type="number" id="corr_an" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4"></div>
+          </div>
+
+          <div id="alAuto" class="hidden" style="margin-bottom:12px"></div>
+
+          <!-- Resultado prueba -->
+          <div id="pruebaSec" class="hidden" style="margin-bottom:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)">Muestra de datos reales</div>
+            <div id="alPrueba" class="hidden" style="margin-bottom:8px"></div>
+            <div class="prueba-wrap hidden" id="pruebaWrap">
+              <table class="prueba-tbl"><thead id="pruebaTHead"></thead><tbody id="pruebaTBody"></tbody></table>
+            </div>
+          </div>
+
+          <!-- Tabla comprobantes -->
+          <div class="csec">
+            <div class="csec-title">Tabla de comprobantes</div>
+            <div class="fg" style="max-width:100%">
+              <div class="f">
+                <label>Tabla / archivo <span class="req">*</span></label>
+                <input type="text" id="c_tabla" class="mono" placeholder="ej: enviosffee">
+              </div>
+              <div class="f">
+                <label>Campo flag <span class="req">*</span></label>
+                <input type="text" id="c_flag_c" class="mono" placeholder="ej: FLAG_ENVIO">
+              </div>
+              <div class="f">
+                <label>Valor pendiente <span class="req">*</span></label>
+                <input type="text" id="c_flag_v" class="mono" placeholder="ej: 2">
+              </div>
+              <div class="f">
+                <label>Tipo del valor</label>
+                <select id="c_flag_t">
+                  <option value="integer">integer</option>
+                  <option value="string">string</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campos -->
+          <div class="csec">
+            <div class="csec-title">Campos del comprobante</div>
+            <div class="col" style="gap:9px">
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Número <span class="req">*</span></span><input type="text" id="c_num" class="mono" placeholder="ej: NRO_MOVIM"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Serie <span class="req">*</span></span><input type="text" id="c_ser" class="mono" placeholder="ej: SERIE_FACT"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Tipo doc. <span class="req">*</span></span><input type="text" id="c_tdc" class="mono" placeholder="ej: TIPO_FACTU"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Fecha <span class="req">*</span></span><input type="text" id="c_fec" class="mono" placeholder="ej: FECHA_EMIS"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>RUC cliente</span><input type="text" id="c_ruc" class="mono" placeholder="ej: RUC_CLIEN"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Nombre cliente</span><input type="text" id="c_nom" class="mono" placeholder="ej: NOM_CLIEN"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Total <span class="req">*</span></span><input type="text" id="c_tot" class="mono" placeholder="ej: TOT_PAGAR"></div>
+            </div>
+          </div>
+
+          <!-- Items -->
+          <div class="csec">
+            <div class="csec-title">Tabla de ítems (detalle)</div>
+            <div class="col" style="gap:9px">
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Tabla ítems</span><input type="text" id="c_ti" class="mono" placeholder="ej: detalleventa"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Join campo</span><input type="text" id="c_tj" class="mono" placeholder="ej: NRO_MOVIM"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Código prod.</span><input type="text" id="c_tc" class="mono" placeholder="ej: COD_PROD"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Descripción</span><input type="text" id="c_td" class="mono" placeholder="ej: NOM_PROD"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Cantidad</span><input type="text" id="c_tq" class="mono" placeholder="ej: CANT_VEND"></div>
+              <div class="fmap"><span class="fmap-label"><span class="dot"></span>Precio unit.</span><input type="text" id="c_tp" class="mono" placeholder="ej: PRE_VENTA"></div>
+            </div>
           </div>
 
         </div>
       </div>
-    </div>
 
-        <!-- ── PASO 6 — SERVICIO DE ENVÍO ─────────────────── -->
-    <div class="panel hidden" id="p6">
-      <div style="max-width:560px">
-
-        <!-- Nombre del servicio -->
-        <div class="fg w1" style="margin-bottom:20px">
-          <div class="f">
-            <label>Nombre del servicio <span class="req">*</span></label>
-            <input type="text" id="sv_nombre" placeholder="Ej: APIFAS, Nubefact, SUNAT directo..." autocomplete="off">
-            <div class="hint">Nombre con el que identificarás este proveedor de envío</div>
-            <div class="ferr hidden" id="e_sv_nombre"></div>
+      <!-- ── PASO 5 ──────────────────────────────────────────── -->
+      <div class="panel hidden" id="p5">
+        <div style="max-width:580px">
+          <div class="al al-warn" style="margin-bottom:22px">
+            <span>⚠</span>
+            <span>Solo se procesarán comprobantes cuya serie esté habilitada. Las demás quedarán como IGNORADO.</span>
           </div>
-          <div class="f">
-            <label>Tipo de integración <span class="req">*</span></label>
-            <select id="sv_tipo">
-              <option value="">— Seleccionar —</option>
-              <option value="api_rest">API REST</option>
-              <option value="ose">OSE (Operador de Servicios Electrónicos)</option>
-              <option value="pse">PSE (Proveedor de Servicios Electrónicos)</option>
-              <option value="sunat_soap">SUNAT SOAP directo</option>
-            </select>
-            <div class="ferr hidden" id="e_sv_tipo"></div>
+          <div class="series-grid">
+
+            <!-- 01 Facturas -->
+            <div class="scard" id="sc_01">
+              <div class="scard-hdr">
+                <div><div class="scard-name">Facturas</div><div class="scard-type">Tipo 01 — F</div></div>
+                <label class="tog"><input type="checkbox" id="tog_01" onchange="toggleSerie('01')"><span class="tog-s"></span></label>
+              </div>
+              <div class="f">
+                <label style="font-size:10px">Serie</label>
+                <input type="text" id="s_01" class="mono" placeholder="F001" disabled>
+              </div>
+              <div class="corr-label">Correlativo inicio</div>
+              <input type="number" id="corr_01" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
+            </div>
+
+            <!-- 02 Boletas -->
+            <div class="scard" id="sc_02">
+              <div class="scard-hdr">
+                <div><div class="scard-name">Boletas</div><div class="scard-type">Tipo 02 — B</div></div>
+                <label class="tog"><input type="checkbox" id="tog_02" onchange="toggleSerie('02')"><span class="tog-s"></span></label>
+              </div>
+              <div class="f">
+                <label style="font-size:10px">Serie</label>
+                <input type="text" id="s_02" class="mono" placeholder="B001" disabled>
+              </div>
+              <div class="corr-label">Correlativo inicio</div>
+              <input type="number" id="corr_02" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
+            </div>
+
+            <!-- 07 Notas crédito -->
+            <div class="scard" id="sc_07">
+              <div class="scard-hdr">
+                <div><div class="scard-name">Notas de crédito</div><div class="scard-type">Tipo 07 — FC / BC</div></div>
+                <label class="tog"><input type="checkbox" id="tog_07" onchange="toggleSerie('07')"><span class="tog-s"></span></label>
+              </div>
+              <div class="f">
+                <label style="font-size:10px">Series (FC / BC)</label>
+                <div class="row" style="gap:6px">
+                  <input type="text" id="s_07a" class="mono" placeholder="FC01" disabled style="flex:1">
+                  <input type="text" id="s_07b" class="mono" placeholder="BC01" disabled style="flex:1">
+                </div>
+              </div>
+              <div class="corr-label">Correlativo inicio</div>
+              <input type="number" id="corr_07" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
+            </div>
+
+            <!-- AN Anulaciones -->
+            <div class="scard" id="sc_an">
+              <div class="scard-hdr">
+                <div><div class="scard-name">Anulaciones</div><div class="scard-type">Resumen — BEE / FEE</div></div>
+                <label class="tog"><input type="checkbox" id="tog_an" onchange="toggleSerie('an')"><span class="tog-s"></span></label>
+              </div>
+              <div class="f">
+                <label style="font-size:10px">Serie</label>
+                <input type="text" id="s_an" class="mono" placeholder="BEE1" disabled>
+              </div>
+              <div class="corr-label">Correlativo inicio</div>
+              <input type="number" id="corr_an" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
+            </div>
+
           </div>
         </div>
+      </div>
 
-        <!-- Credenciales (opcionales) -->
-        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--mono);margin-bottom:10px">
-          Credenciales <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional según proveedor)</span>
-        </div>
-        <div class="fg" style="margin-bottom:22px">
-          <div class="f">
-            <label>Usuario / RUC</label>
-            <input type="text" id="sv_user" class="mono" placeholder="Opcional" autocomplete="off">
-          </div>
-          <div class="f">
-            <label>Token / API Key / Clave SOL</label>
-            <input type="password" id="sv_token" class="mono" placeholder="Opcional" autocomplete="new-password">
-          </div>
-        </div>
+      <!-- ── PASO 6 ──────────────────────────────────────────── -->
+      <div class="panel hidden" id="p6">
+        <div style="max-width:560px">
 
-        <!-- Endpoints dinámicos -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--mono)">
-            Endpoints
+          <div class="fg w1" style="margin-bottom:22px">
+            <div class="f">
+              <label>Nombre del servicio <span class="req">*</span></label>
+              <input type="text" id="sv_nombre" placeholder="Ej: APIFAS, Nubefact, SUNAT directo..." autocomplete="off">
+              <div class="hint">Nombre con el que identificarás este proveedor</div>
+              <div class="ferr hidden" id="e_sv_nombre"></div>
+            </div>
+            <div class="f">
+              <label>Tipo de integración <span class="req">*</span></label>
+              <select id="sv_tipo">
+                <option value="">— Seleccionar —</option>
+                <option value="api_rest">API REST</option>
+                <option value="ose">OSE (Operador de Servicios Electrónicos)</option>
+                <option value="pse">PSE (Proveedor de Servicios Electrónicos)</option>
+                <option value="sunat_soap">SUNAT SOAP directo</option>
+              </select>
+              <div class="ferr hidden" id="e_sv_tipo"></div>
+            </div>
           </div>
-          <button class="btn btn-outline btn-sm" onclick="agregarEndpoint()">+ Agregar endpoint</button>
-        </div>
-        <div id="ep_lista">
-          <div class="ep-empty" id="ep_vacio">Sin endpoints configurados. Agrega al menos uno de tipo Comprobantes.</div>
-        </div>
-        <div class="ferr hidden mt8" id="e_eps"></div>
 
+          <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--mono);margin-bottom:10px">
+            Credenciales <span style="font-weight:400;text-transform:none;letter-spacing:0;font-family:var(--sans)">(opcional según proveedor)</span>
+          </div>
+          <div class="fg" style="margin-bottom:24px">
+            <div class="f">
+              <label>Usuario / RUC</label>
+              <input type="text" id="sv_user" class="mono" placeholder="Opcional" autocomplete="off">
+            </div>
+            <div class="f">
+              <label>Token / API Key / Clave SOL</label>
+              <input type="password" id="sv_token" class="mono" placeholder="Opcional" autocomplete="new-password">
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--mono)">
+              Endpoints
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="agregarEndpoint()">+ Agregar endpoint</button>
+          </div>
+          <div id="ep_lista">
+            <div class="ep-empty" id="ep_vacio">Sin endpoints. Agrega al menos uno de tipo Comprobantes.</div>
+          </div>
+          <div class="ferr hidden mt8" id="e_eps"></div>
+
+        </div>
+      </div>
+
+      <!-- ── ÉXITO ───────────────────────────────────────────── -->
+      <div class="panel hidden" id="pOK">
+        <div class="ok-screen">
+          <div class="ok-icon">✓</div>
+          <div class="ok-title">Cliente configurado</div>
+          <div class="ok-sub">El contrato y el servicio de envío han sido guardados. El motor puede procesar este cliente.</div>
+          <div class="id-pill" id="okId"></div>
+          <div class="row mt8">
+            <button class="btn btn-primary" onclick="irDashboard()">Finalizar y cargar Motor</button>
+            <button class="btn btn-outline" onclick="nuevoCliente()">Configurar otro cliente</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-scroll -->
+
+    <!-- ── NAV FOOTER ─────────────────────────────────────────── -->
+    <div class="nav-footer" id="navFooter">
+      <div class="nav-l">
+        <button class="btn btn-ghost" id="btnBack" onclick="goBack()" style="display:none">← Atrás</button>
+      </div>
+      <div class="nav-r">
+        <button class="btn btn-outline" onclick="cancelar()">Cancelar</button>
+        <button class="btn btn-primary" id="btnNext" onclick="goNext()">Siguiente →</button>
       </div>
     </div>
-    </div>
 
-    <!-- ── ÉXITO ─────────────────────────────────────────── -->
-    <div class="panel hidden" id="pOK">
-      <div class="ok-screen">
-        <div class="ok-icon">✓</div>
-        <div class="ok-title">Cliente configurado</div>
-        <div class="ok-sub">El contrato y las credenciales han sido guardados correctamente. El motor puede procesar este cliente.</div>
-        <div class="id-pill" id="okId"></div>
-        <div class="row mt8">
-          <button class="btn btn-primary" onclick="irDashboard()">Finalizar y cargar Motor</button>
-          <button class="btn btn-outline" onclick="nuevoCliente()">Configurar otro cliente</button>
-        </div>
-      </div>
-    </div>
+  </div><!-- /main -->
 
-  </div><!-- /panel-scroll -->
-
-  <!-- ── NAV FOOTER ──────────────────────────────────────── -->
-  <div class="nav-footer" id="navFooter">
-    <div class="nav-l">
-      <button class="btn btn-ghost" id="btnBack" onclick="goBack()" style="display:none">← Atrás</button>
-    </div>
-    <div class="nav-r">
-      <button class="btn btn-outline" onclick="cancelar()">Cancelar</button>
-      <button class="btn btn-primary" id="btnNext" onclick="goNext()">Siguiente →</button>
-    </div>
-  </div>
-</div><!-- /main -->
+</div><!-- /app -->
 
 <script src="js/wizard.js"></script>
 </body>
