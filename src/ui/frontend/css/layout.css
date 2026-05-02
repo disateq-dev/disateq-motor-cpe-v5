@@ -1,4 +1,4 @@
-/**
+﻿/**
  * layout.css — Motor CPE DisateQ™ v4.0
  * Diseño: Header/Nav oscuro elegante + Contenido blanco limpio
  */
@@ -22,6 +22,7 @@
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 1px 0 rgba(255,255,255,0.05);
+  border-bottom: 2px solid #f59e0b;
   z-index: 100;
   min-height: 58px;
 }
@@ -65,11 +66,7 @@
 }
 
 /* Info empresa — mayúsculas, blanco suave no encendido */
-.header-info {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: var(--text-xs);
+$113px;
   color: rgba(255,255,255,0.62);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -82,8 +79,7 @@
   text-transform: uppercase;
 }
 
-#empresa-nombre {
-  font-size: var(--text-sm) !important;
+$115px !important;
   font-weight: 700 !important;
   color: rgba(255,255,255,0.90) !important;
   text-transform: uppercase;
@@ -165,7 +161,7 @@
   display: flex;
   gap: 0;
   padding: 0 var(--space-6);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: none;
 }
 
 .tab-item {
