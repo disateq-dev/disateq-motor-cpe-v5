@@ -373,21 +373,16 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
 .tog input:checked ~ .tog-s::before { transform: translateX(17px); background: var(--accent); }
 
 /* ─── STEP 6 endpoint tabs ────────────────────────────────── */
-.ep-tabs { display: flex; gap: 8px; margin-bottom: 22px; }
-.ep-tab {
-  padding: 8px 18px;
-  border-radius: 8px;
-  border: 1.5px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all .15s;
-}
-.ep-tab:hover  { border-color: var(--accent); color: var(--text); }
-.ep-tab.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+
+/* ─── STEP 6 endpoints ────────────────────────────────────── */
+.ep-card { background:var(--surface-2); border:1.5px solid var(--border); border-radius:9px; padding:14px 16px; display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.ep-card select, .ep-card input { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; color:var(--text); font-family:var(--mono); font-size:13px; padding:7px 10px; outline:none; }
+.ep-card select:focus, .ep-card input:focus { border-color:var(--accent); }
+.ep-card select { width:170px; flex-shrink:0; }
+.ep-card input  { flex:1; min-width:0; }
+.ep-card .ep-del { background:transparent; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; cursor:pointer; padding:5px 9px; font-size:13px; flex-shrink:0; }
+.ep-card .ep-del:hover { border-color:var(--error); color:var(--error); }
+.ep-empty { font-size:12px; color:var(--text-muted); font-style:italic; padding:8px 0; }
 
 /* ─── SUCCESS screen ──────────────────────────────────────── */
 .ok-screen {
@@ -514,7 +509,6 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
             <option value="NRUS">NRUS — Nuevo RUS</option>
             <option value="RER">RER — Régimen Especial</option>
             <option value="RMT">RMT — MYPE Tributario</option>
-            <option value="MYPE">MYPE — Pequeña empresa</option>
             <option value="RG">RG — General</option>
           </select>
           <div class="ferr hidden" id="e_reg"></div>
@@ -693,111 +687,118 @@ input[type=password] { font-family: var(--mono); letter-spacing: .12em; }
           <span>⚠</span>
           <span>Solo se procesarán comprobantes cuya serie esté habilitada. Las demás quedarán como IGNORADO.</span>
         </div>
-        <div class="series-grid">
+                <div class="series-grid">
+
           <!-- 01 Facturas -->
           <div class="scard" id="sc_01">
             <div class="scard-hdr">
               <div><div class="scard-name">Facturas</div><div class="scard-type">Tipo 01 — F</div></div>
               <label class="tog"><input type="checkbox" id="tog_01" onchange="toggleSerie('01')"><span class="tog-s"></span></label>
             </div>
-            <div class="f"><input type="text" id="s_01" class="mono" placeholder="F001" disabled></div>
-            <div class="f mt8">
-              <label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">Correlativo inicio</label>
-              <input type="number" id="corr_01" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
-            </div>
+            <div class="f"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Serie</label>
+              <input type="text" id="s_01" class="mono" placeholder="F001" disabled></div>
+            <div class="f mt8"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Correlativo inicio</label>
+              <input type="number" id="corr_01" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4"></div>
           </div>
+
           <!-- 02 Boletas -->
           <div class="scard" id="sc_02">
             <div class="scard-hdr">
               <div><div class="scard-name">Boletas</div><div class="scard-type">Tipo 02 — B</div></div>
               <label class="tog"><input type="checkbox" id="tog_02" onchange="toggleSerie('02')"><span class="tog-s"></span></label>
             </div>
-            <div class="f"><input type="text" id="s_02" class="mono" placeholder="B001" disabled></div>
-            <div class="f mt8">
-              <label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">Correlativo inicio</label>
-              <input type="number" id="corr_02" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
-            </div>
+            <div class="f"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Serie</label>
+              <input type="text" id="s_02" class="mono" placeholder="B001" disabled></div>
+            <div class="f mt8"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Correlativo inicio</label>
+              <input type="number" id="corr_02" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4"></div>
           </div>
+
           <!-- 07 Notas crédito -->
           <div class="scard" id="sc_07">
             <div class="scard-hdr">
               <div><div class="scard-name">Notas de crédito</div><div class="scard-type">Tipo 07 — FC / BC</div></div>
               <label class="tog"><input type="checkbox" id="tog_07" onchange="toggleSerie('07')"><span class="tog-s"></span></label>
             </div>
-            <div class="row" style="gap:6px">
-              <input type="text" id="s_07a" class="mono" placeholder="FC01" disabled style="flex:1">
-              <input type="text" id="s_07b" class="mono" placeholder="BC01" disabled style="flex:1">
+            <div class="f"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Series (FC / BC)</label>
+              <div class="row" style="gap:6px">
+                <input type="text" id="s_07a" class="mono" placeholder="FC01" disabled style="flex:1">
+                <input type="text" id="s_07b" class="mono" placeholder="BC01" disabled style="flex:1">
+              </div>
             </div>
-            <div class="f mt8">
-              <label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">Correlativo inicio</label>
-              <input type="number" id="corr_07" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
-            </div>
+            <div class="f mt8"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Correlativo inicio</label>
+              <input type="number" id="corr_07" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4"></div>
           </div>
+
           <!-- AN Anulaciones -->
           <div class="scard" id="sc_an">
             <div class="scard-hdr">
               <div><div class="scard-name">Anulaciones</div><div class="scard-type">Resumen — BEE / FEE</div></div>
               <label class="tog"><input type="checkbox" id="tog_an" onchange="toggleSerie('an')"><span class="tog-s"></span></label>
             </div>
-            <div class="f"><input type="text" id="s_an" class="mono" placeholder="BEE1" disabled></div>
-            <div class="f mt8">
-              <label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">Correlativo inicio</label>
-              <input type="number" id="corr_an" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4">
-            </div>
+            <div class="f"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Serie</label>
+              <input type="text" id="s_an" class="mono" placeholder="BEE1" disabled></div>
+            <div class="f mt8"><label style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Correlativo inicio</label>
+              <input type="number" id="corr_an" class="mono" value="1" min="1" disabled style="width:110px;opacity:.4"></div>
           </div>
+
         </div>
       </div>
     </div>
 
-    <!-- ── PASO 6 — CREDENCIALES ────────────────────────── -->
+        <!-- ── PASO 6 — SERVICIO DE ENVÍO ─────────────────── -->
     <div class="panel hidden" id="p6">
-      <div style="max-width:520px">
-        <div style="font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin-bottom:10px">
-          Proveedor de envío
-        </div>
-        <div class="ep-tabs">
-          <button class="ep-tab active" id="et_apifas"  onclick="selectEp('apifas')">APIFAS</button>
-          <button class="ep-tab"        id="et_nubef"   onclick="selectEp('nubef')">Nubefact</button>
-          <button class="ep-tab"        id="et_disateq" onclick="selectEp('disateq')">DisateQ Platform</button>
+      <div style="max-width:560px">
+
+        <!-- Nombre del servicio -->
+        <div class="fg w1" style="margin-bottom:20px">
+          <div class="f">
+            <label>Nombre del servicio <span class="req">*</span></label>
+            <input type="text" id="sv_nombre" placeholder="Ej: APIFAS, Nubefact, SUNAT directo..." autocomplete="off">
+            <div class="hint">Nombre con el que identificarás este proveedor de envío</div>
+            <div class="ferr hidden" id="e_sv_nombre"></div>
+          </div>
+          <div class="f">
+            <label>Tipo de integración <span class="req">*</span></label>
+            <select id="sv_tipo">
+              <option value="">— Seleccionar —</option>
+              <option value="api_rest">API REST</option>
+              <option value="ose">OSE (Operador de Servicios Electrónicos)</option>
+              <option value="pse">PSE (Proveedor de Servicios Electrónicos)</option>
+              <option value="sunat_soap">SUNAT SOAP directo</option>
+            </select>
+            <div class="ferr hidden" id="e_sv_tipo"></div>
+          </div>
         </div>
 
-        <div id="cred_apifas" class="fg w1">
+        <!-- Credenciales (opcionales) -->
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--mono);margin-bottom:10px">
+          Credenciales <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional según proveedor)</span>
+        </div>
+        <div class="fg" style="margin-bottom:22px">
           <div class="f">
-            <label>URL Comprobantes <span class="req">*</span></label>
-            <input type="text" id="ap_url_comp" class="mono" placeholder="https://..." autocomplete="off">
-            <div class="hint">Endpoint para envío de facturas y boletas</div>
+            <label>Usuario / RUC</label>
+            <input type="text" id="sv_user" class="mono" placeholder="Opcional" autocomplete="off">
           </div>
           <div class="f">
-            <label>URL Anulaciones</label>
-            <input type="text" id="ap_url_anul" class="mono" placeholder="https://..." autocomplete="off">
-            <div class="hint">Endpoint para resúmenes de anulación. Opcional.</div>
+            <label>Token / API Key / Clave SOL</label>
+            <input type="password" id="sv_token" class="mono" placeholder="Opcional" autocomplete="new-password">
           </div>
-          <div class="f">
-            <label>Token / API Key</label>
-            <input type="password" id="ap_tok" class="mono" placeholder="Opcional — dejar vacío si no aplica" autocomplete="new-password">
-          </div>
-          <div class="al al-info"><span>ℹ</span><span>Test de envío real en TASK-008. Aquí solo se guardan los endpoints.</span></div>
         </div>
 
-        <div id="cred_nubef" class="fg w1 hidden">
-          <div class="f">
-            <label>Token Nubefact <span class="req">*</span></label>
-            <input type="password" id="nb_tok" class="mono" placeholder="••••••••••••" autocomplete="new-password">
+        <!-- Endpoints dinámicos -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--mono)">
+            Endpoints
           </div>
-          <div class="al al-info"><span>ℹ</span><span>Nubefact usa el token en el header de cada envío.</span></div>
+          <button class="btn btn-outline btn-sm" onclick="agregarEndpoint()">+ Agregar endpoint</button>
         </div>
+        <div id="ep_lista">
+          <div class="ep-empty" id="ep_vacio">Sin endpoints configurados. Agrega al menos uno de tipo Comprobantes.</div>
+        </div>
+        <div class="ferr hidden mt8" id="e_eps"></div>
 
-        <div id="cred_disateq" class="fg w1 hidden">
-          <div class="f">
-            <label>API Key <span class="req">*</span></label>
-            <input type="password" id="dq_key" class="mono" placeholder="dq-••••••••••••" autocomplete="new-password">
-          </div>
-          <div class="f">
-            <label>URL Base</label>
-            <input type="text" id="dq_url" class="mono" value="https://platform.disateq.com/api/v1">
-          </div>
-        </div>
       </div>
+    </div>
     </div>
 
     <!-- ── ÉXITO ─────────────────────────────────────────── -->

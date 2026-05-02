@@ -282,14 +282,21 @@ function v5() {
 }
 
 function v6() {
-  const ep = W.endpoint;
-  // APIFAS requiere al menos la URL de comprobantes
-  if (ep === 'apifas') {
-    const urlEl = document.getElementById('ap_url_comp');
-    if (urlEl && !urlEl.value.trim()) {
-      alert('La URL de comprobantes es obligatoria para APIFAS.');
-      return false;
-    }
+  const nombre = document.getElementById('sv_nombre').value.trim();
+  const tipo   = document.getElementById('sv_tipo').value;
+  let ok = true;
+  if (!nombre) { showErr('sv_nombre','e_sv_nombre','El nombre del servicio es obligatorio'); ok = false; }
+  if (!tipo)   { showErr('sv_tipo',  'e_sv_tipo',  'Selecciona el tipo de integración'); ok = false; }
+  const eps = W.data.endpoints_lista || [];
+  const tieneComp = eps.some(e => e.tipo === 'comprobantes' && e.url);
+  if (!tieneComp) {
+    const el = document.getElementById('e_eps');
+    el.textContent = 'Agrega al menos un endpoint de tipo Comprobantes.';
+    el.classList.remove('hidden');
+    ok = false;
+  }
+  return ok;
+}
   }
   // Nubefact y DisateQ requieren token
   if (ep === 'nubef' && !document.getElementById('nb_tok').value.trim()) {
@@ -368,7 +375,23 @@ function saveContrato() {
 }
 
 function saveSeries() {
-  const s   = {};
+  const s    = {};
+  const get  = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const corr = id => { const el = document.getElementById(id); return el ? (parseInt(el.value)||1) : 1; };
+  if (document.getElementById('tog_01').checked)
+    s['01'] = [{ serie: get('s_01')||'F001', correlativo_inicio: corr('corr_01') }];
+  if (document.getElementById('tog_02').checked)
+    s['02'] = [{ serie: get('s_02')||'B001', correlativo_inicio: corr('corr_02') }];
+  if (document.getElementById('tog_07').checked) {
+    const arr = [];
+    if (get('s_07a')) arr.push({ serie: get('s_07a'), correlativo_inicio: corr('corr_07') });
+    if (get('s_07b')) arr.push({ serie: get('s_07b'), correlativo_inicio: corr('corr_07') });
+    s['07'] = arr.length ? arr : [{ serie:'FC01', correlativo_inicio:1 }];
+  }
+  if (document.getElementById('tog_an').checked)
+    s['anulacion'] = [{ serie: get('s_an')||'BEE1', correlativo_inicio: corr('corr_an') }];
+  W.data.series = s;
+};
   const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
   const getCorr = id => { const el = document.getElementById(id); return el ? (parseInt(el.value)||1) : 1; };
   if (document.getElementById('tog_01').checked)
@@ -387,8 +410,14 @@ function saveSeries() {
 }
 
 function saveCreds() {
-  const ep = W.endpoint;
-  const c  = { proveedor: ep };
+  W.data.credenciales = {
+    nombre:    document.getElementById('sv_nombre').value.trim(),
+    tipo:      document.getElementById('sv_tipo').value,
+    usuario:   document.getElementById('sv_user').value.trim(),
+    token:     document.getElementById('sv_token').value,
+    endpoints: W.data.endpoints_lista || [],
+  };
+};
   if (ep === 'apifas')  {
     c.url_comprobantes = document.getElementById('ap_url_comp') ? document.getElementById('ap_url_comp').value.trim() : '';
     c.url_anulaciones  = document.getElementById('ap_url_anul') ? document.getElementById('ap_url_anul').value.trim() : '';
@@ -563,13 +592,7 @@ function toggleSerie(k) {
   if (corr) { corr.disabled = !on; corr.style.opacity = on ? '1' : '0.4'; }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  PASO 6 — ENDPOINT TABS
-// ══════════════════════════════════════════════════════════════
-function selectEp(ep) {
-  W.endpoint = ep;
-  ['apifas','nubef','disateq'].forEach(e => {
-    document.getElementById(`et_${e}`).classList.toggle('active', e === ep);
+`).classList.toggle('active', e === ep);
     document.getElementById(`cred_${e}`).classList.toggle('hidden', e !== ep);
   });
 }
@@ -628,4 +651,71 @@ function cancelar() {
   if (confirm('¿Cancelar la configuración? Los datos no serán guardados.')) {
     window.location.href = 'index.html';
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PASO 6 — ENDPOINTS DINÁMICOS
+// ══════════════════════════════════════════════════════════════
+if (!W.data.endpoints_lista) W.data.endpoints_lista = [];
+
+const EP_TIPOS = [
+  { value: 'comprobantes', label: 'Comprobantes (F/B)' },
+  { value: 'anulaciones',  label: 'Anulaciones / Resumen' },
+  { value: 'guias',        label: 'Guías de remisión' },
+  { value: 'retenciones',  label: 'Retenciones / Percepciones' },
+  { value: 'soap',         label: 'SUNAT SOAP' },
+];
+
+function agregarEndpoint() {
+  const id  = 'ep_' + Date.now();
+  const ep  = { id, tipo: 'comprobantes', url: '' };
+  W.data.endpoints_lista.push(ep);
+  renderEndpoints();
+  document.getElementById('ep_vacio').classList.add('hidden');
+}
+
+function eliminarEndpoint(id) {
+  W.data.endpoints_lista = W.data.endpoints_lista.filter(e => e.id !== id);
+  renderEndpoints();
+  if (!W.data.endpoints_lista.length)
+    document.getElementById('ep_vacio').classList.remove('hidden');
+}
+
+function renderEndpoints() {
+  const lista = document.getElementById('ep_lista');
+  // mantener el div vacio
+  const vacio = document.getElementById('ep_vacio');
+  lista.innerHTML = '';
+  lista.appendChild(vacio);
+
+  W.data.endpoints_lista.forEach(ep => {
+    const div = document.createElement('div');
+    div.className = 'ep-card';
+    div.id = 'epc_' + ep.id;
+
+    const sel = document.createElement('select');
+    sel.title = 'Tipo de endpoint';
+    EP_TIPOS.forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.value; o.textContent = t.label;
+      if (t.value === ep.tipo) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => {
+      ep.tipo = sel.value;
+      document.getElementById('e_eps').classList.add('hidden');
+    });
+
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.value = ep.url;
+    inp.placeholder = 'https://...';
+    inp.addEventListener('input', () => { ep.url = inp.value.trim(); });
+
+    const btn = document.createElement('button');
+    btn.className = 'ep-del'; btn.textContent = '×';
+    btn.onclick = () => eliminarEndpoint(ep.id);
+
+    div.appendChild(sel); div.appendChild(inp); div.appendChild(btn);
+    lista.appendChild(div);
+  });
 }
