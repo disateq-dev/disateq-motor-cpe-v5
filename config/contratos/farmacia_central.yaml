@@ -9,24 +9,41 @@ comprobantes:
   tabla: enviosffee
   flag_lectura:
     campo: FLAG_ENVIO
-    valor: 2                  # integer — pendiente
+    valor: 2
+  flag_escritura:
+    campo: FLAG_ENVIO
+    enviado: 3
+    error: 4
 
 notas:
   tabla: notacredito
+  tipo_registro: anulacion
   flag_lectura:
     campo_pendiente:  PENDIENTE_
-    valor_pendiente:  '2'     # string
+    valor_pendiente:  '2'
     campo_tipo_movim: TIPO_MOVIM
-    valor_tipo_movim: 2       # integer
+    valor_tipo_movim: 2
+  serie_prefijos:
+    F: FC
+    B: BC
+  tipo_comprobante_map:
+    F: '1'
+    B: '2'
 
 items:
   tabla: detalleventa
 
-referencias:
-  factura:
-    tabla: factura
-  productos:
-    tabla: productox
-  motivos:
-    tabla: motivonota
+totales:
+  tabla: factura
 
+productos:
+  tabla: productox
+  join_campo: CODIGO_PRO
+
+motivos:
+  tabla: motivonota
+
+cliente_varios:
+  tipo_doc: '-'
+  num_doc:  '00000000'
+  nombre:   CLIENTE VARIOS
