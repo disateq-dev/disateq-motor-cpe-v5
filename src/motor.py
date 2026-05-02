@@ -1,4 +1,4 @@
-# src/motor.py
+﻿# src/motor.py
 # DisateQ Motor CPE v5.0
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -60,7 +60,7 @@ class Motor:
         loader      = ClientLoader()
         self.config = loader.cargar(cliente_alias)
         self.ruc    = self.config.ruc
-        self.alias  = self.config.alias
+        self.alias  = cliente_alias  # stem del archivo, no empresa.alias
         logger.info(f"[Motor] Cliente: {self.config.razon_social} ({self.ruc})")
 
         # ── SQLite — init en arranque (TASK-003) ──────────────────────────
