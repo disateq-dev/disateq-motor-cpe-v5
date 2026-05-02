@@ -2,7 +2,7 @@ cliente_id: farmacia_central
 
 source:
   type: dbf
-  path: D:/FFEESUNAT/test
+  path: D:\FFEESUNAT\Test
   encoding: latin-1
 
 comprobantes:
@@ -29,3 +29,4 @@ referencias:
     tabla: productox
   motivos:
     tabla: motivonota
+
