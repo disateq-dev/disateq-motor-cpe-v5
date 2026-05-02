@@ -3,64 +3,54 @@ empresa:
   nombre_comercial: Farmacia Central
   razon_social: FARMACIA CENTRAL S.A.C.
   ruc: '10715460632'
-
 fuente:
   tipo: dbf
   rutas:
-    - D:/FFEESUNAT/test
-
+  - D:/FFEESUNAT/test
 series:
   boleta:
-    - serie: B001
-      correlativo_inicio: 16377
-      activa: true
+  - serie: B001
+    correlativo_inicio: 16377
+    activa: true
   factura:
-    - serie: F001
-      correlativo_inicio: 0
-      activa: true
+  - serie: F001
+    correlativo_inicio: 0
+    activa: true
   nota_credito:
-    - serie: BC01
-      correlativo_inicio: 1
-      activa: false
-    - serie: FC01
-      correlativo_inicio: 1
-      activa: false
+  - serie: BC01
+    correlativo_inicio: 1
+    activa: false
+  - serie: FC01
+    correlativo_inicio: 1
+    activa: false
   nota_debito:
-    - serie: BD01
-      correlativo_inicio: 1
-      activa: false
-    - serie: FD01
-      correlativo_inicio: 1
-      activa: false
-
+  - serie: BD01
+    correlativo_inicio: 1
+    activa: false
+  - serie: FD01
+    correlativo_inicio: 1
+    activa: false
 envio:
   endpoints:
-    - nombre: APIFAS
-      activo: true
-      formato: txt
-      credenciales:
-        usuario: ''
-        token: ''
-      timeout: 30
-      url_comprobantes: https://apifas.disateq.com/produccion_text.php
-      url_anulaciones:  https://apifas.disateq.com/anulacion_text.php
-      url_guias:        ''
-      url_retenciones:  ''
-      url_percepciones: ''
-
+  - nombre: APIFAS
+    activo: true
+    formato: txt
+    url_comprobantes: https://apifas.disateq.com/produccion_text.php
+    url_anulaciones: https://apifas.disateq.com/anulacion_text.php
+    credenciales:
+      usuario: ''
+      token: ''
+    timeout: 30
 scheduler:
   modo: manual
   intervalo_boletas: 10
   activo: true
-
 instalador:
   clave: '1234'
-
 licencia:
   clave: ''
   endpoint_validacion: https://licenses.disateq.com/v1/validate
+observaciones: 'Cliente migrado desde sistema legacy FoxPro. Serie B001 activa desde
+  correlativo 16377. Validar series con SUNAT antes de activar F001.
 
-observaciones: >
-  Cliente migrado desde sistema legacy FoxPro.
-  Serie B001 activa desde correlativo 16377.
-  Validar series con SUNAT antes de activar F001.
+  '
