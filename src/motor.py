@@ -1,19 +1,22 @@
 # src/motor.py
 # DisateQ Motor CPE v5.0
 # TASK-008 FIX: sender.enviar() recibe ruc_emisor, serie, numero para APIFAS
-# ─────────────────────────────────────────────────────────────────────────────
+# TASK-INS-01: rutas data\ y output\ via paths_resolver (C:/D: separados)
+# -----------------------------------------------------------------------------
 
 """
 motor.py
 ========
-Motor CPE DisateQ™ v5.0 — Orquestador principal
+Motor CPE DisateQ v5.0 -- Orquestador principal
 """
 
 import time
 import logging
+from pathlib import Path
 from typing import Dict, Optional
 
 from src.config.client_loader import ClientLoader
+from src.config.paths_resolver import get_data_dir, get_output_dir
 from src.generators.txt_generator import TxtGenerator
 from src.generators.anulacion_generator import AnulacionGenerator
 from src.sender.universal_sender import UniversalSender
@@ -30,28 +33,34 @@ class Motor:
     def __init__(
         self,
         cliente_alias: str,
-        output_dir:    str = "output",
-        db_path:       str = "data/disateq_cpe.db",
+        output_dir:    str = None,
+        db_path:       str = None,
         modo_sender:   str = None,
     ):
-        self.output_dir   = output_dir
-        self.modo_sender  = modo_sender
+        # -- Rutas via paths_resolver ---------------------------------------
+        # Si no se pasan explicitamente, se resuelven desde disateq_paths.cfg
+        # (produccion) o desde rutas relativas al proyecto (desarrollo).
+        self.output_dir  = output_dir or str(get_output_dir())
+        self._db_path    = db_path    or str(get_data_dir() / "disateq_cpe.db")
+        self.modo_sender = modo_sender
 
         loader      = ClientLoader()
         self.config = loader.cargar(cliente_alias)
         self.ruc    = self.config.ruc
         self.alias  = cliente_alias
         logger.info(f"[Motor] Cliente: {self.config.razon_social} ({self.ruc})")
+        logger.info(f"[Motor] output_dir : {self.output_dir}")
+        logger.info(f"[Motor] db_path    : {self._db_path}")
 
-        self.conn = init_db(db_path)
+        self.conn = init_db(self._db_path)
         self.log  = CpeLogger(self.conn)
-        logger.info(f"[Motor] SQLite listo: {db_path}")
+        logger.info(f"[Motor] SQLite listo: {self._db_path}")
 
         self._modo_sender = modo_sender
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # PROCESAMIENTO PRINCIPAL
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def procesar(self, limit: Optional[int] = None) -> Dict:
         results = {'procesados': 0, 'enviados': 0, 'errores': 0, 'ignorados': 0}
@@ -63,7 +72,7 @@ class Motor:
             pendientes = pendientes[:limit]
 
         logger.info(f"[Motor] Pendientes: {len(pendientes)}")
-        print(f"📋 Pendientes: {len(pendientes)}")
+        print(f"Pendientes: {len(pendientes)}")
 
         for raw in pendientes:
             try:
@@ -73,14 +82,14 @@ class Motor:
                 serie  = cpe['serie']
                 numero = cpe['numero']
 
-                # ── Anti-duplicado ────────────────────────────────────────
+                # -- Anti-duplicado -----------------------------------------
                 if self.log.ya_remitido(self.ruc, serie, numero):
-                    self.log.registrar_ignorado(cpe, self.alias, 'Duplicado — ya REMITIDO')
+                    self.log.registrar_ignorado(cpe, self.alias, 'Duplicado -- ya REMITIDO')
                     results['ignorados'] += 1
                     logger.debug(f"[Motor] IGNORADO duplicado: {serie}-{numero}")
                     continue
 
-                # ── Validar serie ─────────────────────────────────────────
+                # -- Validar serie ------------------------------------------
                 if not self.config.serie_permitida(serie, int(numero)):
                     self.log.registrar_ignorado(
                         cpe, self.alias,
@@ -92,20 +101,20 @@ class Motor:
 
                 self.log.registrar(cpe, 'LEIDO', self.alias)
 
-                # ── Generar TXT ───────────────────────────────────────────
+                # -- Generar TXT --------------------------------------------
                 t0 = time.time()
 
                 if cpe.get('es_anulacion'):
                     ruta_txt = AnulacionGenerator.generate(
                         cpe, self.ruc,
-                        output_dir=f"{self.output_dir}/anulaciones"
+                        output_dir=str(Path(self.output_dir) / "anulaciones")
                     )
                 else:
                     ruta_txt = TxtGenerator.generate(cpe, self.output_dir)
 
                 self.log.registrar(cpe, 'GENERADO', self.alias)
 
-                # ── Enviar ────────────────────────────────────────────────
+                # -- Enviar -------------------------------------------------
                 tipo_str = self._tipo_str(cpe)
                 sender   = self._get_sender(tipo_str)
                 endpoint = self._nombre_endpoint(tipo_str)
@@ -113,7 +122,6 @@ class Motor:
                 self.log.registrar(cpe, 'GENERADO', self.alias, endpoint=endpoint)
 
                 # TASK-008 FIX: pasar ruc_emisor, serie, numero al sender
-                # para que APIFAS pueda construir el header Nombre correcto
                 resultados_envio = sender.enviar(
                     archivo_path     = ruta_txt,
                     tipo_comprobante = tipo_str,
@@ -137,7 +145,7 @@ class Motor:
                     self.log.limpiar_forzar_reenvio(self.ruc, serie, numero)
                     adapter.write_flag(raw, 'enviado')
                     results['enviados'] += 1
-                    print(f"   ✅ {serie}-{numero} ({duracion}ms)")
+                    print(f"   OK {serie}-{numero} ({duracion}ms)")
 
                 else:
                     detalle = respuesta.get('error', str(respuesta))
@@ -148,7 +156,7 @@ class Motor:
                     )
                     adapter.write_flag(raw, 'error')
                     results['errores'] += 1
-                    print(f"   ❌ {serie}-{numero} — {detalle}")
+                    print(f"   ERROR {serie}-{numero} -- {detalle}")
 
                 results['procesados'] += 1
 
@@ -157,19 +165,19 @@ class Motor:
                 numero = raw.get('NUMERO_FAC', '?')
                 logger.exception(f"[Motor] Error inesperado {serie}-{numero}: {e}")
                 results['errores'] += 1
-                print(f"   ❌ Error inesperado {serie}-{numero}: {e}")
+                print(f"   ERROR inesperado {serie}-{numero}: {e}")
 
-        print(f"\n📊 Resumen: {results}")
+        print(f"\nResumen: {results}")
         logger.info(f"[Motor] Resumen: {results}")
         return results
 
     def procesar_anulaciones(self, limit: Optional[int] = None) -> Dict:
-        logger.info("[Motor] procesar_anulaciones() → delegando a procesar()")
+        logger.info("[Motor] procesar_anulaciones() -> delegando a procesar()")
         return self.procesar(limit=limit)
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # HELPERS
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def _get_sender(self, tipo_str: str) -> UniversalSender:
         if self._modo_sender == 'mock':
