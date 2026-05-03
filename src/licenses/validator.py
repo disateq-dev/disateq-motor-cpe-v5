@@ -61,7 +61,7 @@ class LicenseValidator:
             # Buscar en candidatos en orden de prioridad
             candidatos = [
                 # 1. Produccion instalada
-                Path(r"C:\Program Files\DisateQ\Motor CPE"),
+                Path(r"C:\Program Files\DisateQ\Motor CPE\licenses"),
                 # 2. Desarrollo organizado
                 Path(__file__).parent / "client_licenses",
                 # 3. Raiz del proyecto / exe
@@ -80,7 +80,7 @@ class LicenseValidator:
 
             # Buscar clave publica
             keys_candidatos = [
-                Path(r"C:\Program Files\DisateQ\Motor CPE"),
+                Path(r"C:\Program Files\DisateQ\Motor CPE\licenses"),
                 Path(__file__).parent / "keys",
                 raiz / "src" / "licenses" / "keys",
                 raiz,
@@ -364,3 +364,4 @@ def main():
 if __name__ == '__main__':
     import sys
     sys.exit(main())
+
