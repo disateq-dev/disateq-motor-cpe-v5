@@ -33,6 +33,16 @@ from src.tools.wizard_service import test_fuente, guardar_wizard
 
 logger = logging.getLogger(__name__)
 
+# Mapa tipo_comprobante SUNAT → string para filtros JS
+_TIPO_CPE_MAP = {
+    '1': 'factura',
+    '2': 'boleta',
+    '3': 'nota_credito',
+    '7': 'nota_debito',
+    '8': 'nota_debito',
+    '9': 'anulacion',
+}
+
 
 class DisateQAPI:
     """
@@ -142,6 +152,10 @@ class DisateQAPI:
         try:
             cliente_id = getattr(self, '_cliente_stem', None)
             rows = self._log.historial(cliente_id=cliente_id, estado=estado, limit=limit)
+            # Mapear tipo_comprobante a string para filtros JS
+            for r in rows:
+                if isinstance(r, dict) and 'tipo_comprobante' in r and 'tipo_doc' not in r:
+                    r['tipo_doc'] = _TIPO_CPE_MAP.get(str(r.get('tipo_comprobante', '')), '')
             return {'exito': True, 'logs': rows}
         except Exception as e:
             return {'exito': False, 'error': str(e), 'logs': []}
@@ -183,7 +197,7 @@ class DisateQAPI:
                     {
                         'serie':    r['serie'],
                         'numero':   r['numero'],
-                        'tipo_doc': r.get('tipo_comprobante', ''),
+                        'tipo_doc': _TIPO_CPE_MAP.get(str(r.get('tipo_comprobante', '')), r.get('tipo_comprobante', '')),
                         'fecha':    r['fecha_creacion'][:10],
                         'cliente':  '-',
                         'total':    0.0,
@@ -308,6 +322,31 @@ class DisateQAPI:
     # ═════════════════════════════════════════════════════════════════════════
     # UTILIDADES
     # ═════════════════════════════════════════════════════════════════════════
+
+    def abrir_dialogo_archivo(self, filtro: str = '*.*', descripcion: str = 'Archivos') -> str:
+        """Abre dialogo de archivo nativo para seleccionar .lic u otros."""
+        import webview
+        try:
+            if self._window:
+                resultado = self._window.create_file_dialog(
+                    webview.OPEN_DIALOG,
+                    file_types=(f"{descripcion} ({filtro})", "Todos los archivos (*.*)"),
+                )
+                if resultado and len(resultado) > 0:
+                    return resultado[0]
+        except Exception:
+            pass
+        # Fallback tkinter
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk(); root.withdraw()
+        ext = filtro.replace('*', '')
+        archivo = filedialog.askopenfilename(
+            title=f'Seleccionar {descripcion}',
+            filetypes=[(descripcion, filtro), ('Todos', '*.*')]
+        )
+        root.destroy()
+        return archivo if archivo else None
 
     def seleccionar_archivo(self):
         import tkinter as tk
