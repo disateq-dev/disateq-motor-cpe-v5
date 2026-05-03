@@ -7,7 +7,7 @@ app.py
 ======
 Arranque PyWebView -- DisateQ Motor CPE v5.0
 TASK-014:    manejo correcto de rutas en exe PyInstaller 6.20+
-             (_MEIPASS apunta a _internal\ en versiones nuevas)
+             (_MEIPASS apunta a _internal en versiones nuevas)
 TASK-INS-01: log y db apuntan a D: via paths_resolver
 """
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 def _setup_logging_exe() -> None:
     """
     Configura logging a archivo cuando corre como exe.
-    Ruta resuelta via paths_resolver -> D:\{cliente}\data\disateq.log
+    Ruta resuelta via paths_resolver -> D:{cliente}/data/disateq.log
     """
     log_path = get_data_dir() / "disateq.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -65,8 +65,8 @@ def _resolver_frontend() -> Path:
 def _resolver_cwd_exe() -> Path:
     """
     En el exe, establece cwd a la carpeta del ejecutable
-    para que rutas relativas de config\ funcionen correctamente.
-    Las rutas de data\ y output\ las maneja paths_resolver -- no dependen del cwd.
+    para que rutas relativas de config/ funcionen correctamente.
+    Las rutas de data y output las maneja paths_resolver -- no dependen del cwd.
     """
     if getattr(sys, 'frozen', False):
         import os
@@ -83,7 +83,7 @@ def start_app(db_path: str = None) -> int:
     Llamado desde main.py en modo UI.
 
     db_path: ruta a disateq_cpe.db. Si no se pasa, se resuelve
-             via paths_resolver -> D:\{cliente}\data\disateq_cpe.db
+             via paths_resolver -> D:{cliente}/data/disateq_cpe.db
     """
     # -- Logging en exe ------------------------------------------------------
     if getattr(sys, 'frozen', False):
