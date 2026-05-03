@@ -1,6 +1,7 @@
-# src/database/cpe_logger.py
+﻿# src/database/cpe_logger.py
 # DisateQ Motor CPE v5.0
-# ─────────────────────────────────────────────────────────────────────────────
+# BUG-SYS-02: estado ABANDONADO + marcar_abandonado() + ya_remitido bloquea ABANDONADO
+# -----------------------------------------------------------------------------
 
 import sqlite3
 import logging
@@ -9,14 +10,17 @@ from typing import Optional, List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
+MAX_INTENTOS = 5  # Maximo de reintentos antes de ABANDONADO
+
 # Estados validos del ciclo de vida de un CPE
 ESTADOS = {
     'LEIDO',        # Comprobante leido desde la fuente
     'NORMALIZADO',  # Convertido a estructura CPE interna
-    'GENERADO',     # Archivo .txt/.json generado
-    'REMITIDO',     # Enviado al endpoint — SUNAT confirmo
-    'ERROR',        # Fallo en algun punto — pendiente reintento
+    'GENERADO',     # Archivo .txt generado
+    'REMITIDO',     # Enviado al endpoint -- SUNAT confirmo
+    'ERROR',        # Fallo en algun punto -- pendiente reintento
     'IGNORADO',     # Serie no permitida o duplicado detectado
+    'ABANDONADO',   # Supero MAX_INTENTOS -- requiere revision manual
 }
 
 
@@ -29,32 +33,34 @@ class CpeLogger:
         - Registrar cada cambio de estado del ciclo de vida
         - Gestionar reenvios forzados desde la UI
         - Proveer datos para el historial y dashboard
-
-    La conexion SQLite se pasa en el constructor —
-    el Motor la crea una vez en arranque y la comparte.
+        - Marcar ABANDONADO tras MAX_INTENTOS fallidos
     """
 
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
-    # ═════════════════════════════════════════════════════════════════════════
-    # ANTI-DUPLICADO — consulta principal del Motor
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
+    # ANTI-DUPLICADO -- consulta principal del Motor
+    # =========================================================================
 
     def ya_remitido(self, ruc_emisor: str, serie: str, numero: str) -> bool:
         """
-        Verifica si un comprobante ya fue enviado y confirmado por SUNAT.
+        Verifica si un comprobante ya fue enviado o fue abandonado.
 
-        Retorna True  → Motor debe IGNORAR este comprobante.
-        Retorna False → Motor puede procesar.
+        Retorna True  -> Motor debe IGNORAR este comprobante.
+        Retorna False -> Motor puede procesar.
 
         Casos donde retorna False aunque exista registro:
-            - estado = ERROR      → se reintenta
-            - forzar_reenvio = 1  → UI pidio reenvio manual
-            - No existe registro  → primer envio
+            - estado = ERROR      -> se reintenta (si intentos < MAX_INTENTOS)
+            - forzar_reenvio = 1  -> UI pidio reenvio manual
+            - No existe registro  -> primer envio
+
+        Casos donde retorna True:
+            - estado = REMITIDO   -> ya confirmado por SUNAT
+            - estado = ABANDONADO -> supero MAX_INTENTOS, no reintentar
         """
         sql = """
-            SELECT estado, forzar_reenvio
+            SELECT estado, forzar_reenvio, intentos
             FROM cpe_envios
             WHERE ruc_emisor = ? AND serie = ? AND numero = ?
             LIMIT 1
@@ -62,26 +68,35 @@ class CpeLogger:
         row = self.conn.execute(sql, (ruc_emisor, serie, numero)).fetchone()
 
         if row is None:
-            return False                            # nunca procesado
+            return False
 
         if row['forzar_reenvio'] == 1:
-            logger.info(
-                f"[CpeLogger] Reenvio forzado: {ruc_emisor} {serie}-{numero}"
-            )
-            return False                            # UI pidio reenvio
+            logger.info(f"[CpeLogger] Reenvio forzado: {ruc_emisor} {serie}-{numero}")
+            return False
 
         if row['estado'] == 'REMITIDO':
-            logger.debug(
-                f"[CpeLogger] Duplicado ignorado: {ruc_emisor} {serie}-{numero}"
-            )
-            return True                             # ya confirmado por SUNAT
+            return True
 
-        # ERROR, LEIDO, NORMALIZADO, GENERADO → reintenta
+        if row['estado'] == 'ABANDONADO':
+            logger.debug(f"[CpeLogger] ABANDONADO ignorado: {ruc_emisor} {serie}-{numero}")
+            return True
+
+        # ERROR, LEIDO, NORMALIZADO, GENERADO -> reintenta
         return False
 
-    # ═════════════════════════════════════════════════════════════════════════
+    def obtener_intentos(self, ruc_emisor: str, serie: str, numero: str) -> int:
+        """Retorna el numero de intentos actuales de un comprobante."""
+        sql = """
+            SELECT intentos FROM cpe_envios
+            WHERE ruc_emisor = ? AND serie = ? AND numero = ?
+            LIMIT 1
+        """
+        row = self.conn.execute(sql, (ruc_emisor, serie, numero)).fetchone()
+        return row['intentos'] if row else 0
+
+    # =========================================================================
     # REGISTRO DE ESTADOS
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def registrar(
         self,
@@ -94,15 +109,6 @@ class CpeLogger:
         descripcion_sunat: str = '',
         motivo_ignore: str = '',
     ) -> None:
-        """
-        Registra o actualiza el estado de un comprobante en SQLite.
-
-        cpe:    estructura normalizada retornada por GenericAdapter.normalize()
-        estado: uno de ESTADOS
-
-        Usa INSERT OR REPLACE para manejar tanto primer registro
-        como actualizaciones de estado posteriores.
-        """
         if estado not in ESTADOS:
             raise ValueError(f"Estado invalido: '{estado}'. Validos: {ESTADOS}")
 
@@ -111,7 +117,6 @@ class CpeLogger:
         serie = cpe.get('serie', '')
         num   = cpe.get('numero', '')
 
-        # Buscar si ya existe para preservar fecha_creacion e intentos
         existente = self._buscar(ruc, serie, num)
 
         if existente is None:
@@ -144,12 +149,49 @@ class CpeLogger:
         cliente_id: str,
         motivo: str
     ) -> None:
-        """Atajo para registrar IGNORADO con motivo explicito."""
         self.registrar(cpe, 'IGNORADO', cliente_id, motivo_ignore=motivo)
 
-    # ═════════════════════════════════════════════════════════════════════════
-    # REENVIO FORZADO — llamado desde UI
-    # ═════════════════════════════════════════════════════════════════════════
+    def marcar_abandonado(
+        self,
+        ruc_emisor: str,
+        serie: str,
+        numero: str,
+        cliente_id: str,
+        endpoint: str = '',
+        ultimo_error: str = '',
+        intentos: int = 0,
+    ) -> None:
+        """
+        Marca un comprobante como ABANDONADO tras superar MAX_INTENTOS.
+        Genera log informativo para revision del tecnico.
+        """
+        ahora = _now()
+        sql = """
+            UPDATE cpe_envios
+            SET estado              = 'ABANDONADO',
+                motivo_ignore       = ?,
+                fecha_actualizacion = ?
+            WHERE ruc_emisor = ? AND serie = ? AND numero = ?
+        """
+        with self.conn:
+            self.conn.execute(sql, (
+                f"Supero {intentos} intentos. Ultimo error: {ultimo_error}",
+                ahora,
+                ruc_emisor, serie, numero
+            ))
+
+        logger.error(
+            f"[CpeLogger] ABANDONADO | {cliente_id} | {ruc_emisor} {serie}-{numero} | "
+            f"intentos={intentos} | endpoint={endpoint} | error={ultimo_error}"
+        )
+        logger.error(
+            f"[CpeLogger] ACCION REQUERIDA: Revisar {serie}-{numero} manualmente. "
+            f"Usar 'Forzar reenvio' desde la UI una vez resuelto el problema."
+        )
+
+    # =========================================================================
+    # REENVIO FORZADO -- llamado desde UI
+    # =========================================================================
 
     def marcar_forzar_reenvio(
         self,
@@ -157,18 +199,12 @@ class CpeLogger:
         serie: str,
         numero: str
     ) -> bool:
-        """
-        Marca un comprobante para reenvio forzado.
-        El Motor ignorara el anti-duplicado en el proximo ciclo.
-
-        Retorna True si encontro y marco el registro.
-        Retorna False si el comprobante no existe en SQLite.
-        """
         ahora = _now()
         sql = """
             UPDATE cpe_envios
             SET forzar_reenvio      = 1,
                 estado              = 'ERROR',
+                intentos            = 0,
                 fecha_actualizacion = ?
             WHERE ruc_emisor = ? AND serie = ? AND numero = ?
         """
@@ -182,9 +218,7 @@ class CpeLogger:
             )
             return False
 
-        logger.info(
-            f"[CpeLogger] Marcado para reenvio: {ruc_emisor} {serie}-{numero}"
-        )
+        logger.info(f"[CpeLogger] Marcado para reenvio: {ruc_emisor} {serie}-{numero}")
         return True
 
     def limpiar_forzar_reenvio(
@@ -193,10 +227,6 @@ class CpeLogger:
         serie: str,
         numero: str
     ) -> None:
-        """
-        Limpia el flag forzar_reenvio despues de un reenvio exitoso.
-        Llamado por el Motor tras confirmar REMITIDO.
-        """
         ahora = _now()
         sql = """
             UPDATE cpe_envios
@@ -207,9 +237,9 @@ class CpeLogger:
         self.conn.execute(sql, (ahora, ruc_emisor, serie, numero))
         self.conn.commit()
 
-    # ═════════════════════════════════════════════════════════════════════════
-    # CONSULTAS — UI historial y dashboard
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
+    # CONSULTAS -- UI historial y dashboard
+    # =========================================================================
 
     def historial(
         self,
@@ -218,10 +248,6 @@ class CpeLogger:
         limit: int = 100,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
-        """
-        Retorna historial de envios para la UI.
-        Filtrable por cliente_id y/o estado.
-        """
         condiciones = []
         params: List[Any] = []
 
@@ -245,10 +271,6 @@ class CpeLogger:
         return [dict(r) for r in rows]
 
     def conteo_por_estado(self, cliente_id: Optional[str] = None) -> Dict[str, int]:
-        """
-        Retorna conteo de comprobantes por estado.
-        Usado en el dashboard.
-        """
         params: List[Any] = []
         where = ""
         if cliente_id:
@@ -265,7 +287,6 @@ class CpeLogger:
         return {r['estado']: r['total'] for r in rows}
 
     def pendientes_reenvio(self) -> List[Dict[str, Any]]:
-        """Retorna comprobantes marcados para reenvio forzado."""
         sql = """
             SELECT * FROM cpe_envios
             WHERE forzar_reenvio = 1
@@ -273,16 +294,25 @@ class CpeLogger:
         """
         return [dict(r) for r in self.conn.execute(sql).fetchall()]
 
-    # ═════════════════════════════════════════════════════════════════════════
-    # INTERNOS
-    # ═════════════════════════════════════════════════════════════════════════
+    def abandonados(self, cliente_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retorna comprobantes abandonados para revision en UI."""
+        params: List[Any] = []
+        where = "WHERE estado = 'ABANDONADO'"
+        if cliente_id:
+            where += " AND cliente_id = ?"
+            params.append(cliente_id)
+        sql = f"""
+            SELECT * FROM cpe_envios
+            {where}
+            ORDER BY fecha_actualizacion DESC
+        """
+        return [dict(r) for r in self.conn.execute(sql, params).fetchall()]
 
-    def _buscar(
-        self,
-        ruc_emisor: str,
-        serie: str,
-        numero: str
-    ) -> Optional[sqlite3.Row]:
+    # =========================================================================
+    # INTERNOS
+    # =========================================================================
+
+    def _buscar(self, ruc_emisor, serie, numero):
         sql = """
             SELECT * FROM cpe_envios
             WHERE ruc_emisor = ? AND serie = ? AND numero = ?
@@ -306,19 +336,13 @@ class CpeLogger:
         """
         with self.conn:
             self.conn.execute(sql, (
-                cliente_id,
-                ruc,
+                cliente_id, ruc,
                 cpe.get('tipo_comprobante', ''),
                 cpe.get('serie', ''),
                 cpe.get('numero', ''),
-                estado,
-                motivo_ignore,
-                endpoint,
-                respuesta_raw,
-                codigo_sunat,
-                descripcion_sunat,
-                ahora,
-                ahora,
+                estado, motivo_ignore, endpoint,
+                respuesta_raw, codigo_sunat, descripcion_sunat,
+                ahora, ahora,
             ))
 
     def _actualizar(
@@ -342,20 +366,13 @@ class CpeLogger:
         """
         with self.conn:
             self.conn.execute(sql, (
-                estado,
-                motivo_ignore,
-                endpoint,
-                intentos,
-                respuesta_raw,
-                codigo_sunat,
-                descripcion_sunat,
-                ahora,
-                ruc, serie, numero,
+                estado, motivo_ignore, endpoint, intentos,
+                respuesta_raw, codigo_sunat, descripcion_sunat,
+                ahora, ruc, serie, numero,
             ))
 
 
-# ─── UTILS ────────────────────────────────────────────────────────────────────
+# --- UTILS -------------------------------------------------------------------
 
 def _now() -> str:
-    """Timestamp UTC ISO 8601 para todos los registros."""
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')

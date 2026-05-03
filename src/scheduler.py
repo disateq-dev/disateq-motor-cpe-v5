@@ -1,4 +1,4 @@
-"""
+﻿"""
 scheduler.py
 ============
 Scheduler automático — Motor CPE DisateQ™ v4.0
@@ -190,7 +190,7 @@ class CpeScheduler:
             from src.motor import Motor
             motor = Motor(
                 cliente_alias=self.cliente_alias,
-                output_dir='output',
+                output_dir=None,
                 modo_sender=None  # Envío real
             )
             resultados = motor.procesar()
@@ -238,3 +238,4 @@ class CpeScheduler:
             'proximo_ciclo':     self.proximo_ciclo.strftime('%H:%M:%S') if self.proximo_ciclo and self.esta_activo else None,
             'ultimo_resultado':  self.ultimo_resultado,
         }
+

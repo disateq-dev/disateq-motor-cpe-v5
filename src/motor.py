@@ -1,7 +1,8 @@
-# src/motor.py
+﻿# src/motor.py
 # DisateQ Motor CPE v5.0
 # TASK-008 FIX: sender.enviar() recibe ruc_emisor, serie, numero para APIFAS
 # TASK-INS-01: rutas data\ y output\ via paths_resolver (C:/D: separados)
+# BUG-SYS-02: verifica MAX_INTENTOS antes de procesar -- marca ABANDONADO
 # -----------------------------------------------------------------------------
 
 """
@@ -21,7 +22,7 @@ from src.generators.txt_generator import TxtGenerator
 from src.generators.anulacion_generator import AnulacionGenerator
 from src.sender.universal_sender import UniversalSender
 from src.database.schema import init_db
-from src.database.cpe_logger import CpeLogger
+from src.database.cpe_logger import CpeLogger, MAX_INTENTOS
 from src.adapters.adapter_factory import AdapterFactory
 
 logger = logging.getLogger(__name__)
@@ -37,9 +38,6 @@ class Motor:
         db_path:       str = None,
         modo_sender:   str = None,
     ):
-        # -- Rutas via paths_resolver ---------------------------------------
-        # Si no se pasan explicitamente, se resuelven desde disateq_paths.cfg
-        # (produccion) o desde rutas relativas al proyecto (desarrollo).
         self.output_dir  = output_dir or str(get_output_dir())
         self._db_path    = db_path    or str(get_data_dir() / "disateq_cpe.db")
         self.modo_sender = modo_sender
@@ -63,7 +61,7 @@ class Motor:
     # =========================================================================
 
     def procesar(self, limit: Optional[int] = None) -> Dict:
-        results = {'procesados': 0, 'enviados': 0, 'errores': 0, 'ignorados': 0}
+        results = {'procesados': 0, 'enviados': 0, 'errores': 0, 'ignorados': 0, 'abandonados': 0}
 
         adapter    = AdapterFactory.create_from_cliente_id(self.alias)
         pendientes = adapter.read_pending()
@@ -82,14 +80,33 @@ class Motor:
                 serie  = cpe['serie']
                 numero = cpe['numero']
 
-                # -- Anti-duplicado -----------------------------------------
+                # -- Anti-duplicado -------------------------------------------
                 if self.log.ya_remitido(self.ruc, serie, numero):
-                    self.log.registrar_ignorado(cpe, self.alias, 'Duplicado -- ya REMITIDO')
+                    self.log.registrar_ignorado(cpe, self.alias, 'Duplicado -- ya REMITIDO o ABANDONADO')
                     results['ignorados'] += 1
-                    logger.debug(f"[Motor] IGNORADO duplicado: {serie}-{numero}")
+                    logger.debug(f"[Motor] IGNORADO: {serie}-{numero}")
                     continue
 
-                # -- Validar serie ------------------------------------------
+                # -- BUG-SYS-02: Verificar MAX_INTENTOS -----------------------
+                intentos_actuales = self.log.obtener_intentos(self.ruc, serie, numero)
+                if intentos_actuales >= MAX_INTENTOS:
+                    tipo_str = self._tipo_str(cpe)
+                    endpoint = self._nombre_endpoint(tipo_str)
+                    self.log.marcar_abandonado(
+                        ruc_emisor = self.ruc,
+                        serie      = serie,
+                        numero     = numero,
+                        cliente_id = self.alias,
+                        endpoint   = endpoint,
+                        ultimo_error = f"Supero {MAX_INTENTOS} intentos sin exito",
+                        intentos   = intentos_actuales,
+                    )
+                    adapter.write_flag(raw, 'error')
+                    results['abandonados'] += 1
+                    print(f"   ABANDONADO {serie}-{numero} ({intentos_actuales} intentos)")
+                    continue
+
+                # -- Validar serie --------------------------------------------
                 if not self.config.serie_permitida(serie, int(numero)):
                     self.log.registrar_ignorado(
                         cpe, self.alias,
@@ -101,7 +118,7 @@ class Motor:
 
                 self.log.registrar(cpe, 'LEIDO', self.alias)
 
-                # -- Generar TXT --------------------------------------------
+                # -- Generar TXT ----------------------------------------------
                 t0 = time.time()
 
                 if cpe.get('es_anulacion'):
@@ -114,14 +131,13 @@ class Motor:
 
                 self.log.registrar(cpe, 'GENERADO', self.alias)
 
-                # -- Enviar -------------------------------------------------
+                # -- Enviar ---------------------------------------------------
                 tipo_str = self._tipo_str(cpe)
                 sender   = self._get_sender(tipo_str)
                 endpoint = self._nombre_endpoint(tipo_str)
 
                 self.log.registrar(cpe, 'GENERADO', self.alias, endpoint=endpoint)
 
-                # TASK-008 FIX: pasar ruc_emisor, serie, numero al sender
                 resultados_envio = sender.enviar(
                     archivo_path     = ruta_txt,
                     tipo_comprobante = tipo_str,
@@ -148,7 +164,8 @@ class Motor:
                     print(f"   OK {serie}-{numero} ({duracion}ms)")
 
                 else:
-                    detalle = respuesta.get('error', str(respuesta))
+                    detalle          = respuesta.get('error', str(respuesta))
+                    intentos_nuevos  = intentos_actuales + 1
                     self.log.registrar(
                         cpe, 'ERROR', self.alias,
                         endpoint          = endpoint,
@@ -156,7 +173,20 @@ class Motor:
                     )
                     adapter.write_flag(raw, 'error')
                     results['errores'] += 1
-                    print(f"   ERROR {serie}-{numero} -- {detalle}")
+
+                    # Log informativo con detalle completo
+                    logger.error(
+                        f"[Motor] ERROR {serie}-{numero} | "
+                        f"intento {intentos_nuevos}/{MAX_INTENTOS} | "
+                        f"endpoint={endpoint} | "
+                        f"respuesta={detalle}"
+                    )
+                    if intentos_nuevos >= MAX_INTENTOS:
+                        logger.error(
+                            f"[Motor] PROXIMO CICLO: {serie}-{numero} sera ABANDONADO "
+                            f"(supera {MAX_INTENTOS} intentos)"
+                        )
+                    print(f"   ERROR {serie}-{numero} -- intento {intentos_nuevos}/{MAX_INTENTOS} -- {detalle}")
 
                 results['procesados'] += 1
 
