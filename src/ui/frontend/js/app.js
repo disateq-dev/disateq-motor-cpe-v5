@@ -1016,3 +1016,22 @@ async function actualizarFooterLicencia() {
         }
     } catch(e) {}
 }
+
+// FIX-FOOTER-01
+async function actualizarFooterLicencia() {
+    try {
+        var lic = await api('get_licencia_info');
+        var label = document.getElementById('lic-footer-label');
+        if (!label) return;
+        if (lic && lic.valida) {
+            var dias = lic.dias_restantes;
+            var vence = lic.vencimiento;
+            var color = dias > 60 ? 'var(--success)' : dias > 15 ? 'var(--warning)' : 'var(--error)';
+            label.style.color = color;
+            label.textContent = dias + ' dias restantes · vence ' + vence;
+        } else {
+            label.style.color = 'var(--error)';
+            label.textContent = 'Sin licencia activa';
+        }
+    } catch(e) {}
+}
