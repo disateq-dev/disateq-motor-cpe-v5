@@ -355,6 +355,48 @@ class DisateQAPI:
     # CONFIGURACION
     # ═════════════════════════════════════════════════════════════════════════
 
+
+    def cargar_licencia(self, ruta: str) -> dict:
+        """
+        TASK-016 — Carga y activa un archivo .lic seleccionado por el usuario.
+        Valida la firma RSA antes de copiar al directorio de licencias.
+        """
+        try:
+            from src.licenses.validator import LicenseValidator
+            v = LicenseValidator()
+            exito, mensaje = v.cargar_licencia(ruta)
+            return {'exito': exito, 'mensaje': mensaje}
+        except Exception as e:
+            return {'exito': False, 'mensaje': str(e)}
+
+    def get_licencia_info(self) -> dict:
+        """
+        TASK-016 — Retorna info completa de la licencia activa para la UI.
+        """
+        try:
+            from src.licenses.validator import LicenseValidator
+            v      = LicenseValidator()
+            valida, mensaje, datos = v.validate()
+            if datos:
+                from datetime import datetime
+                expiry = datetime.fromisoformat(datos['expiry_date'])
+                dias   = max(0, (expiry - datetime.now()).days)
+                return {
+                    'valida':          valida,
+                    'mensaje':         mensaje,
+                    'cliente':         datos.get('client_name', ''),
+                    'ruc':             datos.get('client_ruc', ''),
+                    'vencimiento':     datos['expiry_date'][:10],
+                    'dias_restantes':  dias,
+                    'max_docs':        datos.get('max_docs_month', 999999),
+                    'version':         datos.get('version', ''),
+                }
+            return {'valida': False, 'mensaje': mensaje, 'cliente': '', 'ruc': '',
+                    'vencimiento': '', 'dias_restantes': 0, 'max_docs': 0, 'version': ''}
+        except Exception as e:
+            return {'valida': False, 'mensaje': str(e), 'cliente': '', 'ruc': '',
+                    'vencimiento': '', 'dias_restantes': 0, 'max_docs': 0, 'version': ''}
+
     def verificar_clave_instalador(self, clave: str):
         try:
             if self._client_config:

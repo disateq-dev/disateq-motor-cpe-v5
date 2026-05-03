@@ -1,6 +1,7 @@
-﻿/**
+/**
  * app.js — DisateQ Motor CPE v5.0
  * TASK-004 JS: migrado eel → window.pywebview.api
+ * TASK-016: sección Licencia en Config, cargarLicencia()
  */
 
 'use strict';
@@ -77,8 +78,6 @@ function configurarReloj() {
     }, 1000);
 }
 
-// ── Callback desde Python via evaluate_js ─────────────────────
-// Python llama: window.evaluate_js('schedulerCicloCompletado({...})')
 function schedulerCicloCompletado(resultados) {
     showToast('Ciclo automático: ' + resultados.enviados + ' enviados, ' + resultados.errores + ' errores', 'info');
     cargarDashboard();
@@ -115,7 +114,6 @@ function hideLoader() {
     if (loader) loader.style.display = 'none';
 }
 
-// ── Spinner procesar ───────────────────────────────────────────
 function showProcSpinner(msg) {
     var sp = document.getElementById('proc-spinner');
     if (sp) {
@@ -142,7 +140,6 @@ function _setFuenteLabel(ruta) {
     }
 }
 
-// ── Acciones header ────────────────────────────────────────────
 function procesarPendientes() { navegarA('procesar'); }
 function abrirConfig()        { navegarA('config'); }
 
@@ -169,7 +166,6 @@ async function initProcesar() {
     var empresa = await api('get_empresa_info');
     var info    = document.getElementById('proc-cliente-info');
     if (info && empresa) info.textContent = empresa.nombre + ' — RUC: ' + empresa.ruc;
-
     var clientes = await api('get_clientes_disponibles');
     if (clientes.exito && clientes.clientes.length) {
         var rutaResult = await api('get_ruta_fuente', clientes.clientes[0].alias);
@@ -178,9 +174,7 @@ async function initProcesar() {
     await cargarPendientesDesdeMotor();
 }
 
-async function cargarPendientes() {
-    await cargarPendientesDesdeMotor();
-}
+async function cargarPendientes() { await cargarPendientesDesdeMotor(); }
 
 async function cargarPendientesDesdeMotor() {
     var status = document.getElementById('proc-status');
@@ -293,9 +287,7 @@ function volverAProcesar() {
     cargarPendientesDesdeMotor();
 }
 
-function update_progress(current, total) {
-    showToast('Procesando ' + current + '/' + total, 'info');
-}
+function update_progress(current, total) { showToast('Procesando ' + current + '/' + total, 'info'); }
 
 // ══════════════════════════════════════════════════════════════
 //  LOGS
@@ -415,7 +407,6 @@ async function cargarHistorial() {
         return;
     }
     _historialData = result.comprobantes || [];
-
     var remitidos = _historialData.filter(function(c) { return c.estado === 'remitido'; });
     var totalRem  = remitidos.length;
     var sumaRem   = remitidos.reduce(function(a, c) { return a + (c.total || 0); }, 0);
@@ -426,7 +417,6 @@ async function cargarHistorial() {
         '<input type="text" id="hist-search" placeholder="Buscar serie, cliente..." ' +
         'style="padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.85rem;width:220px;" ' +
         'oninput="aplicarFiltrosHistorial()"></div>' +
-
         '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.75rem;">' +
         '<div style="display:flex;gap:0.3rem;align-items:center;">' +
         '<span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.2rem;">TIPO:</span>' +
@@ -444,27 +434,18 @@ async function cargarHistorial() {
         '<button class="btn-filt"        id="filt-est-error"    onclick="setFiltEstado(\'error\')">Error</button>' +
         '<button class="btn-filt"        id="filt-est-ignorado" onclick="setFiltEstado(\'ignorado\')">Ignorado</button>' +
         '</div></div>' +
-
         '<div style="border:1px solid var(--border-light);border-radius:var(--radius-md) var(--radius-md) 0 0;overflow:hidden;">' +
         '<div style="max-height:420px;overflow-y:auto;">' +
         '<table class="table" id="tabla-historial" style="margin:0;">' +
         '<thead style="position:sticky;top:0;background:var(--bg-table-head);z-index:1;"><tr>' +
-        '<th style="width:14%;">Comprobante</th>' +
-        '<th style="width:9%;">Tipo</th>' +
-        '<th style="width:11%;">Fecha</th>' +
-        '<th style="width:28%;">Cliente</th>' +
-        '<th style="width:11%;text-align:right;">Total</th>' +
-        '<th style="width:13%;text-align:right;">Estado</th>' +
-        '<th style="width:14%;">Endpoint</th>' +
+        '<th style="width:14%;">Comprobante</th><th style="width:9%;">Tipo</th><th style="width:11%;">Fecha</th>' +
+        '<th style="width:28%;">Cliente</th><th style="width:11%;text-align:right;">Total</th>' +
+        '<th style="width:13%;text-align:right;">Estado</th><th style="width:14%;">Endpoint</th>' +
         '</tr></thead><tbody id="historial-tbody"></tbody></table></div></div>' +
-
-        '<div class="table-footer">' +
-        '<div class="tf-stats">' +
+        '<div class="table-footer"><div class="tf-stats">' +
         '<div class="tf-item"><span class="tf-label">Remitidos</span><span class="tf-value ok" id="hist-total-remitidos">' + totalRem + '</span></div>' +
         '<div class="tf-item"><span class="tf-label">Monto remitido</span><span class="tf-value" id="hist-suma-total">S/ ' + sumaRem.toFixed(2) + '</span></div>' +
-        '</div>' +
-        '<span class="tf-info">Mostrando <strong id="hist-count-footer">' + _historialData.length + '</strong> de ' + result.total + '</span>' +
-        '</div>';
+        '</div><span class="tf-info">Mostrando <strong id="hist-count-footer">' + _historialData.length + '</strong> de ' + result.total + '</span></div>';
 
     page.querySelector('.card-body').innerHTML = html;
     _inyectarEstilosFilt();
@@ -772,7 +753,7 @@ function agregarSerie(tipo) {
 function toggleUrlRow(checkbox, inputId) {
     var input = document.getElementById(inputId);
     if (!input) return;
-    input.disabled    = !checkbox.checked;
+    input.disabled         = !checkbox.checked;
     input.style.background = checkbox.checked ? '' : 'var(--bg-input-disabled)';
     input.style.color      = checkbox.checked ? '' : 'var(--text-muted)';
 }
@@ -889,6 +870,27 @@ async function guardarConfig() {
 
 function bloquearConfig() { _configDesbloqueada = false; mostrarLockConfig(); }
 
+// ── TASK-016: Cargar licencia desde archivo ────────────────────
+async function cargarLicencia() {
+    try {
+        var ruta = await api('abrir_dialogo_archivo', '*.lic', 'Archivos de Licencia (*.lic)');
+        if (!ruta) return;
+        var msg = document.getElementById('lic-mensaje');
+        if (msg) { msg.style.display = 'block'; msg.style.color = 'var(--info)'; msg.textContent = 'Validando licencia...'; }
+        var result = await api('cargar_licencia', ruta);
+        if (msg) {
+            msg.style.color = result.exito ? 'var(--success)' : 'var(--error)';
+            msg.textContent = result.mensaje;
+        }
+        if (result.exito) {
+            showToast('Licencia activada correctamente', 'success');
+            setTimeout(function() { mostrarConfigCompleta(); }, 1500);
+        }
+    } catch(e) {
+        showToast('Error al cargar licencia: ' + e, 'error');
+    }
+}
+
 async function mostrarConfigCompleta() {
     var page   = document.getElementById('page-config');
     var result = await api('get_config_cliente');
@@ -899,6 +901,30 @@ async function mostrarConfigCompleta() {
     var rutas = (d.fuente.rutas || []).map(function(r) {
         return '<div style="' + _SL + 'font-family:var(--font-mono);font-size:0.82rem;margin-bottom:0.25rem;">' + r + '</div>';
     }).join('');
+
+    // Cargar info de licencia
+    var lic = await api('get_licencia_info');
+    var licHtml;
+    if (lic && lic.valida) {
+        var diasColor = lic.dias_restantes < 30 ? 'var(--warning)' : 'var(--success)';
+        licHtml =
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;">' +
+            '<div>' +
+            '<label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Estado</label>' +
+            '<div style="display:flex;align-items:center;gap:0.5rem;">' +
+            '<span style="width:10px;height:10px;border-radius:50%;background:var(--success);display:inline-block;"></span>' +
+            '<span style="font-size:0.875rem;font-weight:600;color:var(--success);">Licencia válida</span></div></div>' +
+            '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Cliente</label>' +
+            _renderSL(lic.cliente + ' (' + lic.ruc + ')') + '</div>' +
+            '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Vencimiento</label>' +
+            '<div style="' + _SL + 'color:' + diasColor + ';font-weight:600;">' + lic.vencimiento + ' (' + lic.dias_restantes + ' días)</div></div>' +
+            '</div>';
+    } else {
+        licHtml =
+            '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--error-bg);border:1px solid var(--error-border);border-radius:var(--radius-md);margin-bottom:1rem;">' +
+            '<span style="font-size:1.25rem;">⚠️</span>' +
+            '<span style="color:var(--error);font-size:0.875rem;">' + (lic ? lic.mensaje : 'Sin licencia activa') + '</span></div>';
+    }
 
     var html =
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">' +
@@ -945,7 +971,18 @@ async function mostrarConfigCompleta() {
         '<option value="5">Cada 5 minutos</option><option value="10">Cada 10 minutos</option><option value="15">Cada 15 minutos</option><option value="30">Cada 30 minutos</option>' +
         '</select></div></div></div></div>' +
 
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128273; Clave del Instalador</h3></div>' +
+        // ── TASK-016: Sección Licencia ────────────────────────────
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128273; Licencia DisateQ™</h3></div>' +
+        '<div class="card-body">' +
+        licHtml +
+        '<div style="display:flex;align-items:center;gap:0.75rem;">' +
+        '<button class="btn btn-secondary" onclick="cargarLicencia()" style="font-size:0.85rem;">&#128194; Cargar licencia (.lic)</button>' +
+        '<span style="font-size:0.78rem;color:var(--text-muted);">Selecciona el archivo .lic proporcionado por DisateQ™</span>' +
+        '</div>' +
+        '<div id="lic-mensaje" style="margin-top:0.75rem;font-size:0.85rem;display:none;"></div>' +
+        '</div></div>' +
+
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128272; Clave del Instalador</h3></div>' +
         '<div class="card-body"><div style="display:flex;gap:1rem;align-items:flex-end;max-width:400px;">' +
         '<div style="flex:1;"><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Nueva clave (4 dígitos)</label>' +
         '<input type="password" id="cfg-clave-nueva" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:1rem;letter-spacing:0.5rem;"></div>' +
