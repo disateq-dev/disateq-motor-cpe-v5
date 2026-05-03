@@ -41,7 +41,7 @@ async function inicializarSistema() {
             appState.clienteAlias = clientes.clientes[0].id || clientes.clientes[0].alias;
         }
         appState.initialized = true;
-        cargarDashboard();
+        cargarDashboard(); actualizarFooterLicencia();
     } catch(e) {
         console.error('Error inicializando sistema:', e);
     }
@@ -61,7 +61,7 @@ function navegarA(page) {
     var pageEl = document.getElementById('page-' + page);
     if (pageEl) pageEl.classList.add('active');
     appState.currentPage = page;
-    if (page === 'dashboard') cargarDashboard();
+    if (page === 'dashboard') cargarDashboard(); actualizarFooterLicencia();
     if (page === 'procesar')  initProcesar();
     if (page === 'logs')      cargarLogs();
     if (page === 'historial') cargarHistorial();
@@ -80,7 +80,7 @@ function configurarReloj() {
 
 function schedulerCicloCompletado(resultados) {
     showToast('Ciclo automático: ' + resultados.enviados + ' enviados, ' + resultados.errores + ' errores', 'info');
-    cargarDashboard();
+    cargarDashboard(); actualizarFooterLicencia();
 }
 
 // ── Toast ──────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ function abrirConfig()        { navegarA('config'); }
 
 async function sincronizar() {
     showToast('Sincronizando...', 'info');
-    await cargarDashboard();
+    await cargarDashboard(); actualizarFooterLicencia();
     var el = document.getElementById('ultima-sync');
     if (el) el.textContent = new Date().toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' });
     showToast('Sincronización completada', 'success');
@@ -255,7 +255,7 @@ async function procesarConMotor() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i data-feather="play-circle"></i> Procesar con Motor'; }
     if (typeof feather !== 'undefined') feather.replace();
 
-    if (result.exito) { mostrarResultado(result.resultados); await cargarDashboard(); }
+    if (result.exito) { mostrarResultado(result.resultados); await cargarDashboard(); actualizarFooterLicencia(); }
     else showToast(result.error, 'error');
 }
 
@@ -997,4 +997,22 @@ async function mostrarConfigCompleta() {
 
     page.querySelector('.card-body').innerHTML = html;
     setTimeout(cargarSchedulerConfig, 100);
+}
+
+// FIX-FOOTER-01
+async function actualizarFooterLicencia() {
+    try {
+        var lic = await api('get_licencia_info');
+        var label = document.getElementById('lic-footer-label');
+        if (!label) return;
+        if (lic && lic.valida) {
+            var dias = lic.dias_restantes;
+            var color = dias > 60 ? 'var(--success)' : dias > 15 ? 'var(--warning)' : 'var(--error)';
+            label.style.color = color;
+            label.textContent = 'Licencia valida - ' + dias + ' dias';
+        } else {
+            label.style.color = 'var(--error)';
+            label.textContent = 'Sin licencia activa';
+        }
+    } catch(e) {}
 }

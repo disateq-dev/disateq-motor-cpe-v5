@@ -35,8 +35,6 @@
             </div>
         </div>
         <div class="header-right">
-
-            <!-- FIX-UI-01/02: empresa/RUC/alias con dividers, fecha separada -->
             <div class="header-info">
                 <strong id="empresa-nombre">EMPRESA DEMO S.A.C.</strong>
                 <span class="divider"></span>
@@ -44,13 +42,10 @@
                 <span class="divider"></span>
                 <span id="empresa-alias" style="font-weight:500;">-</span>
             </div>
-
-            <!-- FIX-UI-02: fecha/hora en pill separado -->
             <div class="header-datetime">
                 <i data-feather="clock"></i>
                 <span id="fecha-hora">—</span>
             </div>
-
             <div class="header-actions">
                 <button class="header-btn btn-procesar" onclick="procesarPendientes()" data-tooltip="Procesar">
                     <i data-feather="play-circle"></i>
@@ -161,8 +156,6 @@
                     <span id="proc-cliente-info" style="font-size:0.8rem;color:var(--text-muted);"></span>
                 </div>
                 <div class="card-body" style="position:relative;">
-
-                    <!-- Barra informativa fuente — solo lectura -->
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:1rem;">
                         <div style="flex:1;display:flex;align-items:center;gap:0.75rem;padding:0.55rem 1rem;background:var(--bg-table-head);border:1px solid var(--border-light);border-radius:var(--radius-md);">
                             <i data-feather="database" style="width:14px;height:14px;color:var(--text-muted);flex-shrink:0;"></i>
@@ -175,15 +168,11 @@
                             <i data-feather="refresh-cw"></i> Cargar
                         </button>
                     </div>
-
-                    <!-- Spinner overlay -->
                     <div id="proc-spinner" style="display:none;position:absolute;inset:0;background:rgba(247,248,252,0.88);z-index:50;border-radius:var(--radius-lg);flex-direction:column;align-items:center;justify-content:center;gap:0.75rem;">
                         <div class="proc-spinner-ring"></div>
                         <div id="proc-spinner-msg" style="font-size:0.82rem;color:var(--text-muted);font-weight:500;">—</div>
                     </div>
-
                     <div id="proc-status" style="display:none;padding:0.5rem 0.75rem;border-radius:var(--radius-md);margin-bottom:1rem;font-size:0.875rem;"></div>
-
                     <div id="preview-container" style="display:none;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
                             <div style="display:flex;align-items:center;gap:1rem;">
@@ -210,7 +199,6 @@
                             </table>
                         </div>
                     </div>
-
                     <div id="proc-resultado" style="display:none;"></div>
                 </div>
             </div>
@@ -242,7 +230,7 @@
 
     </main>
 
-    <!-- FOOTER -->
+    <!-- FOOTER — FIX-FOOTER-01: dias licencia con color, sin API:APIFAS -->
     <footer class="app-footer">
         <div class="footer-left">
             <div class="footer-status">
@@ -251,13 +239,8 @@
             </div>
             <span>|</span>
             <div class="footer-status">
-                <span class="status-dot" id="api-status-dot" style="background:#94a3b8;"></span>
-                <span id="api-status-label">API: verificando...</span>
-            </div>
-            <span>|</span>
-            <div class="footer-status">
-                <i data-feather="shield" style="width:13px;height:13px;"></i>
-                <span>Licencia Válida</span>
+                <i data-feather="shield" style="width:13px;height:13px;" id="lic-footer-icon"></i>
+                <span id="lic-footer-label">Licencia —</span>
             </div>
         </div>
         <div class="footer-right">
