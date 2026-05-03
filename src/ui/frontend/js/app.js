@@ -884,6 +884,7 @@ async function cargarLicencia() {
         }
         if (result.exito) {
             showToast('Licencia activada correctamente', 'success');
+            actualizarFooterLicencia();
             setTimeout(function() { mostrarConfigCompleta(); }, 1500);
         }
     } catch(e) {
@@ -1054,3 +1055,4 @@ async function actualizarFooterLicencia() {
         }
     } catch(e) {}
 }
+
