@@ -30,6 +30,7 @@ from src.database.cpe_logger import CpeLogger
 from src.motor import Motor
 from src.config.client_loader import ClientLoader
 from src.tools.wizard_service import test_fuente, guardar_wizard
+from src.config.paths_resolver import get_output_dir
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +259,7 @@ class DisateQAPI:
         try:
             motor = Motor(
                 cliente_alias=cliente_alias,
-                output_dir='output',
+                output_dir=str(get_output_dir()),
                 db_path=self._db_path,
                 modo_sender=modo,
             )
@@ -610,7 +611,7 @@ class DisateQAPI:
             if self._client_config:
                 motor = Motor(
                     cliente_alias=getattr(self, "_cliente_stem", self._client_config.alias),
-                    output_dir='output',
+                    output_dir=str(get_output_dir()),
                     db_path=self._db_path,
                 )
                 resultados = motor.procesar()
@@ -826,7 +827,7 @@ class DisateQAPI:
         try:
             motor = Motor(
                 cliente_alias=cliente_alias,
-                output_dir='output',
+                output_dir=str(get_output_dir()),
                 db_path=self._db_path,
                 modo_sender='mock',
             )
