@@ -26,10 +26,12 @@ _CFG_FILENAME = "disateq_paths.cfg"
 def _buscar_cfg() -> Path | None:
     """
     Busca disateq_paths.cfg en:
-      1. Junto al exe (produccion) -- 3 niveles arriba en dist
-      2. Raiz del proyecto (desarrollo) -- 3 niveles arriba de src/config/
+      1. exe dir produccion -- 4 niveles arriba de _internal/src/config/
+         C:/Program Files/DisateQ/Motor CPE/disateq_paths.cfg
+      2. Raiz proyecto desarrollo -- 3 niveles arriba de src/config/
     """
     candidatos = [
+        Path(__file__).resolve().parent.parent.parent.parent / _CFG_FILENAME,
         Path(__file__).resolve().parent.parent.parent / _CFG_FILENAME,
     ]
     for candidato in candidatos:
@@ -43,10 +45,6 @@ def _rutas_desarrollo() -> dict:
     """Rutas relativas para entorno de desarrollo -- sin cfg.
     paths_resolver.py esta en src/config/ -> subir 3 niveles = raiz proyecto.
     """
-    # src/config/paths_resolver.py
-    # .parent       = src/config
-    # .parent.parent = src
-    # .parent.parent.parent = raiz proyecto
     raiz = Path(__file__).resolve().parent.parent.parent
     return {
         "data_dir":   raiz / "data",

@@ -1,7 +1,8 @@
-﻿; =============================================================================
+; =============================================================================
 ; disateq_setup.iss -- DisateQ Motor CPE v5.0
-; TASK-INS-01 -- DisateQ DEV FLOW v1
-; Para cambiar cliente: usar build_installer.ps1 -Cliente nombre_cliente
+; FIX: ArchitecturesInstallIn64BitMode para Program Files correcto (64 bits)
+;      disateq_paths.cfg se escribe en CurStepChanged(ssPostInstall)
+;      no en NextButtonClick(wpReady) donde AppDir aun no existe
 ; =============================================================================
 
 #define MyAppName      "DisateQ Motor CPE"
@@ -17,7 +18,7 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
-DefaultDirName={autopf}\DisateQ\Motor CPE
+DefaultDirName={autopf64}\DisateQ\Motor CPE
 DefaultGroupName=DisateQ Motor CPE
 OutputDir=Output
 OutputBaseFilename=DisateQ-Motor-CPE-Setup
@@ -26,6 +27,7 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 MinVersion=10.0
+ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
@@ -61,6 +63,7 @@ Type: dirifempty; Name: "{app}\_internal"
 [Code]
 var
   DataDirPage: TInputDirWizardPage;
+  GDataDir: String;
 
 function CheckWebView2(): Boolean;
 var
@@ -108,43 +111,46 @@ begin
   );
   DataDirPage.Add('Carpeta de datos (recomendado en D:):');
   DataDirPage.Values[0] := 'D:\DisateQ\Data';
+  GDataDir := 'D:\DisateQ\Data';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
-var
-  DataDir: String;
-  DataPath: String;
-  OutputPath: String;
-  AppDir: String;
-  CfgPath: String;
-  CfgContent: String;
 begin
   Result := True;
-
   if CurPageID = DataDirPage.ID then
   begin
-    DataDir := DataDirPage.Values[0];
-    if Trim(DataDir) = '' then
+    if Trim(DataDirPage.Values[0]) = '' then
     begin
       MsgBox('Debe seleccionar un directorio de datos.', mbError, MB_OK);
       Result := False;
       Exit;
     end;
+    // Guardar seleccion en variable global para usar en post-install
+    GDataDir := DataDirPage.Values[0];
   end;
+end;
 
-  if CurPageID = wpReady then
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  DataPath:   String;
+  OutputPath: String;
+  CfgPath:    String;
+  CfgContent: String;
+begin
+  // ssPostInstall: todos los archivos ya fueron copiados a AppDir
+  if CurStep = ssPostInstall then
   begin
-    DataDir    := DataDirPage.Values[0];
-    DataPath   := DataDir + '\data';
-    OutputPath := DataDir + '\output';
-    AppDir     := WizardDirValue();
-    CfgPath    := AppDir + '\disateq_paths.cfg';
+    DataPath   := GDataDir + '\data';
+    OutputPath := GDataDir + '\output';
+    CfgPath    := ExpandConstant('{app}') + '\disateq_paths.cfg';
 
+    // Crear carpetas de datos en D:
     if not DirExists(DataPath) then
       ForceDirectories(DataPath);
     if not DirExists(OutputPath) then
       ForceDirectories(OutputPath);
 
+    // Escribir disateq_paths.cfg junto al exe -- AppDir ya existe
     CfgContent :=
       '; DisateQ Motor CPE -- rutas operativas' + #13#10 +
       '; Generado por el instalador -- no editar manualmente' + #13#10 +
@@ -153,14 +159,11 @@ begin
       'output_dir = ' + OutputPath + #13#10;
 
     if not SaveStringToFile(CfgPath, CfgContent, False) then
-    begin
       MsgBox(
         'No se pudo crear disateq_paths.cfg en:' + #13#10 + CfgPath + #13#10 + #13#10 +
         'Verifique permisos de escritura en el directorio de instalacion.',
         mbError, MB_OK
       );
-      Result := False;
-    end;
   end;
 end;
 
