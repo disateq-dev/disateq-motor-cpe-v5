@@ -1,8 +1,9 @@
 /**
  * processor.js — DisateQ Motor CPE v5.0
- * TASK-004 JS: migrado eel → window.pywebview.api
+ * TASK-004 JS: migrado eel -> window.pywebview.api
  * TASK-011: columna Tipo (B/F/NC/ND) en tabla de pendientes
  * TASK-013: label fuente muestra ruta real desde arranque
+ * TASK-020: panel Reenvio Forzado por Rango
  */
 
 'use strict';
@@ -20,6 +21,10 @@ async function initProcesar() {
         // TASK-013: setear ruta real desde arranque, no "Cargando..."
         _setFuenteLabel(rutaResult.ruta);
     }
+
+    // TASK-020: inyectar panel de reenvio forzado por rango
+    _inyectarPanelReenvio();
+
     await cargarPendientesDesdeMotor();
 }
 
@@ -84,10 +89,10 @@ function _tipoDesde(serie) {
 function _tipoBadge(serie) {
     const tipo = _tipoDesde(serie);
     const map  = {
-        'Factura':    'badge-factura',
-        'Boleta':     'badge-boleta',
-        'N.Crédito':  'badge-nc',
-        'N.Débito':   'badge-nd',
+        'Factura':   'badge-factura',
+        'Boleta':    'badge-boleta',
+        'N.Crédito': 'badge-nc',
+        'N.Débito':  'badge-nd',
     };
     const cls = map[tipo] || 'badge-neutral';
     return '<span class="badge ' + cls + '">' + tipo + '</span>';
@@ -104,7 +109,6 @@ function mostrarTabla(comprobantes, total) {
     // TASK-011: cabecera con columna Tipo
     const thead = document.querySelector('#preview-tbody').closest('table').querySelector('thead tr');
     if (thead && thead.children.length < 5) {
-        // Insertar <th>Tipo</th> después de Comprobante
         const thTipo = document.createElement('th');
         thTipo.textContent = 'Tipo';
         thead.children[1].after(thTipo);
@@ -188,4 +192,189 @@ function volverAProcesar() {
 
 function update_progress(current, total) {
     showToast('Procesando ' + current + '/' + total, 'info');
+}
+
+// =============================================================================
+// TASK-020 — Reenvio Forzado por Rango
+// =============================================================================
+
+/**
+ * Inyecta el panel de reenvio forzado en la pestana Procesar.
+ * Se llama una vez desde initProcesar(). Si el panel ya existe no hace nada.
+ */
+function _inyectarPanelReenvio() {
+    if (document.getElementById('panel-reenvio-rango')) return;
+
+    // Buscar contenedor padre: seccion principal de la pestana procesar
+    const contenedor = document.getElementById('proc-resultado')
+        || document.getElementById('preview-container')
+        || document.querySelector('.procesar-section')
+        || document.querySelector('[data-tab="procesar"]');
+
+    if (!contenedor) return;
+
+    const panel = document.createElement('div');
+    panel.id    = 'panel-reenvio-rango';
+    panel.style.cssText = [
+        'margin-top:1.5rem',
+        'border:1px solid var(--border)',
+        'border-radius:var(--radius-lg)',
+        'overflow:hidden',
+    ].join(';');
+
+    panel.innerHTML =
+        '<div id="reenvio-header" style="' +
+            'display:flex;align-items:center;justify-content:space-between;' +
+            'padding:0.75rem 1rem;background:var(--surface-2,var(--bg-secondary,#f5f5f5));' +
+            'cursor:pointer;user-select:none;' +
+        '" onclick="_togglePanelReenvio()">' +
+            '<span style="font-weight:600;font-size:0.9rem;display:flex;align-items:center;gap:0.5rem;">' +
+                '<i data-feather="refresh-cw" style="width:15px;height:15px;"></i>' +
+                ' Reenvio Forzado por Rango' +
+            '</span>' +
+            '<i id="reenvio-chevron" data-feather="chevron-down" style="width:16px;height:16px;"></i>' +
+        '</div>' +
+        '<div id="reenvio-body" style="display:none;padding:1rem;">' +
+            '<p style="margin:0 0 1rem 0;font-size:0.82rem;color:var(--text-muted);">' +
+                'Marca comprobantes ya registrados para que el Motor los reenvie en el proximo ciclo. ' +
+                'Solo afecta registros existentes en la base de datos.' +
+            '</p>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.75rem;align-items:end;">' +
+                '<div>' +
+                    '<label style="display:block;font-size:0.8rem;font-weight:600;margin-bottom:0.3rem;">Serie</label>' +
+                    '<input id="rr-serie" type="text" placeholder="B001" maxlength="4" ' +
+                        'style="width:100%;padding:0.45rem 0.6rem;border:1px solid var(--border);' +
+                        'border-radius:var(--radius);font-size:0.875rem;background:var(--input-bg,#fff);' +
+                        'color:var(--text);" ' +
+                        'oninput="this.value=this.value.toUpperCase()">' +
+                '</div>' +
+                '<div>' +
+                    '<label style="display:block;font-size:0.8rem;font-weight:600;margin-bottom:0.3rem;">Desde</label>' +
+                    '<input id="rr-desde" type="number" min="1" placeholder="1" ' +
+                        'style="width:100%;padding:0.45rem 0.6rem;border:1px solid var(--border);' +
+                        'border-radius:var(--radius);font-size:0.875rem;background:var(--input-bg,#fff);' +
+                        'color:var(--text);">' +
+                '</div>' +
+                '<div>' +
+                    '<label style="display:block;font-size:0.8rem;font-weight:600;margin-bottom:0.3rem;">' +
+                        'Hasta <span style="font-weight:400;color:var(--text-muted);">(opcional)</span>' +
+                    '</label>' +
+                    '<input id="rr-hasta" type="number" min="1" placeholder="mismo que Desde" ' +
+                        'style="width:100%;padding:0.45rem 0.6rem;border:1px solid var(--border);' +
+                        'border-radius:var(--radius);font-size:0.875rem;background:var(--input-bg,#fff);' +
+                        'color:var(--text);">' +
+                '</div>' +
+                '<div>' +
+                    '<button id="btn-forzar-reenvio" class="btn btn-secondary" ' +
+                        'onclick="forzarReenvioRango()" ' +
+                        'style="white-space:nowrap;display:flex;align-items:center;gap:0.4rem;">' +
+                        '<i data-feather="refresh-cw" style="width:14px;height:14px;"></i> Marcar' +
+                    '</button>' +
+                '</div>' +
+            '</div>' +
+            '<div id="rr-resultado" style="display:none;margin-top:0.75rem;padding:0.6rem 0.85rem;' +
+                'border-radius:var(--radius);font-size:0.85rem;"></div>' +
+        '</div>';
+
+    // Insertar antes del primer elemento hijo del contenedor
+    contenedor.parentNode.insertBefore(panel, contenedor.nextSibling);
+
+    if (typeof feather !== 'undefined') feather.replace();
+}
+
+/** Abre/cierra el cuerpo del panel. */
+function _togglePanelReenvio() {
+    const body    = document.getElementById('reenvio-body');
+    const chevron = document.getElementById('reenvio-chevron');
+    if (!body) return;
+    const visible = body.style.display !== 'none';
+    body.style.display = visible ? 'none' : 'block';
+    if (chevron) {
+        chevron.setAttribute('data-feather', visible ? 'chevron-down' : 'chevron-up');
+        if (typeof feather !== 'undefined') feather.replace();
+    }
+}
+
+/**
+ * TASK-020 — Llama a api.forzar_reenvio_rango y muestra el resultado.
+ */
+async function forzarReenvioRango() {
+    const serie    = (document.getElementById('rr-serie')  || {}).value  || '';
+    const desdeStr = (document.getElementById('rr-desde')  || {}).value  || '';
+    const hastaStr = (document.getElementById('rr-hasta')  || {}).value  || '';
+    const resultado = document.getElementById('rr-resultado');
+
+    // Validacion basica en cliente
+    if (!serie.trim()) {
+        _mostrarRrResultado('error', 'Ingresa la Serie (ej: B001)');
+        return;
+    }
+    if (!desdeStr || parseInt(desdeStr) <= 0) {
+        _mostrarRrResultado('error', 'Ingresa un numero inicial valido');
+        return;
+    }
+
+    const desde = parseInt(desdeStr);
+    const hasta = hastaStr ? parseInt(hastaStr) : desde;
+
+    if (hasta < desde) {
+        _mostrarRrResultado('error', 'Hasta debe ser mayor o igual a Desde');
+        return;
+    }
+
+    const btn = document.getElementById('btn-forzar-reenvio');
+    if (btn) { btn.disabled = true; btn.textContent = 'Marcando...'; }
+
+    try {
+        const res = await window.pywebview.api.forzar_reenvio_rango({
+            serie: serie.trim().toUpperCase(),
+            desde: desde,
+            hasta: hasta,
+        });
+
+        if (res.exito) {
+            if (res.afectados === 0) {
+                _mostrarRrResultado('warning',
+                    'No se encontraron registros para ' + serie + ' ' + desde +
+                    (hasta !== desde ? '-' + hasta : '') +
+                    '. Verifica que los comprobantes existan en el historial.');
+            } else {
+                _mostrarRrResultado('success',
+                    res.afectados + ' comprobante(s) marcados para reenvio (' +
+                    serie + ' ' + desde + (hasta !== desde ? ' al ' + hasta : '') +
+                    '). Se procesaran en el proximo ciclo del Motor.');
+                // Limpiar campos tras exito
+                document.getElementById('rr-serie').value  = '';
+                document.getElementById('rr-desde').value  = '';
+                document.getElementById('rr-hasta').value  = '';
+            }
+        } else {
+            _mostrarRrResultado('error', res.error || 'Error desconocido');
+        }
+    } catch (e) {
+        _mostrarRrResultado('error', 'Error de comunicacion: ' + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-feather="refresh-cw" style="width:14px;height:14px;"></i> Marcar';
+            if (typeof feather !== 'undefined') feather.replace();
+        }
+    }
+}
+
+/**
+ * Muestra un mensaje de resultado dentro del panel de reenvio.
+ * tipo: 'success' | 'warning' | 'error'
+ */
+function _mostrarRrResultado(tipo, mensaje) {
+    const el = document.getElementById('rr-resultado');
+    if (!el) return;
+    const estilos = {
+        success: 'background:var(--success-bg,#e6f4ea);color:var(--success,#1a7f37);border:1px solid var(--success-border,#a8d5b5);',
+        warning: 'background:var(--warning-bg,#fff8e1);color:var(--warning,#b45309);border:1px solid var(--warning-border,#fcd34d);',
+        error:   'background:var(--error-bg,#fef2f2);color:var(--error,#dc2626);border:1px solid var(--error-border,#fca5a5);',
+    };
+    el.style.cssText = 'display:block;margin-top:0.75rem;padding:0.6rem 0.85rem;' +
+        'border-radius:var(--radius);font-size:0.85rem;' + (estilos[tipo] || estilos.error);
+    el.textContent = mensaje;
 }

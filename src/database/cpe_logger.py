@@ -1,6 +1,7 @@
-﻿# src/database/cpe_logger.py
+# src/database/cpe_logger.py
 # DisateQ Motor CPE v5.0
 # BUG-SYS-02: estado ABANDONADO + marcar_abandonado() + ya_remitido bloquea ABANDONADO
+# TASK-020: marcar_rango_reenvio() para reenvio forzado por rango desde UI
 # -----------------------------------------------------------------------------
 
 import sqlite3
@@ -220,6 +221,42 @@ class CpeLogger:
 
         logger.info(f"[CpeLogger] Marcado para reenvio: {ruc_emisor} {serie}-{numero}")
         return True
+
+    def marcar_rango_reenvio(
+        self,
+        ruc_emisor: str,
+        serie: str,
+        desde: int,
+        hasta: int,
+    ) -> int:
+        """
+        TASK-020 -- Marca para reenvio forzado el rango [desde, hasta] de una serie.
+
+        Solo afecta comprobantes ya existentes en cpe_envios.
+        El Motor procesara los marcados en el proximo ciclo.
+
+        Retorna la cantidad de filas afectadas.
+        """
+        ahora = _now()
+        sql = """
+            UPDATE cpe_envios
+            SET forzar_reenvio      = 1,
+                estado              = 'ERROR',
+                intentos            = 0,
+                fecha_actualizacion = ?
+            WHERE ruc_emisor = ?
+              AND serie      = ?
+              AND CAST(numero AS INTEGER) BETWEEN ? AND ?
+        """
+        cursor = self.conn.execute(sql, (ahora, ruc_emisor, serie, desde, hasta))
+        self.conn.commit()
+
+        afectados = cursor.rowcount
+        logger.info(
+            f"[CpeLogger] marcar_rango_reenvio: {ruc_emisor} {serie} "
+            f"{desde}-{hasta} -> {afectados} marcados"
+        )
+        return afectados
 
     def limpiar_forzar_reenvio(
         self,

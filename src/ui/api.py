@@ -1,5 +1,8 @@
 # src/ui/api.py
-# DisateQ Motor CPE v5.0 — TASK-004 + TASK-005 + TASK-006
+# DisateQ Motor CPE v5.0
+# TASK-004 + TASK-005 + TASK-006
+# FIX-UI-01: db_path desde get_data_dir() -- ya no usa ruta relativa hardcodeada
+# TASK-020: forzar_reenvio_rango() -- reenvio por rango de serie desde UI
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
@@ -8,14 +11,7 @@ DisateQAPI
 Clase que expone metodos Python al frontend via PyWebView (js_api).
 
 En el frontend JS:
-    // Antes (Eel):
-    eel.metodo(params)(callback)
-
-    // Ahora (PyWebView):
     window.pywebview.api.metodo(params).then(callback)
-
-Los metodos son identicos en firma y retorno — solo cambia el mecanismo
-de llamada. El frontend requiere actualizacion de llamadas (TASK-004 JS).
 """
 
 import json
@@ -30,11 +26,11 @@ from src.database.cpe_logger import CpeLogger
 from src.motor import Motor
 from src.config.client_loader import ClientLoader
 from src.tools.wizard_service import test_fuente, guardar_wizard
-from src.config.paths_resolver import get_output_dir
+from src.config.paths_resolver import get_data_dir, get_output_dir
 
 logger = logging.getLogger(__name__)
 
-# Mapa tipo_comprobante SUNAT → string para filtros JS
+# Mapa tipo_comprobante SUNAT -> string para filtros JS
 _TIPO_CPE_MAP = {
     '1': 'factura',
     '2': 'boleta',
@@ -51,19 +47,41 @@ class DisateQAPI:
     Se instancia una vez en app.py y se pasa a webview.create_window().
     """
 
-    def __init__(self, db_path: str = 'data/disateq_cpe.db'):
-        self._db_path      = db_path
-        self._conn         = init_db(db_path)
-        self._log          = CpeLogger(self._conn)
+    def __init__(self, db_path: str = None):
+        # FIX-UI-01: usar paths_resolver para obtener la ruta real de la DB.
+        # En produccion apunta a D:\...\data\disateq_cpe.db via disateq_paths.cfg.
+        # En desarrollo usa data/disateq_cpe.db relativo al proyecto.
+        if db_path is None:
+            db_path = str(get_data_dir() / 'disateq_cpe.db')
+
+        self._db_path       = db_path
+        self._conn          = init_db(db_path)
+        self._log           = CpeLogger(self._conn)
         self._client_config = None
-        self._scheduler    = None
-        self._window       = None   # se asigna desde app.py tras crear la ventana
+        self._scheduler     = None
+        self._window        = None   # se asigna desde app.py tras crear la ventana
 
         self._cargar_cliente()
+
+    # ─────────────────────────────────────────────────────────────────────────
 
     def set_window(self, window) -> None:
         """Recibe referencia a la ventana PyWebView para callbacks JS."""
         self._window = window
+
+    def cerrar_sistema(self) -> None:
+        def _shutdown():
+            try:
+                if self._scheduler:
+                    self._scheduler.detener()
+            except Exception:
+                pass
+            try:
+                if self._window:
+                    self._window.destroy()
+            except Exception:
+                pass
+        threading.Thread(target=_shutdown, daemon=True).start()
 
     def _js_call(self, fn: str, data) -> None:
         """Llama una funcion JS desde Python (reemplaza eel.fn(data))."""
@@ -74,9 +92,9 @@ class DisateQAPI:
             except Exception as e:
                 logger.warning(f"[API] js_call {fn} error: {e}")
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # SISTEMA
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def inicializar_sistema(self):
         try:
@@ -95,9 +113,9 @@ class DisateQAPI:
             }
         return {'nombre': 'Sin cliente configurado', 'ruc': '-', 'alias': ''}
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # DASHBOARD
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def get_dashboard_stats(self):
         try:
@@ -145,26 +163,25 @@ class DisateQAPI:
             logger.exception(f"[API] get_recent_comprobantes: {e}")
             return []
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # LOGS / HISTORIAL
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def get_logs(self, estado=None, limit=100):
         try:
             cliente_id = getattr(self, '_cliente_stem', None)
             rows = self._log.historial(cliente_id=cliente_id, estado=estado, limit=limit)
-            # Convertir rows a dicts con campos mapeados para el JS
             logs = []
             for r in rows:
                 logs.append({
-                    'fecha':        r.get('fecha_creacion', '')[:19].replace('T', ' '),
-                    'serie':        r.get('serie', ''),
-                    'numero':       r.get('numero', ''),
-                    'tipo_doc':     _TIPO_CPE_MAP.get(str(r.get('tipo_comprobante', '')), ''),
+                    'fecha':          r.get('fecha_creacion', '')[:19].replace('T', ' '),
+                    'serie':          r.get('serie', ''),
+                    'numero':         r.get('numero', ''),
+                    'tipo_doc':       _TIPO_CPE_MAP.get(str(r.get('tipo_comprobante', '')), ''),
                     'cliente_nombre': r.get('cliente_nombre', '-') or '-',
-                    'endpoint':     r.get('endpoint', '-') or '-',
-                    'detalle':      r.get('descripcion_sunat', '') or '',
-                    'estado':       r.get('estado', ''),
+                    'endpoint':       r.get('endpoint', '-') or '-',
+                    'detalle':        r.get('descripcion_sunat', '') or '',
+                    'estado':         r.get('estado', ''),
                 })
             return {'exito': True, 'logs': logs}
         except Exception as e:
@@ -221,9 +238,9 @@ class DisateQAPI:
         except Exception as e:
             return {'exito': False, 'error': str(e), 'total': 0, 'comprobantes': []}
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # PROCESAMIENTO
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def conectar_fuente(self, tipo: str, archivo: str):
         try:
@@ -268,6 +285,60 @@ class DisateQAPI:
         except Exception as e:
             return {'exito': False, 'error': str(e)}
 
+    def forzar_reenvio_rango(self, payload: dict) -> dict:
+        """
+        TASK-020 -- Marca reenvio forzado para un rango de comprobantes de una serie.
+
+        payload esperado:
+            { "serie": "B001", "desde": 1, "hasta": 50 }
+
+        "hasta" es opcional: si se omite o es 0 se usa el mismo valor que "desde"
+        (reenvio de un solo comprobante).
+
+        Solo afecta comprobantes existentes en cpe_envios. El Motor los procesara
+        en el proximo ciclo automatico o al pulsar "Procesar ahora".
+        """
+        try:
+            if not self._client_config:
+                return {'exito': False, 'error': 'Sin cliente configurado'}
+
+            serie     = str(payload.get('serie', '')).strip().upper()
+            desde_raw = payload.get('desde')
+            hasta_raw = payload.get('hasta')
+
+            if not serie:
+                return {'exito': False, 'error': 'Serie requerida'}
+
+            try:
+                desde = int(desde_raw)
+            except (TypeError, ValueError):
+                return {'exito': False, 'error': 'Numero inicial invalido'}
+
+            if desde <= 0:
+                return {'exito': False, 'error': 'Numero inicial debe ser mayor a 0'}
+
+            try:
+                hasta = int(hasta_raw) if hasta_raw not in (None, '', 0, '0') else desde
+            except (TypeError, ValueError):
+                hasta = desde
+
+            if hasta < desde:
+                return {'exito': False, 'error': 'Numero final debe ser mayor o igual al inicial'}
+
+            afectados = self._log.marcar_rango_reenvio(
+                self._client_config.ruc, serie, desde, hasta
+            )
+            return {
+                'exito':     True,
+                'afectados': afectados,
+                'serie':     serie,
+                'desde':     desde,
+                'hasta':     hasta,
+            }
+        except Exception as e:
+            logger.exception(f"[API] forzar_reenvio_rango: {e}")
+            return {'exito': False, 'error': str(e)}
+
     def get_ruta_fuente(self, alias: str):
         try:
             cfg   = ClientLoader().cargar(alias)
@@ -294,9 +365,9 @@ class DisateQAPI:
         except Exception as e:
             return {'exito': False, 'error': str(e), 'clientes': []}
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # LICENCIA
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def validar_licencia(self):
         try:
@@ -329,9 +400,9 @@ class DisateQAPI:
             return {'valida': True, 'tipo': 'Demo', 'cliente': 'Usuario Demo',
                     'dias_restantes': 999, 'vencimiento': '2099-12-31'}
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # UTILIDADES
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def abrir_dialogo_archivo(self, filtro: str = '*.*', descripcion: str = 'Archivos') -> str:
         """Abre dialogo de archivo nativo para seleccionar .lic u otros."""
@@ -346,11 +417,9 @@ class DisateQAPI:
                     return resultado[0]
         except Exception:
             pass
-        # Fallback tkinter
         import tkinter as tk
         from tkinter import filedialog
         root = tk.Tk(); root.withdraw()
-        ext = filtro.replace('*', '')
         archivo = filedialog.askopenfilename(
             title=f'Seleccionar {descripcion}',
             filetypes=[(descripcion, filtro), ('Todos', '*.*')]
@@ -394,20 +463,13 @@ class DisateQAPI:
         except Exception:
             return {'conectado': False, 'nombre': 'Sin conexion'}
 
-    def cerrar_sistema(self):
-        import os
-        logger.info("[API] Cerrando sistema...")
-        threading.Timer(0.5, lambda: os._exit(0)).start()
-        return True
-
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # CONFIGURACION
-    # ═════════════════════════════════════════════════════════════════════════
-
+    # =========================================================================
 
     def cargar_licencia(self, ruta: str) -> dict:
         """
-        TASK-016 — Carga y activa un archivo .lic seleccionado por el usuario.
+        TASK-016 -- Carga y activa un archivo .lic seleccionado por el usuario.
         Valida la firma RSA antes de copiar al directorio de licencias.
         """
         try:
@@ -419,9 +481,7 @@ class DisateQAPI:
             return {'exito': False, 'mensaje': str(e)}
 
     def get_licencia_info(self) -> dict:
-        """
-        TASK-016 — Retorna info completa de la licencia activa para la UI.
-        """
+        """TASK-016 -- Retorna info completa de la licencia activa para la UI."""
         try:
             from src.licenses.validator import LicenseValidator
             v      = LicenseValidator()
@@ -431,14 +491,14 @@ class DisateQAPI:
                 expiry = datetime.fromisoformat(datos['expiry_date'])
                 dias   = max(0, (expiry - datetime.now()).days)
                 return {
-                    'valida':          valida,
-                    'mensaje':         mensaje,
-                    'cliente':         datos.get('client_name', ''),
-                    'ruc':             datos.get('client_ruc', ''),
-                    'vencimiento':     datos['expiry_date'][:10],
-                    'dias_restantes':  dias,
-                    'max_docs':        datos.get('max_docs_month', 999999),
-                    'version':         datos.get('version', ''),
+                    'valida':         valida,
+                    'mensaje':        mensaje,
+                    'cliente':        datos.get('client_name', ''),
+                    'ruc':            datos.get('client_ruc', ''),
+                    'vencimiento':    datos['expiry_date'][:10],
+                    'dias_restantes': dias,
+                    'max_docs':       datos.get('max_docs_month', 999999),
+                    'version':        datos.get('version', ''),
                 }
             return {'valida': False, 'mensaje': mensaje, 'cliente': '', 'ruc': '',
                     'vencimiento': '', 'dias_restantes': 0, 'max_docs': 0, 'version': ''}
@@ -456,7 +516,7 @@ class DisateQAPI:
 
     def validar_contrato(self, alias: str = None):
         """
-        TASK-007 — Valida el contrato YAML del cliente contra la fuente real.
+        TASK-007 -- Valida el contrato YAML del cliente contra la fuente real.
         Retorna score 0-1 + errores/advertencias/info.
         """
         try:
@@ -531,7 +591,7 @@ class DisateQAPI:
                     for ep in payload['endpoints']
                 ]}
 
-            # BUG-2: filtrar series vacías antes de escribir al YAML
+            # BUG-2: filtrar series vacias antes de escribir al YAML
             if payload.get('series') is not None:
                 series_limpias = {}
                 for tipo, lista in payload['series'].items():
@@ -542,7 +602,7 @@ class DisateQAPI:
                             'activa':             bool(s.get('activa', True)),
                         }
                         for s in lista
-                        if s.get('serie', '').strip()   # solo series con código
+                        if s.get('serie', '').strip()
                     ]
                     if items_validos:
                         series_limpias[tipo] = items_validos
@@ -569,9 +629,9 @@ class DisateQAPI:
         except Exception as e:
             return {'exito': False, 'error': str(e)}
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # SCHEDULER
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def get_scheduler_status(self):
         if self._scheduler:
@@ -654,9 +714,9 @@ class DisateQAPI:
         except Exception as e:
             return {'exito': False, 'error': str(e)}
 
-    # ═════════════════════════════════════════════════════════════════════════
-    # WIZARD (legacy — TASK-004)
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
+    # WIZARD (legacy -- TASK-004)
+    # =========================================================================
 
     def wz_validar_licencia(self, codigo: str):
         try:
@@ -844,9 +904,9 @@ class DisateQAPI:
         except Exception:
             return {'wizard': True}
 
-    # ═════════════════════════════════════════════════════════════════════════
-    # WIZARD TASK-005 — 6 pasos
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
+    # WIZARD TASK-005 -- 6 pasos
+    # =========================================================================
 
     def explorar_ruta(self, es_carpeta: bool = True):
         """Dialogo nativo PyWebView para seleccionar carpeta o archivo."""
@@ -869,14 +929,14 @@ class DisateQAPI:
         return None
 
     def wizard_test_fuente(self, fuente: dict) -> dict:
-        """Paso 3 — lee primeros registros de la fuente para verificar acceso."""
+        """Paso 3 -- lee primeros registros de la fuente para verificar acceso."""
         try:
             return test_fuente(fuente)
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
     def wizard_generar_contrato_auto(self, fuente: dict) -> dict:
-        """Paso 4 — genera contrato via smart_mapper (stub hasta TASK-009)."""
+        """Paso 4 -- genera contrato via smart_mapper (stub hasta TASK-009)."""
         try:
             from src.tools.smart_mapper import SmartMapper
             mapper = SmartMapper()
@@ -903,8 +963,8 @@ class DisateQAPI:
 
     def wizard_probar_mapeo(self, fuente: dict, contrato: dict) -> dict:
         """
-        Paso 4 — lee 5 registros reales usando el contrato actual
-        y retorna los valores extraídos para que el técnico valide.
+        Paso 4 -- lee 5 registros reales usando el contrato actual
+        y retorna los valores extraidos para que el tecnico valide.
         """
         try:
             from src.tools.wizard_service import probar_mapeo
@@ -913,15 +973,15 @@ class DisateQAPI:
             return {"ok": False, "error": str(exc), "filas": []}
 
     def wizard_guardar(self, payload: dict) -> dict:
-        """Paso 6 final — guarda config/clientes y config/contratos YAML."""
+        """Paso 6 final -- guarda config/clientes y config/contratos YAML."""
         try:
             return guardar_wizard(payload)
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
     # INTERNOS
-    # ═════════════════════════════════════════════════════════════════════════
+    # =========================================================================
 
     def cargar_motor(self) -> dict:
         """Navega la ventana PyWebView al dashboard (index.html)."""
@@ -940,7 +1000,7 @@ class DisateQAPI:
             clientes = loader.listar()
             if clientes:
                 self._client_config = loader.cargar(clientes[0])
-            self._cliente_stem = clientes[0]
+            self._cliente_stem = clientes[0] if clientes else None
         except Exception as e:
             logger.warning(f"[API] No se pudo cargar cliente: {e}")
 
