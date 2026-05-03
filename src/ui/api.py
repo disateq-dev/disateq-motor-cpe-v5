@@ -152,11 +152,20 @@ class DisateQAPI:
         try:
             cliente_id = getattr(self, '_cliente_stem', None)
             rows = self._log.historial(cliente_id=cliente_id, estado=estado, limit=limit)
-            # Mapear tipo_comprobante a string para filtros JS
+            # Convertir rows a dicts con campos mapeados para el JS
+            logs = []
             for r in rows:
-                if isinstance(r, dict) and 'tipo_comprobante' in r and 'tipo_doc' not in r:
-                    r['tipo_doc'] = _TIPO_CPE_MAP.get(str(r.get('tipo_comprobante', '')), '')
-            return {'exito': True, 'logs': rows}
+                logs.append({
+                    'fecha':        r.get('fecha_creacion', '')[:19].replace('T', ' '),
+                    'serie':        r.get('serie', ''),
+                    'numero':       r.get('numero', ''),
+                    'tipo_doc':     _TIPO_CPE_MAP.get(str(r.get('tipo_comprobante', '')), ''),
+                    'cliente_nombre': r.get('cliente_nombre', '-') or '-',
+                    'endpoint':     r.get('endpoint', '-') or '-',
+                    'detalle':      r.get('descripcion_sunat', '') or '',
+                    'estado':       r.get('estado', ''),
+                })
+            return {'exito': True, 'logs': logs}
         except Exception as e:
             return {'exito': False, 'error': str(e), 'logs': []}
 
