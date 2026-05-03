@@ -15,6 +15,7 @@ TIPOS_SOPORTADOS = {
     'dbf',
     'excel', 'xlsx',
     'csv',
+    'sqlite',
     'sqlserver', 'sql_server', 'mssql',
     'mysql', 'mariadb',
     'postgresql', 'postgres',

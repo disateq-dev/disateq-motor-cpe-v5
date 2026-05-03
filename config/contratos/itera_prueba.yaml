@@ -1,0 +1,47 @@
+# config/contratos/itera_prueba.yaml
+# Contrato GenericAdapter v5 — fuente SQLite (iTERA prueba)
+# TASK-015: validacion flujo SQLite
+
+cliente_id: itera_prueba
+
+source:
+  type: sqlite
+  path: data/itera_prueba.db   # ruta relativa a la raiz del proyecto
+
+comprobantes:
+  tabla: ventas
+  flag_lectura:
+    campo: flag_envio
+    valor: 0                   # 0 = pendiente de envio
+  flag_escritura:
+    campo: flag_envio
+    enviado: 1
+    error: 2
+  campos:
+    tipo_doc:       tipo_comp   # 'B'=Boleta, 'F'=Factura
+    serie:          serie
+    numero:         numero
+    fecha:          fecha_emis
+    ruc_cliente:    ruc_cliente
+    nombre_cliente: nom_cliente
+    tipo_cliente:   tipo_cli    # 0=varios, 1=DNI, 6=RUC
+    subtotal:       subtotal
+    igv:            igv
+    total:          total
+    exonerado:      exonerado
+
+items:
+  tabla:      detalle_ventas
+  join_campo: numero            # join por numero de comprobante
+
+totales:
+  tabla: ventas                 # totales en la misma tabla principal
+
+productos:
+  tabla:      productos
+  join_campo: cod_prod
+
+cliente_varios:
+  tipo_doc: '-'
+  num_doc:  '00000000'
+  nombre:   'CLIENTE VARIOS'

@@ -122,11 +122,15 @@ class GenericAdapter(BaseAdapter):
     def read_pending(self) -> List[Dict[str, Any]]:
         if self.source_type == 'dbf':
             return self._read_pending_dbf()
+        if self.source_type == 'sqlite':
+            return self._read_pending_sqlite()
         raise NotImplementedError(f"read_pending: '{self.source_type}' no implementado")
 
     def read_items(self, comprobante: Dict[str, Any]) -> List[Dict[str, Any]]:
         if self.source_type == 'dbf':
             return self._read_items_dbf(comprobante)
+        if self.source_type == 'sqlite':
+            return self._read_items_sqlite(comprobante)
         raise NotImplementedError(f"read_items: '{self.source_type}' no implementado")
 
     def normalize(self, comprobante: Dict[str, Any], items: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -136,6 +140,9 @@ class GenericAdapter(BaseAdapter):
         return self._normalize_nota(comprobante, items)
 
     def write_flag(self, comprobante: Dict[str, Any], estado: str) -> None:
+        if self.source_type == 'sqlite':
+            self._write_flag_sqlite(comprobante, estado)
+            return
         if self.source_type != 'dbf':
             return
         if comprobante.get('_tipo_registro') == 'comprobante':
@@ -233,6 +240,9 @@ class GenericAdapter(BaseAdapter):
     # ═════════════════════════════════════════════════════════════════════════
 
     def _normalize_comprobante(self, raw: Dict[str, Any], items_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if self.source_type == 'sqlite':
+            return self._normalize_comprobante_sqlite(raw, items_raw)
+
         tipo_factu = str(raw.get('TIPO_FACTU', '')).strip()
         serie_fact = str(raw.get('SERIE_FACT', '')).strip()
         numero_raw = str(raw.get('NUMERO_FAC', '')).strip()
@@ -292,6 +302,123 @@ class GenericAdapter(BaseAdapter):
             'fecha_anulacion':   None,
             'motivo_baja':       None,
             '_raw':              raw,
+        }
+
+    def _normalize_comprobante_sqlite(self, raw: Dict[str, Any], items_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Normaliza un comprobante desde SQLite usando campos del contrato."""
+        campos = self.contrato['comprobantes'].get('campos', {})
+
+        def g(campo_cpe, default=''):
+            campo_real = campos.get(campo_cpe, campo_cpe)
+            return raw.get(campo_real, raw.get(campo_cpe, default))
+
+        tipo_raw   = str(g('tipo_doc', 'B')).strip()
+        serie      = str(g('serie', '')).strip()
+        numero_raw = str(g('numero', '0')).strip()
+
+        # Mapear tipo local a codigo SUNAT
+        tipo_map  = {'F': '1', 'B': '2', 'f': '1', 'b': '2',
+                     '01': '1', '03': '2', '1': '1', '2': '2'}
+        tipo_cpe  = tipo_map.get(tipo_raw, '2')
+        numero    = numero_raw.lstrip('0') or '0'
+
+        factura_ex    = int(raw.get(campos.get('exonerado', 'exonerado'), 0) or 0)
+        total_real    = float(g('total', 0) or 0)
+        total_gravada = float(g('subtotal', 0) or 0)
+        total_igv     = float(g('igv', 0) or 0)
+
+        if factura_ex == 1:
+            total_exonerada = total_real
+            total_gravada   = 0.0
+            total_igv       = 0.0
+        else:
+            total_exonerada = 0.0
+
+        # Cliente
+        tipo_cli_raw = int(raw.get(campos.get('tipo_cliente', 'tipo_cli'), 0) or 0)
+        cli_tipo_map = {0: '-', 1: '1', 6: '6'}
+        cli_tipo_doc = cli_tipo_map.get(tipo_cli_raw, '-')
+        cli_num_doc  = str(g('ruc_cliente', '') or '').strip()
+        cli_nombre   = str(g('nombre_cliente', '') or '').strip()
+
+        cfg_varios = self.contrato.get('cliente_varios', {})
+        if not cli_num_doc or cli_num_doc == '0':
+            cli_tipo_doc = cfg_varios.get('tipo_doc', '-')
+            cli_num_doc  = cfg_varios.get('num_doc', '00000000')
+            cli_nombre   = cfg_varios.get('nombre', 'CLIENTE VARIOS')
+
+        fecha_emision = self._fmt_date(g('fecha', ''))
+
+        productos  = self._load_productos_cache()
+        items_norm = [self._normalize_item_sqlite(i, productos, factura_ex) for i in items_raw]
+
+        return {
+            'tipo_comprobante':       tipo_cpe,
+            'serie':                  serie,
+            'numero':                 numero,
+            'es_nota':                False,
+            'es_anulacion':           False,
+            'ruc_emisor':             self.config_cliente.get('ruc', ''),
+            'razon_social':           self.config_cliente.get('razon_social', ''),
+            'cliente_tipo_doc':       cli_tipo_doc,
+            'cliente_num_doc':        cli_num_doc,
+            'cliente_nombre':         cli_nombre,
+            'cliente_direccion':      '',
+            'cliente_email':          '',
+            'fecha_emision':          fecha_emision,
+            'fecha_vencimiento':      '',
+            'total_gravada':          round(total_gravada,   8),
+            'total_exonerada':        round(total_exonerada, 8),
+            'total_inafecta':         0.0,
+            'total_igv':              round(total_igv,       8),
+            'total_impuestos_bolsas': 0.0,
+            'total_gratuita':         0.0,
+            'total':                  round(total_real,      8),
+            'items':                  items_norm,
+            'doc_mod_tipo':           None,
+            'doc_mod_serie':          None,
+            'doc_mod_numero':         None,
+            'tipo_nota_credito':      None,
+            'fecha_anulacion':        None,
+            'motivo_baja':            None,
+            '_raw':                   raw,
+        }
+
+    def _normalize_item_sqlite(self, raw: Dict[str, Any], productos: Dict, factura_ex: int) -> Dict[str, Any]:
+        """Normaliza un item desde SQLite."""
+        codigo      = str(raw.get('cod_prod', '') or '').strip()
+        producto    = productos.get(codigo, {})
+
+        cantidad    = float(raw.get('cantidad',    0) or 0)
+        subtotal    = float(raw.get('subtotal',    0) or 0)
+        igv_item    = float(raw.get('igv',         0) or 0)
+        total_item  = float(raw.get('total',       0) or 0)
+        precio_igv  = float(raw.get('precio_igv',  0) or 0)
+        precio_uni  = float(raw.get('precio_uni',  0) or 0)
+
+        val_unit    = round(subtotal / cantidad, 8) if cantidad else 0.0
+
+        desc        = str(raw.get('descripcion', '') or producto.get('descripcion', '')).strip()
+        cod_sunat   = str(producto.get('cod_sunat', '10000000') or '10000000').strip()
+        if len(cod_sunat) < 8:
+            cod_sunat = '10000000'
+
+        exonerado   = int(raw.get('exonerado', 0) or producto.get('exonerado', 0) or 0)
+        tipo_igv    = 2 if (factura_ex == 1 or exonerado == 1) else 1
+
+        return {
+            'unidad':          'NIU',
+            'codigo':          codigo,
+            'descripcion':     desc,
+            'cantidad':        cantidad,
+            'valor_unitario':  val_unit,
+            'precio_unitario': precio_igv or precio_uni,
+            'valor_total':     round(subtotal,   8),
+            'tipo_igv':        tipo_igv,
+            'igv':             round(igv_item,   8),
+            'total':           round(total_item, 8),
+            'cod_sunat':       cod_sunat,
+            'icbper':          0.0,
         }
 
     # ═════════════════════════════════════════════════════════════════════════
@@ -421,6 +548,75 @@ class GenericAdapter(BaseAdapter):
             'icbper':          icbper,
         }
 
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # SQLITE — READ PENDING + ITEMS + WRITE FLAG
+    # ═════════════════════════════════════════════════════════════════════════
+
+    def _safe_read_sqlite(self, query: str, params: tuple = ()) -> List[Dict]:
+        """Lee filas de SQLite y retorna lista de dicts. Nunca lanza excepcion."""
+        import sqlite3 as _sqlite3
+        try:
+            conn = _sqlite3.connect(self.source_path)
+            conn.row_factory = _sqlite3.Row
+            cur  = conn.execute(query, params)
+            rows = [dict(r) for r in cur.fetchall()]
+            conn.close()
+            return rows
+        except Exception as e:
+            logger.warning(f"[SQLite] Error: {e}")
+            return []
+
+    def _read_pending_sqlite(self) -> List[Dict[str, Any]]:
+        cfg        = self.contrato['comprobantes']
+        tabla      = cfg['tabla']
+        flag_c     = cfg['flag_lectura']['campo']
+        flag_v     = cfg['flag_lectura']['valor']
+
+        query = f"SELECT * FROM {tabla} WHERE {flag_c} = ?"
+        rows  = self._safe_read_sqlite(query, (flag_v,))
+        for r in rows:
+            r['_tipo_registro'] = 'comprobante'
+            r['_tabla_origen']  = tabla
+        logger.info(f"[SQLite] Pendientes: {len(rows)}")
+        return rows
+
+    def _read_items_sqlite(self, comprobante: Dict[str, Any]) -> List[Dict[str, Any]]:
+        cfg        = self.contrato.get('items', {})
+        tabla      = cfg.get('tabla', '')
+        join_campo = cfg.get('join_campo', '')
+        if not tabla or not join_campo:
+            return []
+
+        numero = str(comprobante.get('numero', '')).strip()
+        query  = f"SELECT * FROM {tabla} WHERE {join_campo} = ?"
+        return self._safe_read_sqlite(query, (numero,))
+
+    def _write_flag_sqlite(self, comprobante: Dict[str, Any], estado: str) -> None:
+        """Actualiza el flag en SQLite — a diferencia de DBF, SQLite es escribible."""
+        import sqlite3 as _sqlite3
+        try:
+            cfg        = self.contrato['comprobantes']
+            tabla      = cfg['tabla']
+            flag_c     = cfg['flag_escritura']['campo']
+            nuevo_val  = (
+                cfg['flag_escritura']['enviado'] if estado == 'enviado'
+                else cfg['flag_escritura']['error']
+            )
+            join_campo = cfg.get('campos', {}).get('numero', 'numero')
+            numero     = str(comprobante.get('numero', '')).strip()
+
+            conn = _sqlite3.connect(self.source_path)
+            conn.execute(
+                f"UPDATE {tabla} SET {flag_c} = ? WHERE {join_campo} = ?",
+                (nuevo_val, numero)
+            )
+            conn.commit()
+            conn.close()
+            logger.info(f"[SQLite] write_flag {tabla} {numero} → {flag_c}={nuevo_val}")
+        except Exception as e:
+            logger.warning(f"[SQLite] write_flag error: {e}")
+
     # ═════════════════════════════════════════════════════════════════════════
     # WRITE FLAG
     # ═════════════════════════════════════════════════════════════════════════
@@ -447,29 +643,48 @@ class GenericAdapter(BaseAdapter):
     def _load_factura_cache(self) -> Dict:
         if self._cache_factura is not None:
             return self._cache_factura
-        cfg        = self.contrato['totales']
-        tabla_path = self._tabla_path(cfg['tabla'])
         self._cache_factura = {}
-        for r in _safe_read_dbf(tabla_path, self.encoding):
-            key = (
-                str(r.get('TIPO_FACTU', '')).strip(),
-                str(r.get('SERIE_FACT', '')).strip(),
-                _norm_num(str(r.get('NUMERO_FAC', '')).strip()),
-            )
-            self._cache_factura[key] = r
+        if self.source_type == 'sqlite':
+            # SQLite: totales en la misma tabla de comprobantes
+            cfg   = self.contrato.get('totales', self.contrato['comprobantes'])
+            tabla = cfg['tabla']
+            for r in self._safe_read_sqlite(f"SELECT * FROM {tabla}"):
+                campos = self.contrato['comprobantes'].get('campos', {})
+                serie  = str(r.get(campos.get('serie',  'serie'),  '')).strip()
+                numero = _norm_num(str(r.get(campos.get('numero', 'numero'), '')).strip())
+                key    = (serie, numero)
+                self._cache_factura[key] = r
+        else:
+            cfg        = self.contrato['totales']
+            tabla_path = self._tabla_path(cfg['tabla'])
+            for r in _safe_read_dbf(tabla_path, self.encoding):
+                key = (
+                    str(r.get('TIPO_FACTU', '')).strip(),
+                    str(r.get('SERIE_FACT', '')).strip(),
+                    _norm_num(str(r.get('NUMERO_FAC', '')).strip()),
+                )
+                self._cache_factura[key] = r
         logger.info(f"Cache factura: {len(self._cache_factura)} registros")
         return self._cache_factura
 
     def _load_productos_cache(self) -> Dict:
         if self._cache_productos is not None:
             return self._cache_productos
-        cfg        = self.contrato['productos']
-        tabla_path = self._tabla_path(cfg['tabla'])
-        join_campo = cfg['join_campo']
         self._cache_productos = {}
-        for r in _safe_read_dbf(tabla_path, self.encoding):
-            key = str(r.get(join_campo, '')).strip()
-            self._cache_productos[key] = r
+        cfg        = self.contrato.get('productos', {})
+        join_campo = cfg.get('join_campo', '')
+        if not cfg or not cfg.get('tabla'):
+            return self._cache_productos
+        if self.source_type == 'sqlite':
+            tabla = cfg['tabla']
+            for r in self._safe_read_sqlite(f"SELECT * FROM {tabla}"):
+                key = str(r.get(join_campo, '')).strip()
+                self._cache_productos[key] = r
+        else:
+            tabla_path = self._tabla_path(cfg['tabla'])
+            for r in _safe_read_dbf(tabla_path, self.encoding):
+                key = str(r.get(join_campo, '')).strip()
+                self._cache_productos[key] = r
         logger.info(f"Cache productos: {len(self._cache_productos)} registros")
         return self._cache_productos
 
@@ -499,6 +714,9 @@ class GenericAdapter(BaseAdapter):
 
     def _get_factura(self, tipo: str, serie: str, numero: str) -> Dict:
         cache = self._load_factura_cache()
+        if self.source_type == 'sqlite':
+            # SQLite: clave por (serie, numero)
+            return cache.get((serie.strip(), _norm_num(numero.strip())), {})
         return cache.get(
             (tipo.strip(), serie.strip(), _norm_num(numero.strip())), {}
         )

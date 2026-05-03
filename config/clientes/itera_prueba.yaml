@@ -1,0 +1,33 @@
+# config/clientes/itera_prueba.yaml
+empresa:
+  ruc: '20123456789'
+  razon_social: MEDICAL FARMA FARMACIA Y PERFUMERIA EIRL
+  nombre_comercial: Medical Farma
+  alias: LOCAL PRINCIPAL
+
+fuente:
+  tipo: sqlite
+  rutas: []
+  contrato_path: contratos/itera_prueba.yaml
+
+series:
+  boleta:  [{serie: B001, correlativo_inicio: 1, activa: true}]
+  factura: [{serie: F001, correlativo_inicio: 1, activa: true}]
+
+envio:
+  endpoints:
+    - nombre: APIFAS
+      activo: true
+      formato: txt
+      url_comprobantes: https://apifas.disateq.com/produccion_text.php
+      url_anulaciones:  https://apifas.disateq.com/anulacion_text.php
+      credenciales: {usuario: '', token: ''}
+      timeout: 30
+
+scheduler:
+  modo: manual
+  intervalo_boletas: 10
+  activo: true
+
+instalador:
+  clave: '1234'
