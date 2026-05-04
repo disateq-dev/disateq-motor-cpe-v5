@@ -1,8 +1,7 @@
 ; =============================================================================
 ; disateq_setup.iss -- DisateQ Motor CPE v5.0
-; FIX: ArchitecturesInstallIn64BitMode para Program Files correcto (64 bits)
-;      disateq_paths.cfg se escribe en CurStepChanged(ssPostInstall)
-;      no en NextButtonClick(wpReady) donde AppDir aun no existe
+; Instalador GENERICO -- sin cliente precargado
+; El Wizard configura el cliente en el primer arranque
 ; =============================================================================
 
 #define MyAppName      "DisateQ Motor CPE"
@@ -10,7 +9,6 @@
 #define MyAppPublisher "DisateQ DEV - Fernando Tejada"
 #define MyAppURL       "https://github.com/disateq-dev/disateq-motor-cpe-v5"
 #define MyAppExeName   "DisateQ-Motor-CPE.exe"
-#define ClienteID      "farmacia_central"
 
 [Setup]
 AppId={{3A7F2C1E-9B4D-4E8A-BC12-5F6D7E8A9B0C}
@@ -40,11 +38,15 @@ Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; Group
 Source: "..\dist\DisateQ-Motor-CPE\DisateQ-Motor-CPE.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Dependencias PyInstaller
 Source: "..\dist\DisateQ-Motor-CPE\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Config del cliente (inyectado por build_installer.ps1)
-Source: "..\dist\DisateQ-Motor-CPE\config\clientes\{#ClienteID}.yaml"; DestDir: "{app}\config\clientes"; Flags: ignoreversion
-Source: "..\dist\DisateQ-Motor-CPE\config\contratos\{#ClienteID}.yaml"; DestDir: "{app}\config\contratos"; Flags: ignoreversion
 ; Llave publica RSA -- NUNCA incluir disateq_private.pem
 Source: "..\src\licenses\keys\disateq_public.pem"; DestDir: "{app}\licenses"; Flags: ignoreversion
+
+[Dirs]
+; Carpetas de config vacias -- el Wizard las llena en primer arranque
+Name: "{app}\config\clientes"
+Name: "{app}\config\contratos"
+Name: "{app}\config\ejemplos\clientes"
+Name: "{app}\config\ejemplos\contratos"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -55,10 +57,11 @@ Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: 
 Filename: "{app}\{#MyAppExeName}"; Description: "Iniciar {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-Type: dirifempty; Name: "{app}\config\clientes"
-Type: dirifempty; Name: "{app}\config\contratos"
-Type: dirifempty; Name: "{app}\licenses"
-Type: dirifempty; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\config"
+Type: filesandordirs; Name: "{app}\licenses"
+Type: filesandordirs; Name: "{app}\_internal"
+Type: files;          Name: "{app}\disateq_paths.cfg"
+Type: dirifempty;     Name: "{app}"
 
 [Code]
 var
@@ -125,7 +128,6 @@ begin
       Result := False;
       Exit;
     end;
-    // Guardar seleccion en variable global para usar en post-install
     GDataDir := DataDirPage.Values[0];
   end;
 end;
@@ -137,20 +139,17 @@ var
   CfgPath:    String;
   CfgContent: String;
 begin
-  // ssPostInstall: todos los archivos ya fueron copiados a AppDir
   if CurStep = ssPostInstall then
   begin
     DataPath   := GDataDir + '\data';
     OutputPath := GDataDir + '\output';
     CfgPath    := ExpandConstant('{app}') + '\disateq_paths.cfg';
 
-    // Crear carpetas de datos en D:
     if not DirExists(DataPath) then
       ForceDirectories(DataPath);
     if not DirExists(OutputPath) then
       ForceDirectories(OutputPath);
 
-    // Escribir disateq_paths.cfg junto al exe -- AppDir ya existe
     CfgContent :=
       '; DisateQ Motor CPE -- rutas operativas' + #13#10 +
       '; Generado por el instalador -- no editar manualmente' + #13#10 +
