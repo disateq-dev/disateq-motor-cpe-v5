@@ -1,26 +1,23 @@
 # disateq.spec
-# PyInstaller spec — DisateQ™ Motor CPE v5.0
+# PyInstaller spec — DisateQ Motor CPE v5.0
 # Modo: onedir (carpeta con .exe + dependencias)
 # Comando: pyinstaller disateq.spec
-
 import sys
 from pathlib import Path
-
 ROOT = Path(SPECPATH)
-
 # ── Datos adicionales: frontend + config + assets ─────────────────
 added_files = [
     # Frontend completo (HTML, CSS, JS, assets)
     (str(ROOT / 'src' / 'ui' / 'frontend'), 'frontend'),
-
     # Configuracion (clientes + contratos YAML)
     (str(ROOT / 'config'), 'config'),
-
     # Icono de la aplicacion
     (str(ROOT / 'src' / 'ui' / 'frontend' / 'assets' / 'icons' / 'cpe_disateq.ico'),
      'assets/icons'),
+    # Clave publica RSA para validacion de licencias
+    (str(ROOT / 'src' / 'licenses' / 'keys' / 'disateq_public.pem'),
+     'src/licenses/keys'),
 ]
-
 # ── Analisis ───────────────────────────────────────────────────────
 a = Analysis(
     ['main.py'],
@@ -34,39 +31,31 @@ a = Analysis(
         'clr',
         'System',
         'System.Windows.Forms',
-
         # dbfread
         'dbfread',
         'dbfread.dbf',
         'dbfread.field_parser',
-
         # PyYAML
         'yaml',
-
         # requests
         'requests',
         'urllib3',
         'certifi',
         'charset_normalizer',
         'idna',
-
         # openpyxl
         'openpyxl',
         'openpyxl.styles',
         'openpyxl.utils',
-
         # cryptography
         'cryptography',
         'cryptography.hazmat',
         'cryptography.hazmat.backends',
-
         # sqlite3 (stdlib)
         'sqlite3',
-
         # tkinter (dialogos nativos)
         'tkinter',
         'tkinter.filedialog',
-
         # src modules
         'src.ui.api',
         'src.ui.app',
@@ -108,9 +97,7 @@ a = Analysis(
     noarchive  = False,
     optimize   = 0,
 )
-
 pyz = PYZ(a.pure)
-
 exe = EXE(
     pyz,
     a.scripts,
@@ -120,8 +107,8 @@ exe = EXE(
     debug            = False,
     bootloader_ignore_signals = False,
     strip            = False,
-    upx              = False,   # UPX puede causar falsos positivos en antivirus
-    console = True,   # Sin ventana de consola
+    upx              = False,
+    console = False,
     disable_windowed_traceback = False,
     target_arch      = None,
     codesign_identity= None,
@@ -129,7 +116,6 @@ exe = EXE(
     icon             = str(ROOT / 'src' / 'ui' / 'frontend' / 'assets' / 'icons' / 'cpe_disateq.ico'),
     version          = 'version_info.txt' if (ROOT / 'version_info.txt').exists() else None,
 )
-
 coll = COLLECT(
     exe,
     a.binaries,
