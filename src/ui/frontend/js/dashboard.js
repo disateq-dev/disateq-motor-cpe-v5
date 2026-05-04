@@ -1,7 +1,8 @@
 /**
  * dashboard.js — DisateQ Motor CPE v5.0
- * TASK-004 JS: migrado eel → window.pywebview.api
+ * TASK-004 JS: migrado eel -> window.pywebview.api
  * TASK-006: actualizarStatPendientes — callback desde guardar_config
+ * FIX-UI-02: stat-abandonados
  */
 
 'use strict';
@@ -26,9 +27,16 @@ async function cargarDashboard() {
         const eRem  = document.getElementById('stat-remitidos');
         const eErr  = document.getElementById('stat-errores');
         const eIgn  = document.getElementById('stat-ignorados');
-        if (eRem) eRem.textContent = stats.remitidos  || 0;
-        if (eErr) eErr.textContent = stats.errores    || 0;
-        if (eIgn) eIgn.textContent = stats.ignorados  || 0;
+        const eAban = document.getElementById('stat-abandonados');
+        if (eRem)  eRem.textContent  = stats.remitidos   || 0;
+        if (eErr)  eErr.textContent  = stats.errores     || 0;
+        if (eIgn)  eIgn.textContent  = stats.ignorados   || 0;
+        // FIX-UI-02: mostrar abandonados; resaltar en rojo si > 0
+        if (eAban) {
+            const n = stats.abandonados || 0;
+            eAban.textContent = n;
+            eAban.style.color = n > 0 ? 'var(--error)' : '';
+        }
 
         cargarGrafico(stats.ultimos_7_dias || [0,0,0,0,0,0,0]);
         cargarTablaRecientes();
@@ -57,8 +65,8 @@ function actualizarStatPendientes(count) {
     const eb  = document.getElementById('badge-pendientes');
     if (ep) ep.textContent = val;
     if (eb) {
-        eb.textContent    = val;
-        eb.style.display  = val > 0 ? 'inline-flex' : 'none';
+        eb.textContent   = val;
+        eb.style.display = val > 0 ? 'inline-flex' : 'none';
     }
 }
 
@@ -113,8 +121,8 @@ async function cargarTablaRecientes() {
                 <td><strong>${c.serie}-${String(c.numero).padStart(8,'0')}</strong></td>
                 <td>${c.fecha}</td>
                 <td>${c.cliente || 'CLIENTES VARIOS'}</td>
-                <td>S/ ${Number(c.total || 0).toFixed(2)}</td>
-                <td style="text-align:right;"><span class="badge badge-success">remitido</span></td>
+                <td style="text-align:right;">S/ ${Number(c.total || 0).toFixed(2)}</td>
+                <td style="text-align:center;"><span class="badge badge-success">remitido</span></td>
             </tr>
         `).join('');
 
@@ -151,6 +159,7 @@ function getBadgeClass(estado) {
         remitido:'success', enviado:'success',
         pendiente:'warning', error:'error',
         ignorado:'info', leido:'info', generado:'info',
+        abandonado:'error',
     };
     return map[estado] || 'info';
 }

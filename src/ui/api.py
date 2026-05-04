@@ -1,8 +1,10 @@
 # src/ui/api.py
 # DisateQ Motor CPE v5.0
 # TASK-004 + TASK-005 + TASK-006
-# FIX-UI-01: db_path desde get_data_dir() -- ya no usa ruta relativa hardcodeada
-# TASK-020: forzar_reenvio_rango() -- reenvio por rango de serie desde UI
+# FIX-UI-01: db_path desde get_data_dir()
+# FIX-UI-02: abandonados en get_dashboard_stats
+# FIX-UI-03: intentos en get_historial + forzar_reenvio_individual
+# TASK-020: forzar_reenvio_rango
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
@@ -48,7 +50,7 @@ class DisateQAPI:
     """
 
     def __init__(self, db_path: str = None):
-        # FIX-UI-01: usar paths_resolver para obtener la ruta real de la DB.
+        # FIX-UI-01: usar paths_resolver para la ruta real de la DB.
         # En produccion apunta a D:\...\data\disateq_cpe.db via disateq_paths.cfg.
         # En desarrollo usa data/disateq_cpe.db relativo al proyecto.
         if db_path is None:
@@ -122,14 +124,15 @@ class DisateQAPI:
             cliente_id = getattr(self, '_cliente_stem', None)
             resumen    = self._log.conteo_por_estado(cliente_id)
             return {
-                'remitidos':      resumen.get('REMITIDO',  0),
-                'errores':        resumen.get('ERROR',     0),
-                'ignorados':      resumen.get('IGNORADO',  0),
+                'remitidos':      resumen.get('REMITIDO',   0),
+                'errores':        resumen.get('ERROR',      0),
+                'ignorados':      resumen.get('IGNORADO',   0),
+                'abandonados':    resumen.get('ABANDONADO', 0),  # FIX-UI-02
                 'ultimos_7_dias': self._ultimos_7_dias(),
             }
         except Exception as e:
             logger.exception(f"[API] get_dashboard_stats: {e}")
-            return {'remitidos': 0, 'errores': 0, 'ignorados': 0, 'ultimos_7_dias': [0]*7}
+            return {'remitidos': 0, 'errores': 0, 'ignorados': 0, 'abandonados': 0, 'ultimos_7_dias': [0]*7}
 
     def get_pendientes_fuente(self):
         """Cuenta pendientes en la fuente usando AdapterFactory."""
@@ -201,7 +204,7 @@ class DisateQAPI:
             rows = self._log.historial(
                 cliente_id=cliente_id, estado=estado, limit=9999)
 
-            prioridad  = {'REMITIDO':5,'ERROR':4,'GENERADO':3,'LEIDO':2,'IGNORADO':1}
+            prioridad  = {'REMITIDO':5,'ERROR':4,'GENERADO':3,'LEIDO':2,'IGNORADO':1,'ABANDONADO':6}
             unicos: dict = {}
             for r in rows:
                 key = (r['serie'], r['numero'])
@@ -231,6 +234,7 @@ class DisateQAPI:
                         'estado':   r['estado'].lower(),
                         'endpoint': r.get('endpoint') or '-',
                         'detalle':  r.get('descripcion_sunat') or '',
+                        'intentos': r.get('intentos', 0),  # FIX-UI-03
                     }
                     for r in result
                 ],
@@ -289,14 +293,8 @@ class DisateQAPI:
         """
         TASK-020 -- Marca reenvio forzado para un rango de comprobantes de una serie.
 
-        payload esperado:
-            { "serie": "B001", "desde": 1, "hasta": 50 }
-
-        "hasta" es opcional: si se omite o es 0 se usa el mismo valor que "desde"
-        (reenvio de un solo comprobante).
-
-        Solo afecta comprobantes existentes en cpe_envios. El Motor los procesara
-        en el proximo ciclo automatico o al pulsar "Procesar ahora".
+        payload: { "serie": "B001", "desde": 1, "hasta": 50 }
+        "hasta" opcional: si se omite usa el mismo valor que "desde".
         """
         try:
             if not self._client_config:
@@ -337,6 +335,28 @@ class DisateQAPI:
             }
         except Exception as e:
             logger.exception(f"[API] forzar_reenvio_rango: {e}")
+            return {'exito': False, 'error': str(e)}
+
+    def forzar_reenvio_individual(self, payload: dict) -> dict:
+        """
+        FIX-UI-03 -- Fuerza reenvio de un comprobante individual desde el historial.
+
+        payload: { "serie": "B001", "numero": "22021" }
+        """
+        try:
+            if not self._client_config:
+                return {'exito': False, 'error': 'Sin cliente configurado'}
+
+            serie  = str(payload.get('serie',  '')).strip().upper()
+            numero = str(payload.get('numero', '')).strip()
+
+            if not serie or not numero:
+                return {'exito': False, 'error': 'Serie y numero requeridos'}
+
+            ok = self._log.marcar_forzar_reenvio(self._client_config.ruc, serie, numero)
+            return {'exito': ok, 'serie': serie, 'numero': numero}
+        except Exception as e:
+            logger.exception(f"[API] forzar_reenvio_individual: {e}")
             return {'exito': False, 'error': str(e)}
 
     def get_ruta_fuente(self, alias: str):
@@ -468,10 +488,7 @@ class DisateQAPI:
     # =========================================================================
 
     def cargar_licencia(self, ruta: str) -> dict:
-        """
-        TASK-016 -- Carga y activa un archivo .lic seleccionado por el usuario.
-        Valida la firma RSA antes de copiar al directorio de licencias.
-        """
+        """TASK-016 -- Carga y activa un archivo .lic seleccionado por el usuario."""
         try:
             from src.licenses.validator import LicenseValidator
             v = LicenseValidator()
@@ -515,10 +532,7 @@ class DisateQAPI:
             return {'valida': False}
 
     def validar_contrato(self, alias: str = None):
-        """
-        TASK-007 -- Valida el contrato YAML del cliente contra la fuente real.
-        Retorna score 0-1 + errores/advertencias/info.
-        """
+        """TASK-007 -- Valida el contrato YAML del cliente contra la fuente real."""
         try:
             from src.tools.contract_validator import validar_contrato_desde_alias
             stem = alias or getattr(self, '_cliente_stem', None)
@@ -962,10 +976,7 @@ class DisateQAPI:
                     "contrato": {}, "scores": {}, "sin_resolver": []}
 
     def wizard_probar_mapeo(self, fuente: dict, contrato: dict) -> dict:
-        """
-        Paso 4 -- lee 5 registros reales usando el contrato actual
-        y retorna los valores extraidos para que el tecnico valide.
-        """
+        """Paso 4 -- lee 5 registros reales usando el contrato actual."""
         try:
             from src.tools.wizard_service import probar_mapeo
             return probar_mapeo(fuente, contrato)

@@ -1,19 +1,22 @@
 /**
  * app.js — DisateQ Motor CPE v5.0
- * TASK-004 JS: migrado eel → window.pywebview.api
- * TASK-016: sección Licencia en Config, cargarLicencia()
+ * TASK-004 JS: migrado eel -> window.pywebview.api
+ * TASK-016: seccion Licencia en Config, cargarLicencia()
+ * FIX-UI-02: filtro Abandonado en Historial
+ * FIX-UI-03: columna Intentos + boton reenvio por fila + centrado columnas
+ * LIMPIEZA: actualizarFooterLicencia definida una sola vez
  */
 
 'use strict';
 
 var appState = {
-    initialized:        false,
-    currentPage:        'dashboard',
-    clienteAlias:       null,
+    initialized:         false,
+    currentPage:         'dashboard',
+    clienteAlias:        null,
     archivoSeleccionado: null
 };
 
-// ── Helper: llama a pywebview.api y retorna promesa ────────────
+// Helper: llama a pywebview.api y retorna promesa
 function api(method) {
     var args = Array.prototype.slice.call(arguments, 1);
     return window.pywebview.api[method].apply(window.pywebview.api, args);
@@ -41,7 +44,8 @@ async function inicializarSistema() {
             appState.clienteAlias = clientes.clientes[0].id || clientes.clientes[0].alias;
         }
         appState.initialized = true;
-        cargarDashboard(); actualizarFooterLicencia(); actualizarFooterLicencia();
+        cargarDashboard();
+        actualizarFooterLicencia();
     } catch(e) {
         console.error('Error inicializando sistema:', e);
     }
@@ -61,11 +65,12 @@ function navegarA(page) {
     var pageEl = document.getElementById('page-' + page);
     if (pageEl) pageEl.classList.add('active');
     appState.currentPage = page;
-    if (page === 'dashboard') cargarDashboard(); actualizarFooterLicencia(); actualizarFooterLicencia();
+    if (page === 'dashboard') cargarDashboard();
     if (page === 'procesar')  initProcesar();
     if (page === 'logs')      cargarLogs();
     if (page === 'historial') cargarHistorial();
     if (page === 'config')    initConfig();
+    actualizarFooterLicencia();
 }
 
 function configurarReloj() {
@@ -79,15 +84,16 @@ function configurarReloj() {
 }
 
 function schedulerCicloCompletado(resultados) {
-    showToast('Ciclo automático: ' + resultados.enviados + ' enviados, ' + resultados.errores + ' errores', 'info');
-    cargarDashboard(); actualizarFooterLicencia(); actualizarFooterLicencia();
+    showToast('Ciclo automatico: ' + resultados.enviados + ' enviados, ' + resultados.errores + ' errores', 'info');
+    cargarDashboard();
+    actualizarFooterLicencia();
 }
 
 // ── Toast ──────────────────────────────────────────────────────
 function showToast(message, type) {
     type = type || 'info';
     var toast = document.createElement('div');
-    toast.className  = 'toast ' + type;
+    toast.className   = 'toast ' + type;
     toast.textContent = message;
     var container = document.getElementById('toast-container');
     if (container) container.appendChild(toast);
@@ -105,8 +111,8 @@ function showLoader(msg) {
         loader.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:9999;color:#fff;font-size:1.2rem;';
         document.body.appendChild(loader);
     }
-    loader.textContent    = msg || 'Procesando...';
-    loader.style.display  = 'flex';
+    loader.textContent   = msg || 'Procesando...';
+    loader.style.display = 'flex';
 }
 
 function hideLoader() {
@@ -145,14 +151,15 @@ function abrirConfig()        { navegarA('config'); }
 
 async function sincronizar() {
     showToast('Sincronizando...', 'info');
-    await cargarDashboard(); actualizarFooterLicencia(); actualizarFooterLicencia();
+    await cargarDashboard();
+    actualizarFooterLicencia();
     var el = document.getElementById('ultima-sync');
     if (el) el.textContent = new Date().toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' });
-    showToast('Sincronización completada', 'success');
+    showToast('Sincronizacion completada', 'success');
 }
 
 async function cerrarApp() {
-    if (confirm('¿Cerrar Motor CPE DisateQ?')) {
+    if (confirm('Cerrar Motor CPE DisateQ?')) {
         try { await api('cerrar_sistema'); } catch(e) {}
         window.close();
     }
@@ -243,7 +250,7 @@ async function procesarConMotor() {
     if (!appState.clienteAlias) { showToast('No hay cliente configurado', 'error'); return; }
     var checks = document.querySelectorAll('.comp-check:checked');
     if (checks.length === 0) { showToast('Selecciona al menos un comprobante', 'warning'); return; }
-    if (!confirm('¿Procesar ' + checks.length + ' comprobante(s)?')) return;
+    if (!confirm('Procesar ' + checks.length + ' comprobante(s)?')) return;
 
     var btn = document.getElementById('btn-procesar');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i data-feather="loader"></i> Procesando...'; }
@@ -255,7 +262,7 @@ async function procesarConMotor() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i data-feather="play-circle"></i> Procesar con Motor'; }
     if (typeof feather !== 'undefined') feather.replace();
 
-    if (result.exito) { mostrarResultado(result.resultados); await cargarDashboard(); actualizarFooterLicencia(); actualizarFooterLicencia(); }
+    if (result.exito) { mostrarResultado(result.resultados); await cargarDashboard(); actualizarFooterLicencia(); }
     else showToast(result.error, 'error');
 }
 
@@ -269,12 +276,12 @@ function mostrarResultado(r) {
         '<div style="background:var(--success-bg);border:1px solid var(--success-border);border-radius:var(--radius-lg);padding:1.5rem;">' +
         '<h4 style="margin:0 0 1rem 0;color:var(--success);">Procesamiento completado</h4>' +
         '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;">' +
-        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;">'          + r.procesados + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Procesados</div></div>' +
+        '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;">'                        + r.procesados + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Procesados</div></div>' +
         '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:var(--success);">'  + r.enviados   + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Enviados</div></div>' +
         '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:var(--error);">'    + r.errores    + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Errores</div></div>' +
         '<div style="text-align:center;"><div style="font-size:2rem;font-weight:700;color:var(--warning);">'  + r.ignorados  + '</div><div style="font-size:0.8rem;color:var(--text-muted);">Ignorados</div></div>' +
         '</div><div style="display:flex;gap:0.75rem;">' +
-        '<button class="btn btn-primary" onclick="volverAProcesar()">Procesar más</button>' +
+        '<button class="btn btn-primary" onclick="volverAProcesar()">Procesar mas</button>' +
         '<button class="btn btn-secondary" onclick="navegarA(\'logs\')">Ver logs</button>' +
         '<button class="btn btn-secondary" onclick="navegarA(\'dashboard\')">Dashboard</button>' +
         '</div></div>';
@@ -312,9 +319,9 @@ async function cargarLogs() {
             '<button class="btn-filt active" id="lfilt-tipo-todos"        onclick="setLogFiltTipo(\'\')">Todos</button>' +
             '<button class="btn-filt"        id="lfilt-tipo-boleta"       onclick="setLogFiltTipo(\'boleta\')">Boleta</button>' +
             '<button class="btn-filt"        id="lfilt-tipo-factura"      onclick="setLogFiltTipo(\'factura\')">Factura</button>' +
-            '<button class="btn-filt"        id="lfilt-tipo-nota_credito" onclick="setLogFiltTipo(\'nota_credito\')">N.Crédito</button>' +
-            '<button class="btn-filt"        id="lfilt-tipo-nota_debito"  onclick="setLogFiltTipo(\'nota_debito\')">N.Débito</button>' +
-            '<button class="btn-filt"        id="lfilt-tipo-anulacion"    onclick="setLogFiltTipo(\'anulacion\')">Anulación</button>' +
+            '<button class="btn-filt"        id="lfilt-tipo-nota_credito" onclick="setLogFiltTipo(\'nota_credito\')">N.Credito</button>' +
+            '<button class="btn-filt"        id="lfilt-tipo-nota_debito"  onclick="setLogFiltTipo(\'nota_debito\')">N.Debito</button>' +
+            '<button class="btn-filt"        id="lfilt-tipo-anulacion"    onclick="setLogFiltTipo(\'anulacion\')">Anulacion</button>' +
             '<div style="width:1px;background:var(--border-light);margin:0 0.25rem;"></div>' +
             '<span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.1rem;">ESTADO:</span>' +
             '<button class="btn-filt"        id="lfilt-est-todos"    onclick="setLogFiltEstado(\'\')">Todos</button>' +
@@ -322,15 +329,19 @@ async function cargarLogs() {
             '<button class="btn-filt"        id="lfilt-est-ERROR"    onclick="setLogFiltEstado(\'ERROR\')">Error</button>' +
             '<button class="btn-filt"        id="lfilt-est-IGNORADO" onclick="setLogFiltEstado(\'IGNORADO\')">Ignorado</button>' +
             '<button class="btn-filt"        id="lfilt-est-GENERADO" onclick="setLogFiltEstado(\'GENERADO\')">Generado</button>' +
-            '<button class="btn-filt"        id="lfilt-est-LEIDO"    onclick="setLogFiltEstado(\'LEIDO\')">Leído</button>' +
+            '<button class="btn-filt"        id="lfilt-est-LEIDO"    onclick="setLogFiltEstado(\'LEIDO\')">Leido</button>' +
             '</div>' +
             '<div style="margin-bottom:0.5rem;font-size:0.8rem;color:var(--text-muted);">Mostrando <strong id="logs-count">0</strong> registros</div>' +
             '<div style="max-height:500px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-md);">' +
             '<table class="table" id="tabla-logs" style="margin:0;">' +
             '<thead style="position:sticky;top:0;background:var(--bg-table-head);z-index:1;"><tr>' +
-            '<th style="width:14%;">Fecha/Hora</th><th style="width:14%;">Comprobante</th><th style="width:8%;">Tipo</th>' +
-            '<th style="width:22%;">Cliente</th><th style="width:10%;">Endpoint</th>' +
-            '<th style="width:18%;">Detalle</th><th style="width:14%;text-align:right;">Estado</th>' +
+            '<th style="width:14%;">Fecha/Hora</th>' +
+            '<th style="width:14%;">Comprobante</th>' +
+            '<th style="width:8%;text-align:center;">Tipo</th>' +
+            '<th style="width:22%;">Cliente</th>' +
+            '<th style="width:10%;text-align:center;">Endpoint</th>' +
+            '<th style="width:18%;">Detalle</th>' +
+            '<th style="width:14%;text-align:center;">Estado</th>' +
             '</tr></thead><tbody id="logs-tbody"></tbody></table></div>';
 
         page.querySelector('.card-body').innerHTML = html;
@@ -365,7 +376,7 @@ function aplicarFiltrosLogs() {
     renderLogsTabla(filtrado);
 }
 
-var TIPO_LABEL_LOG = { boleta:'Boleta', factura:'Factura', nota_credito:'N.Crédito', nota_debito:'N.Débito', anulacion:'Anulación' };
+var TIPO_LABEL_LOG = { boleta:'Boleta', factura:'Factura', nota_credito:'N.Credito', nota_debito:'N.Debito', anulacion:'Anulacion' };
 
 function renderLogsTabla(data) {
     var tbody = document.getElementById('logs-tbody');
@@ -381,11 +392,11 @@ function renderLogsTabla(data) {
         return '<tr>' +
             '<td style="font-size:0.75rem;white-space:nowrap;">' + (r.fecha ? r.fecha.substring(0,19).replace('T',' ') : '-') + '</td>' +
             '<td><strong>' + r.serie + '-' + String(r.numero).padStart(8,'0') + '</strong></td>' +
-            '<td>' + tipoBadge + '</td>' +
+            '<td style="text-align:center;">' + tipoBadge + '</td>' +
             '<td style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;" title="' + (r.cliente_nombre||'') + '">' + (r.cliente_nombre || '-') + '</td>' +
-            '<td><span class="badge badge-neutral" style="font-size:0.65rem;">' + (r.endpoint || '-') + '</span></td>' +
+            '<td style="text-align:center;"><span class="badge badge-neutral" style="font-size:0.65rem;">' + (r.endpoint || '-') + '</span></td>' +
             '<td style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (r.detalle||'') + '">' + (r.detalle || '-') + '</td>' +
-            '<td style="text-align:right;"><span class="badge badge-' + getBadgeClass(r.estado.toLowerCase()) + '">' + r.estado + '</span></td>' +
+            '<td style="text-align:center;"><span class="badge badge-' + getBadgeClass(r.estado.toLowerCase()) + '">' + r.estado + '</span></td>' +
             '</tr>';
     }).join('');
 }
@@ -423,24 +434,33 @@ async function cargarHistorial() {
         '<button class="btn-filt active" id="filt-tipo-todos"        onclick="setFiltTipo(\'\')">Todos</button>' +
         '<button class="btn-filt"        id="filt-tipo-boleta"       onclick="setFiltTipo(\'boleta\')">Boleta</button>' +
         '<button class="btn-filt"        id="filt-tipo-factura"      onclick="setFiltTipo(\'factura\')">Factura</button>' +
-        '<button class="btn-filt"        id="filt-tipo-nota_credito" onclick="setFiltTipo(\'nota_credito\')">N.Crédito</button>' +
-        '<button class="btn-filt"        id="filt-tipo-nota_debito"  onclick="setFiltTipo(\'nota_debito\')">N.Débito</button>' +
+        '<button class="btn-filt"        id="filt-tipo-nota_credito" onclick="setFiltTipo(\'nota_credito\')">N.Credito</button>' +
+        '<button class="btn-filt"        id="filt-tipo-nota_debito"  onclick="setFiltTipo(\'nota_debito\')">N.Debito</button>' +
         '</div>' +
         '<div style="width:1px;background:var(--border-light);margin:0 0.25rem;"></div>' +
         '<div style="display:flex;gap:0.3rem;align-items:center;">' +
         '<span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.2rem;">ESTADO:</span>' +
-        '<button class="btn-filt active" id="filt-est-todos"    onclick="setFiltEstado(\'\')">Todos</button>' +
-        '<button class="btn-filt"        id="filt-est-remitido" onclick="setFiltEstado(\'remitido\')">Remitido</button>' +
-        '<button class="btn-filt"        id="filt-est-error"    onclick="setFiltEstado(\'error\')">Error</button>' +
-        '<button class="btn-filt"        id="filt-est-ignorado" onclick="setFiltEstado(\'ignorado\')">Ignorado</button>' +
+        '<button class="btn-filt active" id="filt-est-todos"       onclick="setFiltEstado(\'\')">Todos</button>' +
+        '<button class="btn-filt"        id="filt-est-remitido"    onclick="setFiltEstado(\'remitido\')">Remitido</button>' +
+        '<button class="btn-filt"        id="filt-est-error"       onclick="setFiltEstado(\'error\')">Error</button>' +
+        '<button class="btn-filt"        id="filt-est-ignorado"    onclick="setFiltEstado(\'ignorado\')">Ignorado</button>' +
+        // FIX-UI-02/03: filtro Abandonado
+        '<button class="btn-filt"        id="filt-est-abandonado"  onclick="setFiltEstado(\'abandonado\')" ' +
+        'style="border-color:var(--error-border,#fca5a5);color:var(--error);">Abandonado</button>' +
         '</div></div>' +
         '<div style="border:1px solid var(--border-light);border-radius:var(--radius-md) var(--radius-md) 0 0;overflow:hidden;">' +
         '<div style="max-height:420px;overflow-y:auto;">' +
         '<table class="table" id="tabla-historial" style="margin:0;">' +
         '<thead style="position:sticky;top:0;background:var(--bg-table-head);z-index:1;"><tr>' +
-        '<th style="width:14%;">Comprobante</th><th style="width:9%;">Tipo</th><th style="width:11%;">Fecha</th>' +
-        '<th style="width:28%;">Cliente</th><th style="width:11%;text-align:right;">Total</th>' +
-        '<th style="width:13%;text-align:right;">Estado</th><th style="width:14%;">Endpoint</th>' +
+        '<th style="width:13%;">Comprobante</th>' +
+        '<th style="width:8%;text-align:center;">Tipo</th>' +
+        '<th style="width:9%;">Fecha</th>' +
+        '<th style="width:18%;">Cliente</th>' +
+        '<th style="width:8%;text-align:right;">Total</th>' +
+        '<th style="width:9%;text-align:center;">Estado</th>' +
+        '<th style="width:6%;text-align:center;">Intentos</th>' +
+        '<th style="width:9%;text-align:center;">Endpoint</th>' +
+        '<th style="width:7%;text-align:center;">Accion</th>' +
         '</tr></thead><tbody id="historial-tbody"></tbody></table></div></div>' +
         '<div class="table-footer"><div class="tf-stats">' +
         '<div class="tf-item"><span class="tf-label">Remitidos</span><span class="tf-value ok" id="hist-total-remitidos">' + totalRem + '</span></div>' +
@@ -492,23 +512,45 @@ function renderHistorialTabla(data) {
     var tbody = document.getElementById('historial-tbody');
     if (!tbody) return;
     if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Sin resultados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">Sin resultados</td></tr>';
         return;
     }
     tbody.innerHTML = data.map(function(c) {
         var tipoBadge = c.tipo_doc
             ? '<span class="badge badge-' + _tipoBadgeClass(c.tipo_doc) + '">' + _tipoLabel(c.tipo_doc) + '</span>'
             : '-';
+        // FIX-UI-03: boton reenvio solo para error y abandonado
+        var accion = '';
+        if (c.estado === 'error' || c.estado === 'abandonado') {
+            accion = '<button onclick="forzarReenvioIndividual(\'' + c.serie + '\',\'' + c.numero + '\')" ' +
+                'title="Forzar reenvio" ' +
+                'style="padding:0.18rem 0.5rem;font-size:0.72rem;border:1px solid var(--primary);' +
+                'border-radius:var(--radius-sm);background:var(--blue-50,#eff6ff);color:var(--primary);' +
+                'cursor:pointer;line-height:1.4;">&#8635;</button>';
+        }
         return '<tr>' +
             '<td><strong>' + c.serie + '-' + String(c.numero).padStart(8,'0') + '</strong></td>' +
-            '<td>' + tipoBadge + '</td>' +
+            '<td style="text-align:center;">' + tipoBadge + '</td>' +
             '<td style="font-size:0.78rem;">' + c.fecha + '</td>' +
             '<td style="overflow:hidden;text-overflow:ellipsis;" title="' + (c.cliente||'') + '">' + (c.cliente || 'CLIENTES VARIOS') + '</td>' +
             '<td style="text-align:right;font-weight:600;">S/ ' + Number(c.total||0).toFixed(2) + '</td>' +
-            '<td style="text-align:right;"><span class="badge badge-' + getBadgeClass(c.estado) + '">' + c.estado + '</span></td>' +
-            '<td><span class="badge badge-neutral" style="font-size:0.65rem;">' + (c.endpoint || '-') + '</span></td>' +
+            '<td style="text-align:center;"><span class="badge badge-' + getBadgeClass(c.estado) + '">' + c.estado + '</span></td>' +
+            '<td style="text-align:center;font-size:0.8rem;color:var(--text-muted);">' + (c.intentos || 0) + '</td>' +
+            '<td style="text-align:center;"><span class="badge badge-neutral" style="font-size:0.65rem;">' + (c.endpoint || '-') + '</span></td>' +
+            '<td style="text-align:center;">' + accion + '</td>' +
             '</tr>';
     }).join('');
+}
+
+// FIX-UI-03: forzar reenvio de un comprobante individual desde la tabla
+async function forzarReenvioIndividual(serie, numero) {
+    var res = await api('forzar_reenvio_individual', { serie: serie, numero: numero });
+    if (res.exito) {
+        showToast('Marcado para reenvio: ' + serie + '-' + String(numero).padStart(8,'0'), 'success');
+        await cargarHistorial();
+    } else {
+        showToast(res.error || 'Error al marcar reenvio', 'error');
+    }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -526,7 +568,12 @@ function _tipoBadgeClass(tipo) {
 }
 
 function getBadgeClass(estado) {
-    var map = { remitido:'success', enviado:'success', pendiente:'warning', error:'error', ignorado:'info', leido:'info', generado:'info' };
+    var map = {
+        remitido:'success', enviado:'success',
+        pendiente:'warning', error:'error',
+        ignorado:'info', leido:'info', generado:'info',
+        abandonado:'error',
+    };
     return map[estado] || 'info';
 }
 
@@ -591,7 +638,7 @@ function onSchedModoChange() {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  CONFIGURACIÓN
+//  CONFIGURACION
 // ══════════════════════════════════════════════════════════════
 
 var _configDesbloqueada = false;
@@ -614,7 +661,7 @@ function mostrarLockConfig() {
         '<div style="max-width:320px;margin:3rem auto;text-align:center;">' +
         '<div style="font-size:3rem;margin-bottom:1rem;">&#128274;</div>' +
         '<h3 style="margin-bottom:0.5rem;">Acceso Restringido</h3>' +
-        '<p style="color:var(--text-muted);margin-bottom:1.5rem;font-size:0.875rem;">Esta sección requiere clave del técnico instalador.</p>' +
+        '<p style="color:var(--text-muted);margin-bottom:1.5rem;font-size:0.875rem;">Esta seccion requiere clave del tecnico instalador.</p>' +
         '<div style="display:flex;gap:0.75rem;justify-content:center;margin-bottom:1.25rem;">' + pins + '</div>' +
         '<button class="btn btn-primary" onclick="verificarPin()" style="width:100%;justify-content:center;">Acceder</button>' +
         '<div id="pin-error" style="color:var(--error);margin-top:0.75rem;font-size:0.875rem;display:none;">Clave incorrecta</div></div>';
@@ -672,11 +719,11 @@ function _renderSeries(tipo, lista) {
 
 function _renderEndpoints(eps) {
     var URL_CAMPOS = [
-        { id:'url_comprobantes', label:'Comprobantes', desc:'Facturas, Boletas, Notas Crédito/Débito', req:true  },
+        { id:'url_comprobantes', label:'Comprobantes', desc:'Facturas, Boletas, Notas Credito/Debito', req:true  },
         { id:'url_anulaciones',  label:'Anulaciones',  desc:'Comunicaciones de Baja',                 req:false },
-        { id:'url_guias',        label:'Guías',        desc:'Guías de Remisión',                      req:false },
-        { id:'url_retenciones',  label:'Retenciones',  desc:'Comprobantes de Retención',              req:false },
-        { id:'url_percepciones', label:'Percepciones', desc:'Comprobantes de Percepción',             req:false },
+        { id:'url_guias',        label:'Guias',        desc:'Guias de Remision',                      req:false },
+        { id:'url_retenciones',  label:'Retenciones',  desc:'Comprobantes de Retencion',              req:false },
+        { id:'url_percepciones', label:'Percepciones', desc:'Comprobantes de Percepcion',             req:false },
     ];
     var html = '';
     for (var i = 0; i < eps.length; i++) {
@@ -720,9 +767,9 @@ function _renderEndpoints(eps) {
             '<button onclick="this.parentNode.parentNode.remove()" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:1.2rem;">&#10005;</button></div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">' +
             '<div><label style="font-size:0.72rem;color:var(--text-muted);">Usuario API (opcional)</label>' +
-            '<input type="text" id="ep-' + i + '-usuario" value="' + u + '" placeholder="Dejar vacío" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div>' +
+            '<input type="text" id="ep-' + i + '-usuario" value="' + u + '" placeholder="Dejar vacio" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div>' +
             '<div><label style="font-size:0.72rem;color:var(--text-muted);">Token (opcional)</label>' +
-            '<input type="password" id="ep-' + i + '-token" value="' + t + '" placeholder="Dejar vacío" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div></div>' +
+            '<input type="password" id="ep-' + i + '-token" value="' + t + '" placeholder="Dejar vacio" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div></div>' +
             '<table style="width:100%;border-collapse:collapse;border:1px solid var(--border-light);border-radius:var(--radius-md);overflow:hidden;">' +
             urlRows + '</table></div>';
     }
@@ -730,7 +777,7 @@ function _renderEndpoints(eps) {
 }
 
 function agregarSerie(tipo) {
-    var serie = prompt('Código de serie (ej: B002):');
+    var serie = prompt('Codigo de serie (ej: B002):');
     if (!serie) return;
     var corr = prompt('Correlativo de inicio:', '0');
     var container = document.getElementById('series-' + tipo);
@@ -765,9 +812,9 @@ function agregarEndpointConfig() {
     var URL_CAMPOS = [
         { id:'url_comprobantes', label:'Comprobantes', desc:'Facturas, Boletas, Notas', req:true  },
         { id:'url_anulaciones',  label:'Anulaciones',  desc:'Comunicaciones de Baja',  req:false },
-        { id:'url_guias',        label:'Guías',        desc:'Guías de Remisión',        req:false },
+        { id:'url_guias',        label:'Guias',        desc:'Guias de Remision',        req:false },
         { id:'url_retenciones',  label:'Retenciones',  desc:'Ret./Percepciones',        req:false },
-        { id:'url_percepciones', label:'Percepciones', desc:'Comprobantes Percepción',  req:false },
+        { id:'url_percepciones', label:'Percepciones', desc:'Comprobantes Percepcion',  req:false },
     ];
     var urlRows = URL_CAMPOS.map(function(c) {
         return '<tr style="border-bottom:1px solid var(--border-light);">' +
@@ -795,9 +842,9 @@ function agregarEndpointConfig() {
         '<button onclick="this.parentNode.parentNode.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--error);font-size:1.2rem;">&#10005;</button></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">' +
         '<div><label style="font-size:0.72rem;color:var(--text-muted);">Usuario API (opcional)</label>' +
-        '<input type="text" id="ep-' + idx + '-usuario" placeholder="Dejar vacío" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div>' +
+        '<input type="text" id="ep-' + idx + '-usuario" placeholder="Dejar vacio" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div>' +
         '<div><label style="font-size:0.72rem;color:var(--text-muted);">Token (opcional)</label>' +
-        '<input type="password" id="ep-' + idx + '-token" placeholder="Dejar vacío" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div></div>' +
+        '<input type="password" id="ep-' + idx + '-token" placeholder="Dejar vacio" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);font-size:0.82rem;"></div></div>' +
         '<table style="width:100%;border-collapse:collapse;border:1px solid var(--border-light);border-radius:var(--radius-md);overflow:hidden;">' + urlRows + '</table>';
     if (btn) container.insertBefore(div, btn);
     else container.appendChild(div);
@@ -808,7 +855,7 @@ async function guardarConfig() {
     var confirma = document.getElementById('cfg-clave-confirma') ? document.getElementById('cfg-clave-confirma').value : '';
     var msg      = document.getElementById('cfg-mensaje');
     if (nueva && nueva !== confirma)      { msg.style.display = 'block'; msg.style.color = 'var(--error)'; msg.textContent = 'Las claves no coinciden'; return; }
-    if (nueva && !/^\d{4}$/.test(nueva)) { msg.style.display = 'block'; msg.style.color = 'var(--error)'; msg.textContent = 'La clave debe ser 4 dígitos'; return; }
+    if (nueva && !/^\d{4}$/.test(nueva)) { msg.style.display = 'block'; msg.style.color = 'var(--error)'; msg.textContent = 'La clave debe ser 4 digitos'; return; }
 
     var epEls      = document.querySelectorAll('[id$="-nombre"][id^="ep-"]');
     var endpoints  = [];
@@ -861,7 +908,7 @@ async function guardarConfig() {
 
     msg.style.display = 'block';
     if (result.exito) {
-        msg.style.color = 'var(--success)'; msg.textContent = 'Configuración guardada correctamente';
+        msg.style.color = 'var(--success)'; msg.textContent = 'Configuracion guardada correctamente';
         setTimeout(function() { mostrarConfigCompleta(); }, 1500);
     } else {
         msg.style.color = 'var(--error)'; msg.textContent = 'Error: ' + result.error;
@@ -870,7 +917,7 @@ async function guardarConfig() {
 
 function bloquearConfig() { _configDesbloqueada = false; mostrarLockConfig(); }
 
-// ── TASK-016: Cargar licencia desde archivo ────────────────────
+// TASK-016: Cargar licencia desde archivo
 async function cargarLicencia() {
     try {
         var ruta = await api('abrir_dialogo_archivo', '*.lic', 'Archivos de Licencia (*.lic)');
@@ -903,7 +950,6 @@ async function mostrarConfigCompleta() {
         return '<div style="' + _SL + 'font-family:var(--font-mono);font-size:0.82rem;margin-bottom:0.25rem;">' + r + '</div>';
     }).join('');
 
-    // Cargar info de licencia
     var lic = await api('get_licencia_info');
     var licHtml;
     if (lic && lic.valida) {
@@ -914,28 +960,28 @@ async function mostrarConfigCompleta() {
             '<label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Estado</label>' +
             '<div style="display:flex;align-items:center;gap:0.5rem;">' +
             '<span style="width:10px;height:10px;border-radius:50%;background:var(--success);display:inline-block;"></span>' +
-            '<span style="font-size:0.875rem;font-weight:600;color:var(--success);">Licencia válida</span></div></div>' +
+            '<span style="font-size:0.875rem;font-weight:600;color:var(--success);">Licencia valida</span></div></div>' +
             '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Cliente</label>' +
             _renderSL(lic.cliente + ' (' + lic.ruc + ')') + '</div>' +
             '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Vencimiento</label>' +
-            '<div style="' + _SL + 'color:' + diasColor + ';font-weight:600;">' + lic.vencimiento + ' (' + lic.dias_restantes + ' días)</div></div>' +
+            '<div style="' + _SL + 'color:' + diasColor + ';font-weight:600;">' + lic.vencimiento + ' (' + lic.dias_restantes + ' dias)</div></div>' +
             '</div>';
     } else {
         licHtml =
             '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--error-bg);border:1px solid var(--error-border);border-radius:var(--radius-md);margin-bottom:1rem;">' +
-            '<span style="font-size:1.25rem;">⚠️</span>' +
+            '<span style="font-size:1.25rem;">&#9888;&#65039;</span>' +
             '<span style="color:var(--error);font-size:0.875rem;">' + (lic ? lic.mensaje : 'Sin licencia activa') + '</span></div>';
     }
 
     var html =
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">' +
-        '<span style="color:var(--success);font-size:0.875rem;">&#128275; Modo técnico activo</span>' +
+        '<span style="color:var(--success);font-size:0.875rem;">&#128275; Modo tecnico activo</span>' +
         '<button class="btn btn-secondary" onclick="bloquearConfig()" style="font-size:0.8rem;">&#128274; Bloquear</button></div>' +
 
         '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#127968; Empresa</h3></div>' +
         '<div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
         '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">RUC</label>'           + _renderSL(d.empresa.ruc)          + '</div>' +
-        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Razón Social</label>'   + _renderSL(d.empresa.razon_social) + '</div>' +
+        '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Razon Social</label>'   + _renderSL(d.empresa.razon_social) + '</div>' +
         '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Nombre Comercial</label>' +
         '<input type="text" id="cfg-nombre-comercial" value="' + (d.empresa.nombre_comercial||'') + '" style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;"></div>' +
         '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Alias / Local</label>' +
@@ -952,40 +998,39 @@ async function mostrarConfigCompleta() {
         '<div class="card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
         '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Boletas</label><div id="series-boleta">'       + _renderSeries('boleta',       series.boleta)       + '</div></div>' +
         '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Facturas</label><div id="series-factura">'     + _renderSeries('factura',      series.factura)      + '</div></div>' +
-        '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Crédito</label><div id="series-nota_credito">' + _renderSeries('nota_credito', series.nota_credito) + '</div></div>' +
-        '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Débito</label><div id="series-nota_debito">'   + _renderSeries('nota_debito',  series.nota_debito)  + '</div></div>' +
+        '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Credito</label><div id="series-nota_credito">' + _renderSeries('nota_credito', series.nota_credito) + '</div></div>' +
+        '<div><label style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:0.5rem;">Notas Debito</label><div id="series-nota_debito">'   + _renderSeries('nota_debito',  series.nota_debito)  + '</div></div>' +
         '</div></div></div>' +
 
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128225; Endpoints de Envío</h3></div>' +
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128225; Endpoints de Envio</h3></div>' +
         '<div class="card-body"><div id="endpoints-container">' + _renderEndpoints(endpoints) + '</div></div></div>' +
 
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#9201; Procesamiento Automático</h3></div>' +
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#9201; Procesamiento Automatico</h3></div>' +
         '<div class="card-body">' +
         '<div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;">' +
         '<div><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">MODO</label>' +
         '<div style="display:flex;gap:0.5rem;">' +
         '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid var(--border-medium);border-radius:var(--radius-md);" id="lbl-modo-manual"><input type="radio" name="sched-modo" id="sched-modo-manual" value="manual" onchange="onSchedModoChange()"> Manual</label>' +
-        '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid var(--border-medium);border-radius:var(--radius-md);" id="lbl-modo-auto"><input type="radio" name="sched-modo" id="sched-modo-auto" value="automatico" onchange="onSchedModoChange()"> Automático</label>' +
+        '<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;padding:0.5rem 1rem;border:2px solid var(--border-medium);border-radius:var(--radius-md);" id="lbl-modo-auto"><input type="radio" name="sched-modo" id="sched-modo-auto" value="automatico" onchange="onSchedModoChange()"> Automatico</label>' +
         '</div></div>' +
         '<div id="sched-intervalo-box" style="display:none;"><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">INTERVALO</label>' +
         '<select id="sched-intervalo" style="padding:0.45rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:0.875rem;">' +
         '<option value="5">Cada 5 minutos</option><option value="10">Cada 10 minutos</option><option value="15">Cada 15 minutos</option><option value="30">Cada 30 minutos</option>' +
         '</select></div></div></div></div>' +
 
-        // ── TASK-016: Sección Licencia ────────────────────────────
-        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128273; Licencia DisateQ™</h3></div>' +
+        '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128273; Licencia DisateQ&#8482;</h3></div>' +
         '<div class="card-body">' +
         licHtml +
         '<div style="display:flex;align-items:center;gap:0.75rem;">' +
         '<button class="btn btn-secondary" onclick="cargarLicencia()" style="font-size:0.85rem;">&#128194; Cargar licencia (.lic)</button>' +
-        '<span style="font-size:0.78rem;color:var(--text-muted);">Selecciona el archivo .lic proporcionado por DisateQ™</span>' +
+        '<span style="font-size:0.78rem;color:var(--text-muted);">Selecciona el archivo .lic proporcionado por DisateQ&#8482;</span>' +
         '</div>' +
         '<div id="lic-mensaje" style="margin-top:0.75rem;font-size:0.85rem;display:none;"></div>' +
         '</div></div>' +
 
         '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>&#128272; Clave del Instalador</h3></div>' +
         '<div class="card-body"><div style="display:flex;gap:1rem;align-items:flex-end;max-width:400px;">' +
-        '<div style="flex:1;"><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Nueva clave (4 dígitos)</label>' +
+        '<div style="flex:1;"><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Nueva clave (4 digitos)</label>' +
         '<input type="password" id="cfg-clave-nueva" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:1rem;letter-spacing:0.5rem;"></div>' +
         '<div style="flex:1;"><label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Confirmar clave</label>' +
         '<input type="password" id="cfg-clave-confirma" maxlength="4" placeholder="..." style="width:100%;padding:0.4rem 0.75rem;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:1rem;letter-spacing:0.5rem;"></div>' +
@@ -1000,51 +1045,14 @@ async function mostrarConfigCompleta() {
     setTimeout(cargarSchedulerConfig, 100);
 }
 
-// FIX-FOOTER-01
+// FIX-FOOTER-01 — definicion unica, sin duplicados
 async function actualizarFooterLicencia() {
     try {
         var lic = await api('get_licencia_info');
         var label = document.getElementById('lic-footer-label');
         if (!label) return;
         if (lic && lic.valida) {
-            var dias = lic.dias_restantes;
-            var color = dias > 60 ? 'var(--success)' : dias > 15 ? 'var(--warning)' : 'var(--error)';
-            label.style.color = color;
-            label.textContent = 'Licencia valida - ' + dias + ' dias';
-        } else {
-            label.style.color = 'var(--error)';
-            label.textContent = 'Sin licencia activa';
-        }
-    } catch(e) {}
-}
-
-// FIX-FOOTER-01
-async function actualizarFooterLicencia() {
-    try {
-        var lic = await api('get_licencia_info');
-        var label = document.getElementById('lic-footer-label');
-        if (!label) return;
-        if (lic && lic.valida) {
-            var dias = lic.dias_restantes;
-            var vence = lic.vencimiento;
-            var color = dias > 60 ? 'var(--success)' : dias > 15 ? 'var(--warning)' : 'var(--error)';
-            label.style.color = color;
-            label.textContent = dias + ' dias restantes · vence ' + vence;
-        } else {
-            label.style.color = 'var(--error)';
-            label.textContent = 'Sin licencia activa';
-        }
-    } catch(e) {}
-}
-
-// FIX-FOOTER-01
-async function actualizarFooterLicencia() {
-    try {
-        var lic = await api('get_licencia_info');
-        var label = document.getElementById('lic-footer-label');
-        if (!label) return;
-        if (lic && lic.valida) {
-            var dias = lic.dias_restantes;
+            var dias  = lic.dias_restantes;
             var vence = lic.vencimiento;
             var color = dias > 60 ? 'var(--success)' : dias > 15 ? 'var(--warning)' : 'var(--error)';
             label.style.color = color;
@@ -1055,4 +1063,3 @@ async function actualizarFooterLicencia() {
         }
     } catch(e) {}
 }
-

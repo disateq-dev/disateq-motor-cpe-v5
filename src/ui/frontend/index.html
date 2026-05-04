@@ -18,6 +18,8 @@
             border-radius: 50%;
             animation: spin 0.75s linear infinite;
         }
+        /* FIX-UI-02: 5 stat-cards en una fila */
+        .stats-grid { grid-template-columns: repeat(5, 1fr); }
     </style>
 </head>
 <body>
@@ -117,6 +119,14 @@
                         <span class="stat-value" id="stat-ignorados">0</span>
                     </div>
                 </div>
+                <!-- FIX-UI-02: Abandonados — criticos, requieren revision manual -->
+                <div class="stat-card">
+                    <div class="stat-icon error"><i data-feather="alert-octagon"></i></div>
+                    <div class="stat-content">
+                        <span class="stat-label">Abandonados</span>
+                        <span class="stat-value" id="stat-abandonados">0</span>
+                    </div>
+                </div>
             </div>
 
             <div class="card">
@@ -139,7 +149,7 @@
                                 <th>Fecha</th>
                                 <th>Cliente</th>
                                 <th style="text-align:right;">Total</th>
-                                <th style="text-align:right;">Estado</th>
+                                <th style="text-align:center;">Estado</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-recientes"></tbody>
@@ -230,7 +240,7 @@
 
     </main>
 
-    <!-- FOOTER — FIX-FOOTER-01: dias licencia con color, sin API:APIFAS -->
+    <!-- FOOTER -->
     <footer class="app-footer">
         <div class="footer-left">
             <div class="footer-status">
