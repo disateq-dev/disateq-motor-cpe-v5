@@ -1,8 +1,9 @@
-﻿# src/motor.py
+# src/motor.py
 # DisateQ Motor CPE v5.0
 # TASK-008 FIX: sender.enviar() recibe ruc_emisor, serie, numero para APIFAS
 # TASK-INS-01: rutas data\ y output\ via paths_resolver (C:/D: separados)
 # BUG-SYS-02: verifica MAX_INTENTOS antes de procesar -- marca ABANDONADO
+# TASK-DBF-01: except usa campos del contrato para identificar serie/numero
 # -----------------------------------------------------------------------------
 
 """
@@ -72,7 +73,17 @@ class Motor:
         logger.info(f"[Motor] Pendientes: {len(pendientes)}")
         print(f"Pendientes: {len(pendientes)}")
 
+        # Resolver campos de identificacion desde contrato (con fallback)
+        campos_comp  = adapter.contrato.get('comprobantes', {}).get('campos', {})
+        campo_serie  = campos_comp.get('serie_fact', 'SERIE_FACT')
+        campo_numero = campos_comp.get('numero_fac', 'NUMERO_FAC')
+        campo_tipo   = campos_comp.get('tipo_factu', 'TIPO_FACTU')
+
         for raw in pendientes:
+            # Identificadores para logging -- resueltos desde contrato
+            _serie_raw  = str(raw.get(campo_tipo,   '')).strip() + str(raw.get(campo_serie,  '')).strip()
+            _numero_raw = str(raw.get(campo_numero, '?')).strip()
+
             try:
                 items = adapter.read_items(raw)
                 cpe   = adapter.normalize(raw, items)
@@ -93,13 +104,13 @@ class Motor:
                     tipo_str = self._tipo_str(cpe)
                     endpoint = self._nombre_endpoint(tipo_str)
                     self.log.marcar_abandonado(
-                        ruc_emisor = self.ruc,
-                        serie      = serie,
-                        numero     = numero,
-                        cliente_id = self.alias,
-                        endpoint   = endpoint,
+                        ruc_emisor   = self.ruc,
+                        serie        = serie,
+                        numero       = numero,
+                        cliente_id   = self.alias,
+                        endpoint     = endpoint,
                         ultimo_error = f"Supero {MAX_INTENTOS} intentos sin exito",
-                        intentos   = intentos_actuales,
+                        intentos     = intentos_actuales,
                     )
                     adapter.write_flag(raw, 'error')
                     results['abandonados'] += 1
@@ -164,8 +175,8 @@ class Motor:
                     print(f"   OK {serie}-{numero} ({duracion}ms)")
 
                 else:
-                    detalle          = respuesta.get('error', str(respuesta))
-                    intentos_nuevos  = intentos_actuales + 1
+                    detalle         = respuesta.get('error', str(respuesta))
+                    intentos_nuevos = intentos_actuales + 1
                     self.log.registrar(
                         cpe, 'ERROR', self.alias,
                         endpoint          = endpoint,
@@ -174,7 +185,6 @@ class Motor:
                     adapter.write_flag(raw, 'error')
                     results['errores'] += 1
 
-                    # Log informativo con detalle completo
                     logger.error(
                         f"[Motor] ERROR {serie}-{numero} | "
                         f"intento {intentos_nuevos}/{MAX_INTENTOS} | "
@@ -191,11 +201,10 @@ class Motor:
                 results['procesados'] += 1
 
             except Exception as e:
-                serie  = raw.get('SERIE_FACT', '?')
-                numero = raw.get('NUMERO_FAC', '?')
-                logger.exception(f"[Motor] Error inesperado {serie}-{numero}: {e}")
+                # TASK-DBF-01: usar campos resueltos desde contrato, no hardcodeados
+                logger.exception(f"[Motor] Error inesperado {_serie_raw}-{_numero_raw}: {e}")
                 results['errores'] += 1
-                print(f"   ERROR inesperado {serie}-{numero}: {e}")
+                print(f"   ERROR inesperado {_serie_raw}-{_numero_raw}: {e}")
 
         print(f"\nResumen: {results}")
         logger.info(f"[Motor] Resumen: {results}")
