@@ -2,14 +2,22 @@
 #  DisateQ Motor CPE v5.0  —  wizard_mapper.py
 #  Motor heurístico de mapeo de campos a estructura CPE
 #  FIX-WIZ-03: patrones ampliados para sistemas FoxPro/farmacia
-#  FIX-WIZ-04: busca fecha y total en tabla de totales cuando
-#               no los encuentra en tabla de comprobantes
+#  FIX-WIZ-04: busca fecha y total en tabla de totales
+#  FIX-WIZ-05: tabla de comprobantes identificada por campo flag
+#               de envio (FLAG_ENVIO, FLAG_ENV, etc.) como criterio
+#               principal — evita confusion con tabla de totales
 # ══════════════════════════════════════════════════════════════════
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Any
 
+
+# ── Patrones de campo flag de envio ──────────────────────────────
+# La tabla que tiene estos campos ES la tabla de comprobantes
+PATRONES_FLAG_ENVIO = [
+    "flag_envi", "flag_env", "estado_env", "pendiente_env",
+    "flag_cpe", "estado_cpe", "enviado",
+]
 
 # ── Patrones conocidos por campo CPE ──────────────────────────────
 PATRONES_COMPROBANTE = {
@@ -47,9 +55,10 @@ PATRONES_ITEMS = {
     "precio_igv":   ["pre_igv", "precio_igv", "p_igv"],
 }
 
-PATRONES_TABLA_COMP = [
-    "enviosffee", "comprobante", "factura", "boleta", "venta",
-    "cabecera", "cabventa", "docventa", "movimiento",
+# Nombres de tabla secundarios (usados solo si no se encuentra por flag)
+PATRONES_TABLA_COMP_FALLBACK = [
+    "enviosffee", "comprobante", "boleta", "venta",
+    "cabventa", "docventa", "movimiento",
 ]
 
 PATRONES_TABLA_ITEMS = [
@@ -61,14 +70,14 @@ PATRONES_TABLA_ANULACION = [
     "notacredito", "anulacion", "nota_cred", "devolucion",
 ]
 
+# Campos que identifican la tabla de totales
+CAMPOS_TOTALES = {'REAL_FACTU', 'MONTO_FACT', 'IGV_FACTUR', 'TOTAL_FACT',
+                  'IMPORTE_TO', 'TOTAL_PAGO', 'MONTO_TOTA', 'REAL_FACTU'}
+
 PATRONES_TABLA_TOTALES = [
     "factura", "cabecera", "comprobante", "venta",
     "cabventa", "cab_venta", "cpe", "documento",
 ]
-
-# Campos que identifican la tabla de totales
-CAMPOS_TOTALES = {'REAL_FACTU', 'MONTO_FACT', 'IGV_FACTUR', 'TOTAL_FACT',
-                  'IMPORTE_TO', 'TOTAL_PAGO', 'MONTO_TOTA'}
 
 FLAG_VALORES_PENDIENTE = ["2", "P", "PENDIENTE", "0"]
 
@@ -109,24 +118,29 @@ def mapear_dbf(carpeta: str) -> dict:
     if not tablas:
         return {"ok": False, "error": "No se pudo leer ningun DBF"}
 
-    # 2. Identificar tabla de comprobantes
-    tabla_comp, score_tc = _identificar_tabla(tablas, PATRONES_TABLA_COMP,
-                                               list(PATRONES_COMPROBANTE.keys()))
+    # 2. FIX-WIZ-05: Identificar tabla de comprobantes por campo flag
+    tabla_comp = _identificar_tabla_por_flag(tablas)
+
+    # Si no se encontro por flag, usar patrones de nombre como fallback
+    if not tabla_comp:
+        tabla_comp, _ = _identificar_tabla_por_nombre(
+            tablas, PATRONES_TABLA_COMP_FALLBACK)
 
     # 3. Identificar tabla de items
-    tabla_items, score_ti = _identificar_tabla(tablas, PATRONES_TABLA_ITEMS,
-                                                list(PATRONES_ITEMS.keys()))
+    tabla_items, _ = _identificar_tabla_por_nombre(
+        tablas, PATRONES_TABLA_ITEMS)
 
     # 4. Identificar tabla de anulaciones
-    tabla_anul, _ = _identificar_tabla(tablas, PATRONES_TABLA_ANULACION, [])
+    tabla_anul, _ = _identificar_tabla_por_nombre(
+        tablas, PATRONES_TABLA_ANULACION)
 
-    # 5. FIX-WIZ-04: Identificar tabla de totales (puede ser distinta a la de comprobantes)
+    # 5. Identificar tabla de totales (distinta a la de comprobantes)
     tabla_totales = _identificar_tabla_totales(tablas, tabla_comp)
 
     # 6. Mapear campos de la tabla de comprobantes
-    campos_comp  = tablas.get(tabla_comp, []) if tabla_comp else []
-    mapeo_comp   = {}
-    scores_comp  = {}
+    campos_comp = tablas.get(tabla_comp, []) if tabla_comp else []
+    mapeo_comp  = {}
+    scores_comp = {}
 
     for campo_cpe, patrones in PATRONES_COMPROBANTE.items():
         match, score = _buscar_campo(campos_comp, patrones)
@@ -134,7 +148,7 @@ def mapear_dbf(carpeta: str) -> dict:
         scores_comp[campo_cpe] = score
 
     # 7. FIX-WIZ-04: Para campos no encontrados en tabla de comprobantes,
-    #    buscar en tabla de totales (fecha, total, igv, subtotal, cliente)
+    #    buscar en tabla de totales
     if tabla_totales and tabla_totales != tabla_comp:
         campos_tot = tablas.get(tabla_totales, [])
         campos_secundarios = ["fecha", "total", "igv", "subtotal",
@@ -148,17 +162,23 @@ def mapear_dbf(carpeta: str) -> dict:
                     scores_comp[campo_cpe] = score
 
     # 8. Detectar flag_campo y flag_valor
-    flag_campo, flag_score = _buscar_campo(campos_comp,
-                                            PATRONES_COMPROBANTE["flag_campo"])
+    flag_campo = mapeo_comp.get("flag_campo", "")
+    flag_score = scores_comp.get("flag_campo", 0)
     flag_valor = ""
     flag_tipo  = "integer"
 
-    if flag_campo and tabla_comp:
-        flag_valor, flag_tipo = _detectar_flag_valor(
-            str(carpeta_path / (tabla_comp + ".dbf")), flag_campo)
+    if not flag_campo:
+        # Buscar flag directamente en los campos de la tabla de comprobantes
+        flag_campo, flag_score = _buscar_campo(campos_comp,
+                                               PATRONES_COMPROBANTE["flag_campo"])
+        mapeo_comp["flag_campo"]  = flag_campo or ""
+        scores_comp["flag_campo"] = flag_score
 
-    mapeo_comp["flag_campo"] = flag_campo or ""
-    scores_comp["flag_campo"] = flag_score
+    if flag_campo and tabla_comp:
+        dbf_path_str = str(carpeta_path / (tabla_comp + ".dbf"))
+        if not Path(dbf_path_str).exists():
+            dbf_path_str = str(carpeta_path / (tabla_comp + ".DBF"))
+        flag_valor, flag_tipo = _detectar_flag_valor(dbf_path_str, flag_campo)
 
     # 9. Mapear campos de items
     campos_items = tablas.get(tabla_items, []) if tabla_items else []
@@ -210,22 +230,37 @@ def mapear_dbf(carpeta: str) -> dict:
 #  HELPERS
 # ══════════════════════════════════════════════════════════════════
 
+def _identificar_tabla_por_flag(
+    tablas: dict[str, list[str]]
+) -> str | None:
+    """
+    FIX-WIZ-05: Identifica la tabla de comprobantes buscando la que
+    tiene un campo de flag de envio (FLAG_ENVIO, FLAG_ENV, etc.).
+    Esta es la señal mas confiable — la tabla de pendientes SIEMPRE
+    tiene un campo flag para marcar enviados/errores.
+    """
+    for nombre, campos in tablas.items():
+        campos_lower = [c.lower() for c in campos]
+        for patron in PATRONES_FLAG_ENVIO:
+            if any(patron in c for c in campos_lower):
+                return nombre
+    return None
+
+
 def _identificar_tabla_totales(
     tablas: dict[str, list[str]],
     tabla_comp: str | None,
 ) -> str | None:
     """
-    FIX-WIZ-04: Identifica la tabla que contiene los campos financieros.
+    Identifica la tabla que contiene los campos financieros del comprobante.
     Si la tabla de comprobantes ya los tiene, la retorna.
     Si no, busca en otras tablas.
     """
-    # Primero verificar si la tabla de comprobantes tiene campos financieros
     if tabla_comp:
         campos = set(tablas.get(tabla_comp, []))
         if campos & CAMPOS_TOTALES:
             return tabla_comp
 
-    # Buscar en tablas con nombres preferidos
     for nombre in PATRONES_TABLA_TOTALES:
         if nombre == tabla_comp:
             continue
@@ -233,7 +268,6 @@ def _identificar_tabla_totales(
         if campos & CAMPOS_TOTALES:
             return nombre
 
-    # Buscar en cualquier tabla
     for nombre, campos_lista in tablas.items():
         if nombre == tabla_comp:
             continue
@@ -243,39 +277,16 @@ def _identificar_tabla_totales(
     return tabla_comp
 
 
-def _identificar_tabla(
+def _identificar_tabla_por_nombre(
     tablas: dict[str, list[str]],
     patrones_nombre: list[str],
-    campos_esperados: list[str],
 ) -> tuple[str | None, float]:
-    mejor_tabla  = None
-    mejor_score  = 0.0
-
-    for nombre, campos in tablas.items():
-        score = 0.0
-        campos_lower = [c.lower() for c in campos]
-
-        for i, patron in enumerate(patrones_nombre):
+    """Identifica tabla por nombre usando lista de patrones."""
+    for patron in patrones_nombre:
+        for nombre in tablas:
             if patron in nombre:
-                score += 1.0 - (i * 0.05)
-                break
-
-        if campos_esperados:
-            hits = 0
-            for campo_cpe in campos_esperados[:8]:
-                patrones = (PATRONES_COMPROBANTE.get(campo_cpe) or
-                            PATRONES_ITEMS.get(campo_cpe) or [])
-                for p in patrones:
-                    if any(p in c for c in campos_lower):
-                        hits += 1
-                        break
-            score += hits / len(campos_esperados[:8])
-
-        if score > mejor_score:
-            mejor_score = score
-            mejor_tabla = nombre
-
-    return mejor_tabla, round(mejor_score, 3)
+                return nombre, 1.0
+    return None, 0.0
 
 
 def _buscar_campo(
@@ -289,7 +300,6 @@ def _buscar_campo(
         for nombre, lower in campos_lower:
             if lower == patron:
                 return nombre, 1.0
-
         # Match parcial
         for nombre, lower in campos_lower:
             if patron in lower:
@@ -305,6 +315,8 @@ def _detectar_flag_valor(
 ) -> tuple[str, str]:
     try:
         from dbfread import DBF as DbfReader
+        if not Path(dbf_path).exists():
+            return "2", "integer"
         t = DbfReader(dbf_path, encoding="latin-1", load=False)
         valores = set()
         for i, rec in enumerate(t):
