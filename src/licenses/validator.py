@@ -1,8 +1,9 @@
 """
 validator.py
 ============
-Sistema de Licencias Offline RSA — Motor CPE DisateQ™ v5.0
+Sistema de Licencias Offline RSA — Motor CPE DisateQ v5.0
 TASK-016: busqueda en raiz proyecto y exe, metodo cargar_licencia()
+TASK-GEN-01: validacion hardware_id contra maquina actual
 
 Validacion de licencias sin conexion a internet.
 Cifrado RSA-2048 para seguridad maxima.
@@ -11,13 +12,16 @@ Flujo:
     1. DisateQ genera par de claves RSA (una vez)
     2. Cliente instala Motor + clave publica
     3. DisateQ genera licencia firmada con clave privada
-    4. Motor valida licencia con clave publica local
+    4. Motor valida licencia con clave publica local + hardware_id
 """
 
 import json
 import base64
+import hashlib
 import shutil
 import sys
+import uuid
+import platform
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Tuple
@@ -38,14 +42,25 @@ def _raiz_proyecto() -> Path:
     return aqui.parent.parent.parent
 
 
+def _get_hardware_id() -> str:
+    """
+    Genera el hardware_id de esta maquina.
+    Mismo algoritmo que DisateQ Licensor: SHA256(MAC + CPU)[:16].upper()
+    """
+    mac = str(uuid.getnode())
+    cpu = platform.processor() or 'UNKNOWN_CPU'
+    raw = f"{mac}|{cpu}"
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:16].upper()
+
+
 class LicenseValidator:
     """
     Validador de licencias offline con cifrado RSA.
 
     Busca archivos en este orden:
-      1. C:\\Program Files\\DisateQ\\Motor CPE\\  (produccion instalada)
-      2. {raiz_proyecto}/src/licenses/client_licenses/  (desarrollo)
-      3. {raiz_proyecto}/  (exe o raiz)
+      1. C:\\Program Files\\DisateQ\\Motor CPE\\licenses\\  (produccion instalada)
+      2. {raiz_proyecto}/src/licenses/client_licenses/      (desarrollo)
+      3. {raiz_proyecto}/                                    (exe o raiz)
     """
 
     LICENSE_FILE    = "disateq_motor.lic"
@@ -58,13 +73,9 @@ class LicenseValidator:
             license_dir = Path(license_dir)
             keys_dir    = license_dir
         else:
-            # Buscar en candidatos en orden de prioridad
             candidatos = [
-                # 1. Produccion instalada
                 Path(r"C:\Program Files\DisateQ\Motor CPE\licenses"),
-                # 2. Desarrollo organizado
                 Path(__file__).parent / "client_licenses",
-                # 3. Raiz del proyecto / exe
                 raiz,
             ]
             license_dir = None
@@ -78,7 +89,6 @@ class LicenseValidator:
                 license_dir = Path(__file__).parent / "client_licenses"
                 license_dir.mkdir(parents=True, exist_ok=True)
 
-            # Buscar clave publica
             keys_candidatos = [
                 Path(r"C:\Program Files\DisateQ\Motor CPE\licenses"),
                 Path(__file__).parent / "keys",
@@ -115,10 +125,18 @@ class LicenseValidator:
     def validate(self) -> Tuple[bool, str, Optional[Dict]]:
         """
         Valida la licencia actual.
+
+        Verifica en orden:
+          1. Existencia del archivo
+          2. Estructura JSON correcta
+          3. Firma RSA valida
+          4. Fecha de vencimiento
+          5. Hardware ID coincide con esta maquina (si el .lic lo incluye)
+
         Returns: (es_valida, mensaje, datos_licencia)
         """
         if not self.license_path.exists():
-            return False, "Licencia no encontrada. Contacte a DisateQ™", None
+            return False, "Licencia no encontrada. Contacte a DisateQ", None
 
         try:
             with open(self.license_path, 'r', encoding='utf-8') as f:
@@ -143,14 +161,26 @@ class LicenseValidator:
             except Exception:
                 return False, "Licencia invalida (firma alterada)", None
 
+            data = license_data['data']
+
             # Verificar vencimiento
-            data   = license_data['data']
             expiry = datetime.fromisoformat(data['expiry_date'])
             now    = datetime.now()
-
             if now > expiry:
                 dias = (now - expiry).days
                 return False, f"Licencia vencida hace {dias} dias", data
+
+            # TASK-GEN-01: Verificar hardware_id si el .lic lo incluye
+            lic_hw = data.get('hardware_id', '')
+            if lic_hw:
+                hw_actual = _get_hardware_id()
+                if lic_hw != hw_actual:
+                    return (
+                        False,
+                        "Licencia no valida para este equipo. "
+                        "Contacte a DisateQ para renovar.",
+                        None
+                    )
 
             dias_restantes = (expiry - now).days
             return True, f"Licencia valida ({dias_restantes} dias restantes)", data
@@ -174,12 +204,6 @@ class LicenseValidator:
         """
         TASK-016 — Copia un archivo .lic al directorio de licencias
         y lo valida antes de activarlo.
-
-        Args:
-            ruta_origen: Ruta al archivo .lic seleccionado por el usuario
-
-        Returns:
-            (exito, mensaje)
         """
         origen = Path(ruta_origen)
         if not origen.exists():
@@ -187,7 +211,6 @@ class LicenseValidator:
         if origen.suffix.lower() != '.lic':
             return False, "El archivo debe tener extension .lic"
 
-        # Validar antes de copiar
         try:
             with open(origen, 'r', encoding='utf-8') as f:
                 license_data = json.load(f)
@@ -207,22 +230,31 @@ class LicenseValidator:
                 hashes.SHA256()
             )
 
-            # Verificar vencimiento
             expiry = datetime.fromisoformat(license_data['data']['expiry_date'])
             if datetime.now() > expiry:
                 return False, "La licencia ya esta vencida"
+
+            # TASK-GEN-01: verificar hardware_id al cargar
+            lic_hw = license_data['data'].get('hardware_id', '')
+            if lic_hw:
+                hw_actual = _get_hardware_id()
+                if lic_hw != hw_actual:
+                    return (
+                        False,
+                        "Esta licencia no corresponde a este equipo. "
+                        "Solicite una licencia generada en esta maquina."
+                    )
 
         except json.JSONDecodeError:
             return False, "Archivo de licencia con formato invalido"
         except Exception:
             return False, "Licencia invalida — firma no verificada"
 
-        # Copiar al directorio de licencias
         try:
             self.license_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(str(origen), str(self.license_path))
-            data      = license_data['data']
-            cliente   = data.get('client_name', '')
+            data        = license_data['data']
+            cliente     = data.get('client_name', '')
             vencimiento = data.get('expiry_date', '')[:10]
             return True, f"Licencia activada para {cliente} — valida hasta {vencimiento}"
         except Exception as e:
@@ -230,12 +262,12 @@ class LicenseValidator:
 
 
 # ================================================================
-# GENERADOR DE LICENCIAS (DisateQ™ — uso interno)
+# GENERADOR DE LICENCIAS (DisateQ — uso interno)
 # ================================================================
 
 class LicenseGenerator:
     """
-    Generador de licencias RSA — Solo para uso interno DisateQ™
+    Generador de licencias RSA — Solo para uso interno DisateQ
     NO distribuir al cliente.
     """
 
@@ -267,9 +299,25 @@ class LicenseGenerator:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             ))
 
-        print(f"Par de claves generado:")
-        print(f"   Privada: {private_path} (MANTENER SEGURA)")
-        print(f"   Publica: {public_path} (distribuir con Motor)")
+    @staticmethod
+    def generar_licencia(
+        ruc: str,
+        razon_social: str,
+        dias_validez: int,
+        private_key_path: str,
+        output_path: str,
+        max_docs_month: int = 999999,
+    ) -> Dict:
+        """Alias para compatibilidad con CLI legacy."""
+        from src.licenses.validator import LicenseGenerator as G
+        return G.create_license(
+            client_name      = razon_social,
+            client_ruc       = ruc,
+            expiry_days      = dias_validez,
+            max_docs_month   = max_docs_month,
+            private_key_path = Path(private_key_path),
+            output_path      = Path(output_path),
+        )
 
     @staticmethod
     def create_license(
@@ -289,13 +337,13 @@ class LicenseGenerator:
         expiry = now + timedelta(days=expiry_days)
 
         license_data = {
-            'client_name':     client_name,
-            'client_ruc':      client_ruc,
-            'product':         'Motor CPE DisateQ™ v5.0',
-            'issue_date':      now.isoformat(),
-            'expiry_date':     expiry.isoformat(),
-            'max_docs_month':  max_docs_month,
-            'version':         '5.0',
+            'client_name':    client_name,
+            'client_ruc':     client_ruc,
+            'product':        'Motor CPE DisateQ v5.0',
+            'issue_date':     now.isoformat(),
+            'expiry_date':    expiry.isoformat(),
+            'max_docs_month': max_docs_month,
+            'version':        '5.0',
         }
 
         data_str  = json.dumps(license_data, sort_keys=True)
@@ -316,12 +364,6 @@ class LicenseGenerator:
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(license_file, f, indent=2, ensure_ascii=False)
 
-        print(f"Licencia generada: {output_path}")
-        print(f"   Cliente: {client_name} ({client_ruc})")
-        print(f"   Valida hasta: {expiry.strftime('%Y-%m-%d')}")
-        max_str = "ilimitado" if max_docs_month >= 999999 else str(max_docs_month)
-        print(f"   Max docs/mes: {max_str}")
-
         return license_data
 
 
@@ -331,7 +373,7 @@ class LicenseGenerator:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Licencias DisateQ™ Motor CPE v5.0")
+    parser = argparse.ArgumentParser(description="Licencias DisateQ Motor CPE v5.0")
     parser.add_argument('action', choices=['validate', 'generate-keys', 'create-license'])
     parser.add_argument('--client-name')
     parser.add_argument('--client-ruc')
@@ -364,4 +406,3 @@ def main():
 if __name__ == '__main__':
     import sys
     sys.exit(main())
-
