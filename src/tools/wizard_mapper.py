@@ -20,21 +20,21 @@ PATRONES_COMPROBANTE = {
                     "nro_fac", "num_fac", "nro_doc", "correlat"],
     "serie":       ["serie_fac", "serie_comp", "serie_doc", "serie"],
     "tipo_doc":    ["tipo_fact", "tipo_comp", "tipo_doc", "tipo_movi", "tipo_cbte"],
-    "fecha":       ["fec_emi", "fecha_emi", "fec_comp", "fecha_comp", "fec_doc",
+    "fecha":       ["fec_emi", "fecha_emi", "fec_comp", "fecha_comp", "fec_doc", "fecha_docu", "fecha_doc",
                     "fecha_doc", "fec_venta", "fecha_ven"],
     "ruc_cliente": ["ruc_cli", "ruc_clien", "doc_ident", "nro_doc_cli",
                     "dni_cli", "ruc_comp"],
     "nombre_cliente": ["nom_cli", "nomb_cli", "razon_cli", "nombre_cli",
                        "razon_soc", "nombres"],
     "total":       ["tot_pagar", "tot_venta", "total_vta", "importe_tot",
-                    "monto_tot", "tot_comp", "total_comp", "importe"],
+                    "monto_tot", "tot_comp", "total_comp", "importe", "real_fac", "real_fact", "tot_real"],
     "igv":         ["igv", "monto_igv", "tot_igv"],
     "subtotal":    ["subtotal", "base_imp", "val_venta", "monto_base"],
 }
 
 PATRONES_ITEMS = {
-    "join_campo":   ["nro_movi", "num_movi", "nro_comp", "nro_doc", "nro_fac"],
-    "codigo":       ["cod_prod", "codigo_prod", "cod_art", "codigo_art",
+    "join_campo":   ["nro_movi", "num_movi", "nro_comp", "nro_doc", "nro_fac", "numero_fac", "num_fac"],
+    "codigo":       ["codigo_pro", "cod_prod", "codigo_prod", "cod_art", "codigo_art",
                      "cod_item", "codigo_item", "sku"],
     "descripcion":  ["nom_prod", "desc_prod", "nombre_prod", "descrip",
                      "nom_art", "nombre_art", "detalle"],
@@ -298,3 +298,7 @@ def _detectar_flag_valor(
             return "2", "string"
     except Exception:
         return "2", "integer"
+
+
+
+
