@@ -1,5 +1,4 @@
 cliente_id: farmacia_central
-
 source:
   type: dbf
   path: D:\FFEESUNAT\Test
@@ -7,6 +6,12 @@ source:
 
 comprobantes:
   tabla: enviosffee
+  campos:
+    tipo_factu: TIPO_FACTU
+    serie_fact: SERIE_FACT
+    numero_fac: NUMERO_FAC
+    fecha_docu: FECHA_DOCU
+    factura_ex: FACTURA_EX
   flag_lectura:
     campo: FLAG_ENVIO
     valor: 2
@@ -15,8 +20,54 @@ comprobantes:
     enviado: 3
     error: 4
 
+totales:
+  tabla: factura
+  campos:
+    tipo_factu: TIPO_FACTU
+    serie_fact: SERIE_FACT
+    numero_fac: NUMERO_FAC
+    ruc_client: RUC_CLIENT
+    nombre_cli: NOMBRE_CLI
+    tipo_clien: TIPO_CLIEN
+    real_factu: REAL_FACTU
+    monto_fact: MONTO_FACT
+    igv_factur: IGV_FACTUR
+    importe_ic: IMPORTE_IC
+    email_clie: EMAIL_CLIE
+    fecha_fact: FECHA_FACT
+
+items:
+  tabla: detalleventa
+  campos:
+    tipo_factu: TIPO_FACTU
+    serie_fact: SERIE_FACT
+    numero_fac: NUMERO_FAC
+    item_factu: ITEM_FACTU
+    codigo_pro: CODIGO_PRO
+    cantidad_p: CANTIDAD_P
+    monto_pedi: MONTO_PEDI
+    igv_pedido: IGV_PEDIDO
+    real_pedid: REAL_PEDID
+    precio_uni: PRECIO_UNI
+    icbper:     ICBPER
+
 notas:
   tabla: notacredito
+  campos:
+    tipo_factu: TIPO_FACTU
+    serie_fact: SERIE_FACT
+    numero_fac: NUMERO_FAC
+    serie_nota: SERIE_NOTA
+    numero_not: NUMERO_NOT
+    fecha_nota: FECHA_NOTA
+    tipo_motiv: TIPO_MOTIV
+    monto_nota: MONTO_NOTA
+    igv_nota:   IGV_NOTA
+    real_nota:  REAL_NOTA
+    factura_ex: FACTURA_EX
+    ruc_client: RUC_CLIENT
+    nombre_cli: NOMBRE_CLI
+    tipo_clien: TIPO_CLIEN
   tipo_registro: anulacion
   flag_lectura:
     campo_pendiente:  PENDIENTE_
@@ -30,15 +81,14 @@ notas:
     F: '1'
     B: '2'
 
-items:
-  tabla: detalleventa
-
-totales:
-  tabla: factura
-
 productos:
   tabla: productox
   join_campo: CODIGO_PRO
+  campos:
+    descripcio: DESCRIPCIO
+    presenta_p: PRESENTA_P
+    codigo_uns: CODIGO_UNS
+    exonerado_: EXONERADO_
 
 motivos:
   tabla: motivonota
