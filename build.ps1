@@ -1,6 +1,6 @@
 # ============================================================
-# build.ps1 — DisateQ™ Motor CPE v5.0
-# Build PyInstaller → dist\DisateQ-Motor-CPE\
+# build.ps1 - DisateQ Motor CPE v5.0
+# Build PyInstaller -> dist\DisateQ-Motor-CPE\
 # Ejecutar desde: D:\DisateQ\Proyectos\disateq-motor-cpe-v5
 # ============================================================
 
@@ -8,37 +8,35 @@ $ErrorActionPreference = "Stop"
 $ROOT = $PSScriptRoot
 
 Write-Host ""
-Write-Host "DisateQ™ Motor CPE v5.0 — Build" -ForegroundColor Cyan
+Write-Host "DisateQ Motor CPE v5.0 - Build" -ForegroundColor Cyan
 Write-Host "=================================" -ForegroundColor Cyan
 Write-Host ""
 
-# ── Verificar raiz del proyecto ─────────────────────────────
+# Verificar raiz del proyecto
 if (-not (Test-Path "$ROOT\main.py")) {
     Write-Host "ERROR: Ejecutar desde la raiz del proyecto." -ForegroundColor Red
     exit 1
 }
 
-# ── Verificar PyInstaller ───────────────────────────────────
+# Verificar PyInstaller
 try {
     $pi = python -c "import PyInstaller; print(PyInstaller.__version__)" 2>&1
     Write-Host "PyInstaller: $pi" -ForegroundColor Green
 } catch {
-    Write-Host "PyInstaller no instalado. Ejecuta:" -ForegroundColor Red
-    Write-Host "  pip install pyinstaller==6.9.0" -ForegroundColor Yellow
+    Write-Host "PyInstaller no instalado." -ForegroundColor Red
     exit 1
 }
 
-# ── Verificar pywebview ─────────────────────────────────────
+# Verificar pywebview
 try {
     $wv = python -c "import webview; print(webview.__version__)" 2>&1
     Write-Host "PyWebView:   $wv" -ForegroundColor Green
 } catch {
-    Write-Host "PyWebView no instalado. Ejecuta:" -ForegroundColor Red
-    Write-Host "  pip install pywebview==6.2.1" -ForegroundColor Yellow
+    Write-Host "PyWebView no instalado." -ForegroundColor Red
     exit 1
 }
 
-# ── Limpiar builds anteriores ───────────────────────────────
+# Limpiar builds anteriores
 Write-Host ""
 Write-Host "Limpiando builds anteriores..." -ForegroundColor Yellow
 
@@ -51,12 +49,12 @@ if (Test-Path "$ROOT\build") {
     Write-Host "  build\ eliminado." -ForegroundColor Gray
 }
 
-# ── Crear carpetas necesarias ───────────────────────────────
+# Crear carpetas necesarias
 New-Item -ItemType Directory -Force -Path "$ROOT\data"   | Out-Null
 New-Item -ItemType Directory -Force -Path "$ROOT\output" | Out-Null
 New-Item -ItemType Directory -Force -Path "$ROOT\dist"   | Out-Null
 
-# ── Ejecutar PyInstaller ────────────────────────────────────
+# Ejecutar PyInstaller
 Write-Host ""
 Write-Host "Ejecutando PyInstaller..." -ForegroundColor Yellow
 Write-Host ""
@@ -66,30 +64,34 @@ python -m PyInstaller disateq.spec --clean --noconfirm
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
-    Write-Host "ERROR: PyInstaller fallo. Revisa el log anterior." -ForegroundColor Red
+    Write-Host "ERROR: PyInstaller fallo." -ForegroundColor Red
     exit 1
 }
 
-# ── Copiar archivos que PyInstaller no incluye ──────────────
+# Copiar archivos de datos
 Write-Host ""
 Write-Host "Copiando archivos de datos..." -ForegroundColor Yellow
 
 $DIST = "$ROOT\dist\DisateQ-Motor-CPE"
 
-# Carpeta data (SQLite se crea en runtime, pero la carpeta debe existir)
-New-Item -ItemType Directory -Force -Path "$DIST\data"   | Out-Null
-New-Item -ItemType Directory -Force -Path "$DIST\output" | Out-Null
-New-Item -ItemType Directory -Force -Path "$DIST\output\anulaciones" | Out-Null
-
-# Config (clientes + contratos — se copian del spec pero por si acaso)
 if (Test-Path "$ROOT\config") {
     Copy-Item "$ROOT\config" "$DIST\config" -Recurse -Force
     Write-Host "  config\ copiado." -ForegroundColor Gray
 }
 
-Write-Host "  Carpetas data\ y output\ creadas." -ForegroundColor Gray
+# Limpiar configs de cliente -- instalador debe ser generico
+if (Test-Path "$DIST\config\clientes") {
+    Get-ChildItem "$DIST\config\clientes\*" -Include "*.yaml" | Remove-Item -Force
+    Write-Host "  config\clientes\ limpiado." -ForegroundColor Gray
+}
+if (Test-Path "$DIST\config\contratos") {
+    Get-ChildItem "$DIST\config\contratos\*" -Include "*.yaml" | Remove-Item -Force
+    Write-Host "  config\contratos\ limpiado." -ForegroundColor Gray
+}
 
-# ── Verificar ejecutable ────────────────────────────────────
+Write-Host "  Instalador limpio -- sin clientes preconfigurados." -ForegroundColor Green
+
+# Verificar ejecutable
 Write-Host ""
 if (Test-Path "$DIST\DisateQ-Motor-CPE.exe") {
     $size = (Get-Item "$DIST\DisateQ-Motor-CPE.exe").Length / 1MB
@@ -104,15 +106,16 @@ if (Test-Path "$DIST\DisateQ-Motor-CPE.exe") {
     exit 1
 }
 
-# ── Checklist de validacion ─────────────────────────────────
+# Checklist de validacion
 Write-Host ""
 Write-Host "CHECKLIST DE VALIDACION" -ForegroundColor Cyan
 Write-Host "========================" -ForegroundColor Cyan
 Write-Host " [ ] Ejecutar: dist\DisateQ-Motor-CPE\DisateQ-Motor-CPE.exe"
+Write-Host " [ ] Abre Wizard (instalacion nueva sin cliente)"
+Write-Host " [ ] Wizard completa configuracion correctamente"
 Write-Host " [ ] Ventana abre sin consola visible"
 Write-Host " [ ] Header muestra empresa y RUC"
 Write-Host " [ ] Tab Procesar carga pendientes"
-Write-Host " [ ] Procesar 1 comprobante en modo mock"
 Write-Host " [ ] Historial muestra registros"
 Write-Host " [ ] Config abre con PIN"
 Write-Host ""
