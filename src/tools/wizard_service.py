@@ -1,9 +1,9 @@
 # src/tools/wizard_service.py
 # DisateQ Motor CPE v5.0
 # TASK-006: _build_contrato_yaml estructura flag_lectura/flag_escritura
-#           correcta para GenericAdapter
 # FIX-WIZ-01: _ruta_config busca exe dir en produccion
-#              _build_contrato_yaml guarda campos para SQLite
+# FIX-WIZ-02: _build_contrato_yaml detecta tabla de totales automaticamente
+#              en lugar de asumir la misma tabla de comprobantes
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
@@ -16,19 +16,129 @@ def _ruta_config() -> Path:
     """
     Busca la carpeta config en este orden:
       1. exe dir en produccion (4 niveles arriba de src/tools/)
-         C:/Program Files/DisateQ/Motor CPE/config/
       2. raiz proyecto en desarrollo (3 niveles arriba)
       3. fallback (2 niveles arriba)
     """
     here = Path(__file__).resolve()
     for p in [
-        here.parent.parent.parent.parent,  # exe dir produccion: _internal/src/tools -> exe
-        here.parent.parent.parent,          # raiz proyecto desarrollo
-        here.parent.parent,                 # fallback
+        here.parent.parent.parent.parent,
+        here.parent.parent.parent,
+        here.parent.parent,
     ]:
         if (p / "config").is_dir():
             return p / "config"
     return here.parent.parent.parent / "config"
+
+
+# ══════════════════════════════════════════════════════════════════
+#  DETECTAR TABLA DE TOTALES -- FIX-WIZ-02
+# ══════════════════════════════════════════════════════════════════
+
+# Campos financieros que identifican la tabla de totales (cabecera del comprobante)
+_CAMPOS_TOTALES = {'REAL_FACTU', 'MONTO_FACT', 'IGV_FACTUR', 'TOTAL_FACT',
+                   'IMPORTE_TO', 'TOTAL_PAGO', 'MONTO_TOTA'}
+
+# Nombres de tabla que suelen contener los totales
+_TABLAS_TOTALES_PREFERIDAS = ['factura', 'cabecera', 'comprobante', 'venta',
+                               'documento', 'cabventa', 'cab_venta', 'cpe']
+
+
+def _detectar_tabla_totales(ruta_dbf: str, tabla_comprobantes: str) -> str:
+    """
+    FIX-WIZ-02: Detecta automaticamente la tabla que contiene los campos
+    financieros del comprobante (REAL_FACTU, MONTO_FACT, IGV_FACTUR, etc.)
+
+    Logica:
+      1. Si la tabla de comprobantes ya tiene campos financieros -> usarla
+      2. Buscar en tablas con nombres preferidos (factura, cabecera, etc.)
+      3. Buscar en cualquier DBF de la carpeta que tenga campos financieros
+      4. Fallback: usar misma tabla de comprobantes
+
+    Returns: nombre de tabla sin extension
+    """
+    try:
+        from dbfread import DBF as _DBF
+        carpeta = Path(ruta_dbf)
+        if not carpeta.exists():
+            return tabla_comprobantes
+
+        def _campos_dbf(nombre_tabla: str) -> set:
+            """Retorna set de nombres de campo de un DBF."""
+            for ext in ['.dbf', '.DBF']:
+                path = carpeta / f"{nombre_tabla}{ext}"
+                if path.exists():
+                    try:
+                        t = _DBF(str(path), encoding='latin-1', load=False)
+                        return {f.name.upper() for f in t.fields}
+                    except Exception:
+                        pass
+            return set()
+
+        # 1. Verificar si la tabla de comprobantes ya tiene campos financieros
+        campos_comp = _campos_dbf(tabla_comprobantes)
+        if campos_comp & _CAMPOS_TOTALES:
+            return tabla_comprobantes
+
+        # 2. Buscar en tablas preferidas
+        for nombre in _TABLAS_TOTALES_PREFERIDAS:
+            if nombre.lower() == tabla_comprobantes.lower():
+                continue
+            campos = _campos_dbf(nombre)
+            if campos & _CAMPOS_TOTALES:
+                return nombre
+
+        # 3. Buscar en todos los DBF de la carpeta
+        for dbf_path in carpeta.glob("*.dbf"):
+            nombre = dbf_path.stem
+            if nombre.lower() == tabla_comprobantes.lower():
+                continue
+            try:
+                t = _DBF(str(dbf_path), encoding='latin-1', load=False)
+                campos = {f.name.upper() for f in t.fields}
+                if campos & _CAMPOS_TOTALES:
+                    return nombre
+            except Exception:
+                continue
+
+    except Exception:
+        pass
+
+    # Fallback
+    return tabla_comprobantes
+
+
+def _detectar_campos_totales(ruta_dbf: str, tabla_totales: str) -> dict:
+    """
+    Detecta los campos financieros disponibles en la tabla de totales
+    y retorna el mapeo semantico -> nombre_real.
+    """
+    defaults = {
+        'tipo_factu': 'TIPO_FACTU',
+        'serie_fact': 'SERIE_FACT',
+        'numero_fac': 'NUMERO_FAC',
+        'ruc_client': 'RUC_CLIENT',
+        'nombre_cli': 'NOMBRE_CLI',
+        'tipo_clien': 'TIPO_CLIEN',
+        'real_factu': 'REAL_FACTU',
+        'monto_fact': 'MONTO_FACT',
+        'igv_factur': 'IGV_FACTUR',
+        'importe_ic': 'IMPORTE_IC',
+        'email_clie': 'EMAIL_CLIE',
+        'fecha_fact': 'FECHA_FACT',
+    }
+    try:
+        from dbfread import DBF as _DBF
+        carpeta = Path(ruta_dbf)
+        for ext in ['.dbf', '.DBF']:
+            path = carpeta / f"{tabla_totales}{ext}"
+            if path.exists():
+                t = _DBF(str(path), encoding='latin-1', load=False)
+                campos_reales = {f.name.upper() for f in t.fields}
+                # Solo retornar campos que existen realmente
+                return {k: v for k, v in defaults.items() if v in campos_reales}
+    except Exception:
+        pass
+    return defaults
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -231,7 +341,7 @@ def analizar_fuente(fuente: dict) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════
-#  PROBAR MAPEO -- lee 5 registros reales con el contrato actual
+#  PROBAR MAPEO
 # ══════════════════════════════════════════════════════════════════
 
 def probar_mapeo(fuente: dict, contrato: dict) -> dict:
@@ -306,13 +416,11 @@ def guardar_wizard(payload: dict) -> dict:
         creds      = payload["credenciales"]
         cliente_id = cliente["cliente_id"]
 
-        # YAML cliente (formato ClientLoader)
-        cliente_yaml = _build_cliente_yaml(cliente, fuente, series_raw, creds)
+        cliente_yaml  = _build_cliente_yaml(cliente, fuente, series_raw, creds)
         d = cfg_root / "clientes"
         d.mkdir(parents=True, exist_ok=True)
         _write_yaml(d / f"{cliente_id}.yaml", cliente_yaml)
 
-        # YAML contrato (formato GenericAdapter)
         contrato_yaml = _build_contrato_yaml(cliente_id, fuente, contrato)
         d = cfg_root / "contratos"
         d.mkdir(parents=True, exist_ok=True)
@@ -327,10 +435,6 @@ def guardar_wizard(payload: dict) -> dict:
 def _build_cliente_yaml(
     cliente: dict, fuente: dict, series_raw: dict, creds: dict
 ) -> dict:
-    """
-    Genera YAML en el mismo formato que farmacia_central.yaml
-    para que ClientLoader lo lea sin cambios.
-    """
     tipo_a_nombre = {
         "01":        "factura",
         "02":        "boleta",
@@ -353,7 +457,6 @@ def _build_cliente_yaml(
         if items:
             series_out[nombre] = items
 
-    # Endpoints -- limpiar campo 'id' de timestamp del wizard JS
     nombre_sv = creds.get("nombre", "Servicio 1")
     tipo_sv   = creds.get("tipo",   "api_rest")
     usuario   = creds.get("usuario", "")
@@ -384,7 +487,6 @@ def _build_cliente_yaml(
         "url_percepciones": url_perc,
     }]
 
-    # Fuente
     tipo_fuente = fuente.get("tipo", "dbf")
     fuente_out  = {"tipo": tipo_fuente}
     if tipo_fuente in ("dbf", "excel", "csv", "access"):
@@ -421,16 +523,14 @@ def _build_cliente_yaml(
 
 def _build_contrato_yaml(cliente_id: str, fuente: dict, contrato: dict) -> dict:
     """
-    Genera estructura flag_lectura/flag_escritura anidada
-    que GenericAdapter espera.
-
-    FIX-WIZ-01: incluye 'campos' en comprobantes para que
-    _normalize_comprobante_sqlite y _write_flag_sqlite funcionen
-    correctamente con clientes SQLite y otros tipos DB.
+    FIX-WIZ-02: Detecta automaticamente la tabla de totales en lugar de
+    asumir que es la misma tabla de comprobantes.
     """
     tipo = fuente.get("tipo", "")
+    ruta = fuente.get("ruta", "") if tipo in ("dbf", "excel", "csv", "access") else ""
+
     if tipo in ("dbf", "excel", "csv", "access"):
-        source = {"type": tipo, "path": fuente.get("ruta", "")}
+        source = {"type": tipo, "path": ruta}
         if tipo == "dbf":
             source["encoding"] = "latin-1"
     else:
@@ -453,13 +553,11 @@ def _build_contrato_yaml(cliente_id: str, fuente: dict, contrato: dict) -> dict:
     flag_v = c.get("flag_valor", "2").strip()
     flag_t = c.get("flag_tipo",  "integer")
 
-    # Convertir valor al tipo correcto
     try:
         flag_v_typed = int(flag_v) if flag_t == "integer" else flag_v
     except (ValueError, TypeError):
         flag_v_typed = flag_v
 
-    # Valor enviado/error: convencion +1 / +2 respecto al pendiente
     try:
         flag_enviado = (flag_v_typed + 1) if flag_t == "integer" else "3"
         flag_error   = (flag_v_typed + 2) if flag_t == "integer" else "4"
@@ -467,10 +565,18 @@ def _build_contrato_yaml(cliente_id: str, fuente: dict, contrato: dict) -> dict:
         flag_enviado = 3
         flag_error   = 4
 
-    # FIX-WIZ-01: guardar campos del wizard para _normalize_comprobante_sqlite
-    # y _write_flag_sqlite. Para DBF no se usa (campos hardcodeados en adapter)
-    # pero no hace dano tenerlos.
-    campos_map = {
+    tabla_comp = c.get("tabla", "")
+
+    # FIX-WIZ-02: detectar tabla de totales automaticamente para DBF
+    if tipo == "dbf" and ruta:
+        tabla_totales = _detectar_tabla_totales(ruta, tabla_comp)
+        campos_totales = _detectar_campos_totales(ruta, tabla_totales)
+    else:
+        tabla_totales  = tabla_comp
+        campos_totales = {}
+
+    # Campos de comprobantes para mapeo semantico (TASK-DBF-01)
+    campos_map = {k: v for k, v in {
         "numero":         cm.get("numero",         ""),
         "serie":          cm.get("serie",          ""),
         "tipo_doc":       cm.get("tipo_doc",       ""),
@@ -478,12 +584,10 @@ def _build_contrato_yaml(cliente_id: str, fuente: dict, contrato: dict) -> dict:
         "ruc_cliente":    cm.get("ruc_cliente",    ""),
         "nombre_cliente": cm.get("nombre_cliente", ""),
         "total":          cm.get("total",          ""),
-    }
-    # Solo incluir si al menos un campo esta definido
-    campos_map = {k: v for k, v in campos_map.items() if v}
+    }.items() if v}
 
     comprobantes_yaml = {
-        "tabla": c.get("tabla", ""),
+        "tabla": tabla_comp,
         "flag_lectura": {
             "campo": flag_c,
             "valor": flag_v_typed,
@@ -494,18 +598,19 @@ def _build_contrato_yaml(cliente_id: str, fuente: dict, contrato: dict) -> dict:
             "error":   flag_error,
         },
     }
-
-    # Agregar campos solo si hay mapeo definido
     if campos_map:
         comprobantes_yaml["campos"] = campos_map
 
-    # Items -- solo incluir si hay datos
     items_yaml = {k: v for k, v in {
         "tabla":      ci.get("tabla",      ""),
         "join_campo": ci.get("join_campo", ""),
     }.items() if v}
 
-    totales_yaml  = {"tabla": c.get("tabla", "")}
+    # FIX-WIZ-02: totales con tabla correcta y campos detectados
+    totales_yaml = {"tabla": tabla_totales}
+    if campos_totales:
+        totales_yaml["campos"] = campos_totales
+
     productos_yaml = {
         "tabla":      "",
         "join_campo": ci.get("codigo", "CODIGO_PRO"),
