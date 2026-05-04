@@ -252,7 +252,7 @@ class LicenseValidator:
 
         try:
             self.license_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(str(origen), str(self.license_path))
+            if Path(origen).resolve() != Path(self.license_path).resolve(): shutil.copy2(str(origen), str(self.license_path))
             data        = license_data['data']
             cliente     = data.get('client_name', '')
             vencimiento = data.get('expiry_date', '')[:10]
@@ -406,3 +406,4 @@ def main():
 if __name__ == '__main__':
     import sys
     sys.exit(main())
+
