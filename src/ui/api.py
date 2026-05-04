@@ -183,7 +183,7 @@ class DisateQAPI:
                     'tipo_doc':       _TIPO_CPE_MAP.get(str(r.get('tipo_comprobante', '')), ''),
                     'cliente_nombre': r.get('cliente_nombre', '-') or '-',
                     'endpoint':       r.get('endpoint', '-') or '-',
-                    'detalle':        r.get('descripcion_sunat', '') or '',
+                    'detalle':        r.get('descripcion_sunat', '') or r.get('motivo_ignore', '') or '',
                     'estado':         r.get('estado', ''),
                 })
             return {'exito': True, 'logs': logs}
@@ -233,7 +233,7 @@ class DisateQAPI:
                         'total':    0.0,
                         'estado':   r['estado'].lower(),
                         'endpoint': r.get('endpoint') or '-',
-                        'detalle':  r.get('descripcion_sunat') or '',
+                        'detalle':  r.get('descripcion_sunat') or r.get('motivo_ignore') or '',
                         'intentos': r.get('intentos', 0),  # FIX-UI-03
                     }
                     for r in result
@@ -1059,3 +1059,5 @@ class DisateQAPI:
             }
             for s in lista if s.get('serie')
         ]
+
+
