@@ -85,7 +85,7 @@ class TxtGenerator:
 
         serie  = str(cpe.get('serie', '') or '')
         numero = int(cpe.get('numero', 0) or 0)
-        fp     = p / f"{serie}-{numero:08d}.txt"
+        fp = p / f"{str(cpe.get('ruc_emisor', '') or '')}-{str(cpe.get('tipo_de_comprobante', '02') or '02').zfill(2)}-{serie}-{numero:08d}.txt"
         fp.write_text(TxtGenerator._contenido(cpe), encoding='latin-1', newline='\r\n')
         return str(fp)
 
@@ -213,3 +213,5 @@ class TxtGenerator:
     @staticmethod
     def _format_decimal(value):
         return _fd(value, 2)
+
+
