@@ -113,9 +113,7 @@ class UniversalSender:
             try:
                 if fmt == 'txt':
                     with open(archivo_path, 'rb') as f:
-                        serie_num = Path(archivo_path).stem
-                        tipo = '02' if serie_num.startswith('B') else '01'
-                        filename = f"{ruc_emisor}-{tipo}-{serie_num}.txt"
+                        filename = Path(archivo_path).name
                         files = {'Texto': (filename, f, 'text/plain')}
                         data  = {}
                         if creds.get('usuario'): data['usuario'] = creds['usuario']
@@ -186,3 +184,4 @@ class UniversalSender:
             exito, respuesta, nombre = resultados[0]
             return exito, respuesta
         return False, {'error': 'Sin resultados'}
+
