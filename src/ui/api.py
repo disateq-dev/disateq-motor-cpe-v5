@@ -393,16 +393,9 @@ class DisateQAPI:
         try:
             from src.licenses.validator import LicenseValidator
             validator = LicenseValidator()
-            result    = validator.validate()
-
-            if isinstance(result, tuple):
-                is_valid = result[0]
-                status   = result[1] if len(result) > 1 else 'unknown'
-            else:
-                is_valid = result
-                status   = 'unknown'
-
-            if is_valid:
+            from src.licenses.validator import LIC_OK, LIC_GRACIA
+            estado, status, _ = validator.validate()
+            if estado in (LIC_OK, LIC_GRACIA):
                 try:
                     info = validator.get_license_info()
                 except Exception:
@@ -502,13 +495,15 @@ class DisateQAPI:
         try:
             from src.licenses.validator import LicenseValidator
             v      = LicenseValidator()
-            valida, mensaje, datos = v.validate()
+            from src.licenses.validator import LIC_OK, LIC_GRACIA
+            estado, mensaje, datos = v.validate()
             if datos:
                 from datetime import datetime
                 expiry = datetime.fromisoformat(datos['expiry_date'])
                 dias   = max(0, (expiry - datetime.now()).days)
                 return {
-                    'valida':         valida,
+                    'valida':         estado in (LIC_OK, LIC_GRACIA),
+                    'gracia':         estado == LIC_GRACIA,
                     'mensaje':        mensaje,
                     'cliente':        datos.get('client_name', ''),
                     'ruc':            datos.get('client_ruc', ''),
