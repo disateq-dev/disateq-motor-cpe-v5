@@ -151,7 +151,7 @@ class TxtGenerator:
         l('total_exonerada',         _fd(ex,  6))
         l('total_igv',               _fd(ig,  6))
         l('total_impuestos_bolsas',  _fd(icb, 6))
-        l('total_gratuita',          '0.00000000')
+        l('total_gratuita',          '0.000000')
         l('total_otros_cargos')
         l('total',                   _fd(tot, 6))
         l('percepcion_tipo')
