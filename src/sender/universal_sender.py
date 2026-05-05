@@ -112,13 +112,16 @@ class UniversalSender:
 
             try:
                 if fmt == 'txt':
-                    with open(archivo_path, 'rb') as f:
-                        filename = Path(archivo_path).name
-                        files = {'Texto': (filename, f, 'text/plain')}
-                        data  = {}
-                        if creds.get('usuario'): data['usuario'] = creds['usuario']
-                        if creds.get('token'):   data['token']   = creds['token']
-                        resp = requests.post(url, files=files, data=data, timeout=timeout)
+                    with open(archivo_path, 'r', encoding='latin-1') as f:
+                        contenido = f.read()
+                    filename = Path(archivo_path).name
+                    ruc = filename.split('-')[0]
+                    headers = {
+                        'Ruc':    ruc,
+                        'Nombre': filename,
+                        'Texto':  contenido,
+                    }
+                    resp = requests.post(url, headers=headers, timeout=timeout)
 
                 elif fmt == 'json':
                     import json
