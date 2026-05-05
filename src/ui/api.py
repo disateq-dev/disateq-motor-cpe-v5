@@ -276,7 +276,7 @@ class DisateQAPI:
         except Exception as e:
             return {'exito': False, 'error': str(e)}
 
-    def procesar_motor(self, cliente_alias: str, limit=None, modo: str = 'mock'):
+    def procesar_motor(self, cliente_alias: str, limit=None, modo: str = None):
         try:
             motor = Motor(
                 cliente_alias=cliente_alias,
