@@ -147,7 +147,7 @@ async function procesarConMotor() {
     if (typeof feather !== 'undefined') feather.replace();
     showProcSpinner('Enviando comprobantes...');
 
-    const result = await window.pywebview.api.procesar_motor(appState.clienteAlias, null, 'mock');
+    const result = await window.pywebview.api.procesar_motor(appState.clienteAlias, null, null);
 
     hideProcSpinner();
     if (btn) { btn.disabled = false; btn.innerHTML = '<i data-feather="play-circle"></i> Procesar con Motor'; }
