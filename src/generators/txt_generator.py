@@ -102,8 +102,8 @@ class TxtGenerator:
         numero    = int(cpe.get('numero', 0)  or 0)
         moneda    = '1'  # PEN por defecto
 
-        fecha_emi = _fecha(cpe.get('fecha_emision', ''))
-        fecha_vto = _fecha(cpe.get('fecha_vencimiento', ''))
+        fecha_emi = _fecha(cpe.get('fecha_de_emision', '') or cpe.get('fecha_emision', ''))
+        fecha_vto = _fecha(cpe.get('fecha_de_vencimiento', '') or cpe.get('fecha_vencimiento', ''))
 
         # Cliente
         cli_tipo  = str(cpe.get('cliente_tipo_doc', '-') or '-')
@@ -151,7 +151,7 @@ class TxtGenerator:
         l('total_exonerada',         _fd(ex,  6))
         l('total_igv',               _fd(ig,  6))
         l('total_impuestos_bolsas',  _fd(icb, 6))
-        l('total_gratuita',          '0.000000')
+        l('total_gratuita',          '0.00000000')
         l('total_otros_cargos')
         l('total',                   _fd(tot, 6))
         l('percepcion_tipo')
@@ -203,12 +203,12 @@ class TxtGenerator:
 
             lines.append(
                    f"item|{unidad}|{codigo}|{descripcion}"
-                   f"|{int(cantidad) if cantidad == int(cantidad) else _fd(cantidad, 6)}|{_fd(val_unit, 6)}|{_fd(pre_unit, 6)}"
+                   f"|{int(cantidad) if cantidad == int(cantidad) else _fd(cantidad, 6)}|{_fd(val_unit, 8)}|{_fd(pre_unit, 8)}"
                    f"||{_fd(subtotal, 6)}|{afectacion}|{_fd(igv_item, 6)}"
                    f"|{_fd(total_item, 6)}|false|||{cod_sunat}|||||"
             )
 
-        return "\n".join(lines) + "\n"
+        return "".join(lines)
 
     @staticmethod
     def _format_decimal(value):
