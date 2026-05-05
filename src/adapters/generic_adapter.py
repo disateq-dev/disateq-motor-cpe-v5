@@ -616,7 +616,7 @@ class GenericAdapter(BaseAdapter):
         cod_uns_campo  = self._c_prod['codigo_uns']
         exon_campo     = self._c_prod['exonerado_']
 
-        desc     = str(producto.get(desc_campo,     '') or '').strip()
+        desc     = str(producto.get(desc_campo, '') or '').strip() or str(producto.get(presenta_campo, '') or '').strip() or codigo
         presenta = str(producto.get(presenta_campo, '') or '').strip()
         if presenta:
             desc = f"{desc}   {presenta}"

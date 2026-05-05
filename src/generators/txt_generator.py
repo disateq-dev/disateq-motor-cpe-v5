@@ -40,10 +40,10 @@ from pathlib import Path
 
 # Mapa tipo_igv interno → codigo SUNAT afectacion IGV
 TIPO_IGV_MAP = {
-    1: '10',   # Gravado — Operacion Onerosa
-    2: '20',   # Exonerado — Operacion Onerosa
-    3: '30',   # Inafecto — Operacion Onerosa
-    4: '40',   # Exportacion
+    1: '1',    # Gravado — Operacion Onerosa
+    2: '8',    # Exonerado — Operacion Onerosa
+    3: '9',    # Inafecto — Operacion Onerosa
+    4: '16',   # Exportacion
 }
 
 
@@ -199,7 +199,7 @@ class TxtGenerator:
             cod_sunat  = str(item.get('cod_sunat', '10000000')    or '10000000')
             icbper_i   = float(item.get('icbper', 0)              or 0)
 
-            afectacion = TIPO_IGV_MAP.get(tipo_igv_n, '10')
+            afectacion = TIPO_IGV_MAP.get(tipo_igv_n, '1')
 
             lines.append(
                 f"item|{unidad}|{codigo}|{descripcion}"
