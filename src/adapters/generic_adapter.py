@@ -62,6 +62,8 @@ _DEFAULTS_ITEMS = {
     'item_factu': 'ITEM_FACTU',
     'codigo_pro': 'CODIGO_PRO',
     'cantidad_p': 'CANTIDAD_P',
+    'tableta_pe': 'TABLETA_PE',
+    'precio_fra': 'PRECIO_FRA',
     'monto_pedi': 'MONTO_PEDI',
     'igv_pedido': 'IGV_PEDIDO',
     'real_pedid': 'REAL_PEDID',
@@ -602,16 +604,25 @@ class GenericAdapter(BaseAdapter):
         codigo     = str(raw.get(self._c_item['codigo_pro'], '')).strip()
         producto   = productos.get(codigo, {})
 
-        cantidad   = float(raw.get(self._c_item['cantidad_p']) or 0)
+        cantidad_p = float(raw.get(self._c_item['cantidad_p']) or 0)
+        tableta_pe = float(raw.get(self._c_item['tableta_pe']) or 0)
+        precio_fra = float(raw.get(self._c_item['precio_fra']) or 0)
         monto_pedi = float(raw.get(self._c_item['monto_pedi']) or 0)
         igv_pedido = float(raw.get(self._c_item['igv_pedido']) or 0)
         real_pedid = float(raw.get(self._c_item['real_pedid']) or 0)
-        precio_uni = float(raw.get(self._c_item['precio_uni']) or 0)
         icbper     = float(raw.get(self._c_item['icbper'])     or 0)
 
-        if not cantidad: cantidad = 1.0; precio_uni = real_pedid
-        valor_unit = round(monto_pedi / cantidad, 8)
+        if cantidad_p > 0:
+            cantidad   = cantidad_p
+            precio_uni = float(raw.get(self._c_item['precio_uni']) or 0)
+        elif tableta_pe > 0:
+            cantidad   = tableta_pe
+            precio_uni = precio_fra
+        else:
+            cantidad   = 1.0
+            precio_uni = real_pedid
 
+        valor_unit = round(monto_pedi / cantidad, 8) if cantidad else 0.0
         desc_campo     = self._c_prod['descripcio']
         presenta_campo = self._c_prod['presenta_p']
         cod_uns_campo  = self._c_prod['codigo_uns']

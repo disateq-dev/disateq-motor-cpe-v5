@@ -151,7 +151,7 @@ class TxtGenerator:
         l('total_exonerada',         _fd(ex))
         l('total_igv',               _fd(ig))
         l('total_impuestos_bolsas',  _fd(icb))
-        l('total_gratuita',          '0.00000000')
+        l('total_gratuita',          '0.000000')
         l('total_otros_cargos')
         l('total',                   _fd(tot))
         l('percepcion_tipo')
@@ -201,11 +201,11 @@ class TxtGenerator:
 
             afectacion = TIPO_IGV_MAP.get(tipo_igv_n, '1')
 
-            lines.append(
+           lines.append(
                 f"item|{unidad}|{codigo}|{descripcion}"
-                f"|{_fd(cantidad)}|{_fd(val_unit)}|{_fd(pre_unit)}"
-                f"||{_fd(subtotal)}|{afectacion}|{_fd(igv_item)}"
-                f"|{_fd(total_item)}|false|||{cod_sunat}|||||"
+                f"|{int(cantidad) if cantidad == int(cantidad) else _fd(cantidad, 8)}|{_fd(val_unit, 8)}|{_fd(pre_unit, 8)}"
+                f"||{_fd(subtotal, 8)}|{afectacion}|{_fd(igv_item, 8)}"
+                f"|{_fd(total_item, 8)}|false|||{cod_sunat}|||||"
             )
 
         return "\n".join(lines) + "\n"
