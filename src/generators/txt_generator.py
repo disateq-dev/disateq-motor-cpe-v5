@@ -146,14 +146,14 @@ class TxtGenerator:
         l('descuento_global')
         l('total_descuento')
         l('total_anticipo')
-        l('total_gravada',           _fd(gr,  8))
-        l('total_inafecta',          _fd(ina, 8) if ina else '')
-        l('total_exonerada',         _fd(ex,  8))
-        l('total_igv',               _fd(ig,  8))
-        l('total_impuestos_bolsas',  _fd(icb, 8))
+        l('total_gravada',           _fd(gr,  6))
+        l('total_inafecta',          _fd(ina, 6) if ina else '')
+        l('total_exonerada',         _fd(ex,  6))
+        l('total_igv',               _fd(ig,  6))
+        l('total_impuestos_bolsas',  _fd(icb, 6))
         l('total_gratuita',          '0.00000000')
         l('total_otros_cargos')
-        l('total',                   _fd(tot, 8))
+        l('total',                   _fd(tot, 6))
         l('percepcion_tipo')
         l('percepcion_base_imponible')
         l('total_percepcion')
@@ -203,9 +203,9 @@ class TxtGenerator:
 
             lines.append(
                    f"item|{unidad}|{codigo}|{descripcion}"
-                   f"|{int(cantidad) if cantidad == int(cantidad) else _fd(cantidad, 8)}|{_fd(val_unit, 8)}|{_fd(pre_unit, 8)}"
-                   f"||{_fd(subtotal, 8)}|{afectacion}|{_fd(igv_item, 8)}"
-                   f"|{_fd(total_item, 8)}|false|||{cod_sunat}|||||"
+                   f"|{int(cantidad) if cantidad == int(cantidad) else _fd(cantidad, 6)}|{_fd(val_unit, 8)}|{_fd(pre_unit, 8)}"
+                   f"||{_fd(subtotal, 6)}|{afectacion}|{_fd(igv_item, 6)}"
+                   f"|{_fd(total_item, 6)}|false|||{cod_sunat}|||||"
             )
 
         return "\r\n".join(lines) + "\r\n"
@@ -213,5 +213,6 @@ class TxtGenerator:
     @staticmethod
     def _format_decimal(value):
         return _fd(value, 2)
+
 
 
