@@ -609,7 +609,7 @@ class GenericAdapter(BaseAdapter):
         precio_uni = float(raw.get(self._c_item['precio_uni']) or 0)
         icbper     = float(raw.get(self._c_item['icbper'])     or 0)
 
-        valor_unit = round(monto_pedi / cantidad, 8) if cantidad else 0.0
+        valor_unit = round(monto_pedi / cantidad, 8) if cantidad else round(monto_pedi, 8); cantidad = cantidad if cantidad else 1.0
 
         desc_campo     = self._c_prod['descripcio']
         presenta_campo = self._c_prod['presenta_p']
