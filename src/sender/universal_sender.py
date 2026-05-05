@@ -113,7 +113,10 @@ class UniversalSender:
             try:
                 if fmt == 'txt':
                     with open(archivo_path, 'rb') as f:
-                        files = {'Texto': (ruc_emisor or Path(archivo_path).name, f, 'text/plain')}
+                        serie_num = Path(archivo_path).stem
+                        tipo = '02' if serie_num.startswith('B') else '01'
+                        filename = f"{ruc_emisor}-{tipo}-{serie_num}.txt"
+                        files = {'Texto': (filename, f, 'text/plain')}
                         data  = {}
                         if creds.get('usuario'): data['usuario'] = creds['usuario']
                         if creds.get('token'):   data['token']   = creds['token']
