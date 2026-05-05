@@ -86,7 +86,7 @@ class TxtGenerator:
         serie  = str(cpe.get('serie', '') or '')
         numero = int(cpe.get('numero', 0) or 0)
         fp     = p / f"{serie}-{numero:08d}.txt"
-        fp.write_text(TxtGenerator._contenido(cpe), encoding='utf-8')
+        fp.write_text(TxtGenerator._contenido(cpe), encoding='latin-1', newline='\r\n')
         return str(fp)
 
     @staticmethod
@@ -146,14 +146,14 @@ class TxtGenerator:
         l('descuento_global')
         l('total_descuento')
         l('total_anticipo')
-        l('total_gravada',           _fd(gr))
-        l('total_inafecta',          _fd(ina) if ina else '')
-        l('total_exonerada',         _fd(ex))
-        l('total_igv',               _fd(ig))
-        l('total_impuestos_bolsas',  _fd(icb))
-        l('total_gratuita',          '0.000000')
+        l('total_gravada',           _fd(gr,  8))
+        l('total_inafecta',          _fd(ina, 8) if ina else '')
+        l('total_exonerada',         _fd(ex,  8))
+        l('total_igv',               _fd(ig,  8))
+        l('total_impuestos_bolsas',  _fd(icb, 8))
+        l('total_gratuita',          '0.00000000')
         l('total_otros_cargos')
-        l('total',                   _fd(tot))
+        l('total',                   _fd(tot, 8))
         l('percepcion_tipo')
         l('percepcion_base_imponible')
         l('total_percepcion')
@@ -201,14 +201,14 @@ class TxtGenerator:
 
             afectacion = TIPO_IGV_MAP.get(tipo_igv_n, '1')
 
-           lines.append(
-                f"item|{unidad}|{codigo}|{descripcion}"
-                f"|{int(cantidad) if cantidad == int(cantidad) else _fd(cantidad, 8)}|{_fd(val_unit, 8)}|{_fd(pre_unit, 8)}"
-                f"||{_fd(subtotal, 8)}|{afectacion}|{_fd(igv_item, 8)}"
-                f"|{_fd(total_item, 8)}|false|||{cod_sunat}|||||"
+            lines.append(
+                   f"item|{unidad}|{codigo}|{descripcion}"
+                   f"|{int(cantidad) if cantidad == int(cantidad) else _fd(cantidad, 8)}|{_fd(val_unit, 8)}|{_fd(pre_unit, 8)}"
+                   f"||{_fd(subtotal, 8)}|{afectacion}|{_fd(igv_item, 8)}"
+                   f"|{_fd(total_item, 8)}|false|||{cod_sunat}|||||"
             )
 
-        return "\n".join(lines) + "\n"
+        return "\r\n".join(lines) + "\r\n"
 
     @staticmethod
     def _format_decimal(value):
