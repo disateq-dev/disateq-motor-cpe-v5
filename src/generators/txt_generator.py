@@ -47,7 +47,7 @@ TIPO_IGV_MAP = {
 }
 
 
-def _fd(value, d=8):
+def _fd(value, d=6):
     """Formatea decimal con d cifras."""
     try:
         return f"{float(value):.{d}f}"
