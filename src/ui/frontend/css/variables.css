@@ -1,28 +1,39 @@
 /**
- * variables.css — Motor CPE DisateQ™ v4.0
- * Inspirado en: sidebar oscuro elegante + contenido blanco limpio
+ * variables.css — DisateQ CPE™ v5.0
+ * Rediseño FIX-UI-07: plataforma operacional de interoperabilidad
+ * Inspirado en: Datadog, Linear, Vercel, herramientas operacionales modernas
  */
 
 :root {
-  /* Azules — base estructural */
-  --navy-950: #0d1b2e;
-  --navy-900: #112240;
+
+  /* ============================================
+     PALETA BASE — Navy oscuro estructural
+     ============================================ */
+  --navy-950: #0a1628;
+  --navy-900: #0f1f3d;
   --navy-800: #1a2f4a;
   --navy-700: #1e3a5f;
   --navy-600: #1d4ed8;
   --navy-500: #2563eb;
   --navy-400: #3b82f6;
+  --navy-300: #60a5fa;
   --navy-100: #dbeafe;
   --navy-50:  #eff6ff;
 
-  /* Acento cálido — item activo, highlights */
+  /* ============================================
+     ACENTO AMBER — highlights, activo, alerta
+     ============================================ */
+  --amber-700: #b45309;
   --amber-600: #d97706;
   --amber-500: #f59e0b;
   --amber-400: #fbbf24;
   --amber-100: #fef3c7;
   --amber-50:  #fffbeb;
 
-  /* Grises neutros */
+  /* ============================================
+     GRISES NEUTROS
+     ============================================ */
+  --gray-950: #030712;
   --gray-900: #111827;
   --gray-800: #1f2937;
   --gray-700: #374151;
@@ -35,85 +46,165 @@
   --gray-50:  #f9fafb;
 
   /* ============================================
+     ESTADOS OPERACIONALES
+     ============================================ */
+
+  /* Flujo estable / Entregado */
+  --success:         #059669;
+  --success-light:   #10b981;
+  --success-bg:      #f0fdf9;
+  --success-border:  #a7f3d0;
+  --success-dark:    #047857;
+
+  /* En espera / Advertencia */
+  --warning:         #d97706;
+  --warning-light:   #f59e0b;
+  --warning-bg:      #fffbeb;
+  --warning-border:  #fde68a;
+  --warning-dark:    #b45309;
+
+  /* Con problema / Error */
+  --error:           #dc2626;
+  --error-light:     #ef4444;
+  --error-bg:        #fef2f2;
+  --error-border:    #fecaca;
+  --error-dark:      #b91c1c;
+
+  /* Información / Técnico */
+  --info:            #2563eb;
+  --info-light:      #3b82f6;
+  --info-bg:         #eff6ff;
+  --info-border:     #bfdbfe;
+
+  /* Preparado / Detectado */
+  --prepared:        #7c3aed;
+  --prepared-light:  #8b5cf6;
+  --prepared-bg:     #f5f3ff;
+  --prepared-border: #c4b5fd;
+
+  /* Omitido / Inactivo */
+  --muted-state:        #6b7280;
+  --muted-state-bg:     #f9fafb;
+  --muted-state-border: #e5e7eb;
+
+  /* Periodo de gracia — licencia */
+  --grace:        #0891b2;
+  --grace-bg:     #ecfeff;
+  --grace-border: #a5f3fc;
+
+  /* ============================================
+     CONEXIÓN — híbrido, online, offline
+     ============================================ */
+  --online:         #10b981;
+  --offline:        #ef4444;
+  --hybrid:         #f59e0b;
+  --local-only:     #6b7280;
+
+  /* ============================================
+     PRIMARIO — acción principal
+     ============================================ */
+  --primary:        #2563eb;
+  --primary-hover:  #1d4ed8;
+  --primary-active: #1e40af;
+  --primary-light:  #eff6ff;
+  --primary-border: #bfdbfe;
+
+  /* ============================================
      BACKGROUNDS
      ============================================ */
-  --bg-app:            #f7f8fc;       /* fondo general suave */
-  --bg-header:         var(--navy-800);  /* header/sidebar oscuro */
-  --bg-topbar:         var(--navy-900);
-  --bg-nav:            #1e3252;       /* nav tabs oscuro pero menos que header */
+  --bg-app:            #f1f3f6;
   --bg-card:           #ffffff;
+  --bg-card-hover:     #fafbfc;
   --bg-input:          #ffffff;
   --bg-input-disabled: #f9fafb;
-  --bg-hover:          #f0f6ff;       /* hover azul muy suave */
-  --bg-table-head:     #f9fafb;       /* casi blanco */
-  --bg-sidebar-active: var(--amber-500); /* item activo dorado */
+  --bg-hover:          #f0f6ff;
+  --bg-table-head:     #f9fafb;
+  --bg-sidebar:        var(--navy-900);
+  --bg-header:         var(--navy-800);
+  --bg-nav:            #152039;
+  --bg-footer:         var(--navy-900);
+  --bg-overlay:        rgba(0,0,0,0.5);
 
   /* ============================================
      TEXTO
      ============================================ */
-  --text-primary:     #1a2232;        /* casi negro, no puro */
+  --text-primary:     #1a2232;
   --text-secondary:   #4b5563;
   --text-muted:       #9ca3af;
   --text-placeholder: #c4cdd6;
   --text-white:       #ffffff;
-  --text-nav:         #94a3b8;        /* texto nav inactivo */
+  --text-white-muted: rgba(255,255,255,0.60);
+  --text-white-dim:   rgba(255,255,255,0.40);
+  --text-nav:         rgba(255,255,255,0.45);
+  --text-nav-hover:   rgba(255,255,255,0.85);
   --text-nav-active:  #ffffff;
 
   /* ============================================
-     ESTADOS
+     BORDES
      ============================================ */
-  --success:        #059669;
-  --success-light:  #10b981;
-  --success-bg:     #f0fdf9;
-  --success-border: #a7f3d0;
-
-  --warning:        #d97706;
-  --warning-bg:     #fffbeb;
-  --warning-border: #fde68a;
-
-  --error:          #dc2626;
-  --error-bg:       #fef2f2;
-  --error-border:   #fecaca;
-
-  --info:           #2563eb;
-  --info-bg:        #eff6ff;
-  --info-border:    #bfdbfe;
-
-  /* Primario */
-  --primary:        #2563eb;
-  --primary-hover:  #1d4ed8;
-  --primary-light:  #eff6ff;
-
-  /* Compatibilidad */
-  --blue-600: #2563eb;
-  --blue-500: #3b82f6;
-  --blue-400: #60a5fa;
-  --blue-100: #dbeafe;
-  --blue-50:  #eff6ff;
-
-  /* Badges tipo CPE — suaves */
-  --badge-boleta-bg:     #eff6ff;
-  --badge-boleta-color:  #1d4ed8;
-  --badge-factura-bg:    #fff8f0;
-  --badge-factura-color: #b45309;
-  --badge-nc-bg:         #faf5ff;
-  --badge-nc-color:      #6d28d9;
-  --badge-nd-bg:         #fff7f7;
-  --badge-nd-color:      #b91c1c;
-  --badge-anul-bg:       #fefce8;
-  --badge-anul-color:    #92400e;
+  --border-light:      #e8ecf0;
+  --border-medium:     #d1d9e0;
+  --border-dark:       #9ca3af;
+  --border-header:     rgba(245,158,11,0.35);
+  --border-nav:        rgba(255,255,255,0.06);
+  --border-nav-bottom: rgba(0,0,0,0.25);
+  --border-card:       #e5e7eb;
 
   /* ============================================
-     BORDES Y SOMBRAS
+     SOMBRAS
      ============================================ */
-  --border-light:  #e8ecf0;
-  --border-medium: #d1d9e0;
-  --border-dark:   #9ca3af;
+  --shadow-xs:   0 1px 2px rgba(17,34,50,0.04);
+  --shadow-sm:   0 1px 3px rgba(17,34,50,0.06);
+  --shadow-md:   0 3px 10px rgba(17,34,50,0.08);
+  --shadow-lg:   0 8px 24px rgba(17,34,50,0.10);
+  --shadow-card: 0 1px 4px rgba(17,34,50,0.06);
+  --shadow-dropdown: 0 8px 16px rgba(17,34,50,0.12);
 
-  --shadow-sm: 0 1px 3px rgba(17, 34, 50, 0.05);
-  --shadow-md: 0 3px 10px rgba(17, 34, 50, 0.08);
-  --shadow-lg: 0 8px 24px rgba(17, 34, 50, 0.10);
-  --shadow-card: 0 1px 4px rgba(17, 34, 50, 0.06);
+  /* ============================================
+     BADGES — tipos de comprobante
+     ============================================ */
+  --badge-boleta-bg:     #eff6ff;
+  --badge-boleta-color:  #1d4ed8;
+  --badge-boleta-border: #bfdbfe;
+  --badge-factura-bg:    #fff8f0;
+  --badge-factura-color: #b45309;
+  --badge-factura-border:#fcd34d;
+  --badge-nc-bg:         #f5f3ff;
+  --badge-nc-color:      #6d28d9;
+  --badge-nc-border:     #c4b5fd;
+  --badge-nd-bg:         #fff7f7;
+  --badge-nd-color:      #b91c1c;
+  --badge-nd-border:     #fecaca;
+  --badge-anul-bg:       #fefce8;
+  --badge-anul-color:    #92400e;
+  --badge-anul-border:   #fde68a;
+
+  /* ============================================
+     PIPELINE — etapas de integración
+     ============================================ */
+  --pipe-origen-bg:      #dbeafe;
+  --pipe-origen-color:   #2563eb;
+  --pipe-lectura-bg:     #dbeafe;
+  --pipe-lectura-color:  #2563eb;
+  --pipe-transform-bg:   #f5f3ff;
+  --pipe-transform-color:#7c3aed;
+  --pipe-generado-bg:    #dcfce7;
+  --pipe-generado-color: #16a34a;
+  --pipe-entrega-bg:     #fef3c7;
+  --pipe-entrega-color:  #d97706;
+  --pipe-respuesta-bg:   #dcfce7;
+  --pipe-respuesta-color:#16a34a;
+
+  /* ============================================
+     TABS — color de línea activa por sección
+     ============================================ */
+  --tab-dashboard:    #10b981;
+  --tab-flujo:        #3b82f6;
+  --tab-entregas:     #8b5cf6;
+  --tab-pendientes:   #f59e0b;
+  --tab-eventos:      #ef4444;
+  --tab-diagnostico:  #06b6d4;
+  --tab-ajustes:      #9ca3af;
 
   /* ============================================
      TIPOGRAFÍA
@@ -122,46 +213,63 @@
                'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
 
-  --text-xs:   0.688rem;
-  --text-sm:   0.813rem;
-  --text-base: 0.875rem;
-  --text-lg:   1rem;
-  --text-xl:   1.125rem;
-  --text-2xl:  1.25rem;
-  --text-3xl:  1.5rem;
+  --text-xs:   0.688rem;   /* 11px */
+  --text-sm:   0.813rem;   /* 13px */
+  --text-base: 0.875rem;   /* 14px */
+  --text-lg:   1rem;       /* 16px */
+  --text-xl:   1.125rem;   /* 18px */
+  --text-2xl:  1.25rem;    /* 20px */
+  --text-3xl:  1.5rem;     /* 24px */
+  --text-4xl:  2rem;       /* 32px */
 
   /* ============================================
-     ESPACIADO
+     ESPACIADO — escala consistente
      ============================================ */
-  --space-1:  0.25rem;
-  --space-2:  0.375rem;
-  --space-3:  0.5rem;
-  --space-4:  0.75rem;
-  --space-5:  1rem;
-  --space-6:  1.25rem;
-  --space-8:  1.5rem;
-  --space-10: 2rem;
-  --space-12: 2.5rem;
+  --space-1:  0.25rem;   /* 4px  */
+  --space-2:  0.375rem;  /* 6px  */
+  --space-3:  0.5rem;    /* 8px  */
+  --space-4:  0.75rem;   /* 12px */
+  --space-5:  1rem;      /* 16px */
+  --space-6:  1.25rem;   /* 20px */
+  --space-8:  1.5rem;    /* 24px */
+  --space-10: 2rem;      /* 32px */
+  --space-12: 2.5rem;    /* 40px */
 
+  /* ============================================
+     RADIOS
+     ============================================ */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
+  --radius-full: 9999px;
 
+  /* ============================================
+     TRANSICIONES
+     ============================================ */
   --transition-fast: 150ms ease;
   --transition-base: 200ms ease;
   --transition-slow: 300ms ease;
 
+  /* ============================================
+     Z-INDEX
+     ============================================ */
+  --z-base:     1;
   --z-dropdown: 1000;
   --z-modal:    2000;
   --z-toast:    3000;
   --z-tooltip:  4000;
 }
 
+/* ============================================
+   RESET BASE
+   ============================================ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
-  width: 100%; height: 100%; overflow: hidden;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   font-family: var(--font-sans);
   font-size: var(--text-base);
   color: var(--text-primary);
@@ -170,19 +278,38 @@ html, body {
   line-height: 1.5;
 }
 
+/* ============================================
+   SCROLLBAR — discreta
+   ============================================ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
-.text-xs    { font-size: var(--text-xs); }
-.text-sm    { font-size: var(--text-sm); }
-.text-muted { color: var(--text-muted); }
+/* ============================================
+   UTILIDADES BASE
+   ============================================ */
+.text-xs       { font-size: var(--text-xs); }
+.text-sm       { font-size: var(--text-sm); }
+.text-muted    { color: var(--text-muted); }
+.text-success  { color: var(--success); }
+.text-warning  { color: var(--warning); }
+.text-error    { color: var(--error); }
+.text-info     { color: var(--info); }
 .font-medium   { font-weight: 500; }
 .font-semibold { font-weight: 600; }
 .font-bold     { font-weight: 700; }
+.font-mono     { font-family: var(--font-mono); }
 .mt-2 { margin-top: var(--space-2); }
 .mt-4 { margin-top: var(--space-4); }
+.mt-6 { margin-top: var(--space-6); }
 .mb-2 { margin-bottom: var(--space-2); }
 .mb-4 { margin-bottom: var(--space-4); }
+.mb-6 { margin-bottom: var(--space-6); }
 .p-4  { padding: var(--space-4); }
+.p-5  { padding: var(--space-5); }
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }

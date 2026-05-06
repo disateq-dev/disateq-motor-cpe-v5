@@ -1,266 +1,565 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <link rel="icon" type="image/x-icon" href="assets/icons/DisateQ_Favicon.ico">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DisateQ™ Motor CPE v5.0</title>
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/layout.css">
-    <link rel="stylesheet" href="css/components.css">
-    <script src="https://unpkg.com/feather-icons"></script>
-    <style>
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .proc-spinner-ring {
-            width: 38px; height: 38px;
-            border: 3px solid var(--border-medium);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.75s linear infinite;
-        }
-        /* FIX-UI-02: 5 stat-cards en una fila */
-        .stats-grid { grid-template-columns: repeat(5, 1fr); }
-    </style>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/x-icon" href="assets/icons/DisateQ_Favicon.ico">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DisateQ CPE™ — Motor de Integración v5.0</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <script src="https://unpkg.com/feather-icons"></script>
 </head>
 <body>
 <div id="app">
 
-    <!-- HEADER -->
-    <header class="app-header">
-        <div class="header-left">
-            <div class="app-logo">
-                <img src="assets/icons/cpe_disateq.ico" style="width:34px;height:34px;object-fit:contain;">
-                <div class="app-title">
-                    <h1>DisateQ CPE™</h1>
-                    <span class="version">Motor generador y de envío de formato de comprobantes SUNAT</span>
-                </div>
-            </div>
+  <!-- ================================================
+       HEADER
+       ================================================ -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="app-logo">
+        <img src="assets/icons/cpe_disateq.ico" alt="DisateQ">
+        <div class="app-title">
+          <h1>DisateQ CPE™</h1>
+          <span class="tagline">Motor generador y de envío de formato de comprobantes SUNAT</span>
         </div>
-        <div class="header-right">
-            <div class="header-info">
-                <strong id="empresa-nombre">EMPRESA DEMO S.A.C.</strong>
-                <span class="divider"></span>
-                <span>RUC: <strong id="empresa-ruc">20123456789</strong></span>
-                <span class="divider"></span>
-                <span id="empresa-alias" style="font-weight:500;">-</span>
+      </div>
+      <div class="hdr-sep"></div>
+      <div class="header-status">
+        <div class="status-pill ok" id="status-pill">
+          <div class="status-pulse"></div>
+          <span id="status-label">Sistema operativo</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-empresa" id="header-empresa">
+      <span class="empresa-nombre-comercial" id="empresa-nombre-comercial">—</span>
+      <span class="empresa-razon-social" id="empresa-razon-social">—</span>
+      <span class="empresa-ruc" id="empresa-ruc">RUC —</span>
+    </div>
+
+    <div class="header-right">
+      <div class="header-conexion">
+        <div class="conexion-label">Conexión</div>
+        <div class="conexion-rows">
+          <div class="conexion-row">
+            <div class="conexion-dot online" id="dot-internet"></div>
+            <span id="lbl-internet">Internet: —</span>
+          </div>
+          <div class="conexion-row">
+            <div class="conexion-dot online" id="dot-local"></div>
+            <span id="lbl-local">Local: OK</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hdr-sep"></div>
+
+      <div class="header-mode">
+        <div class="mode-label">Modo</div>
+        <div class="mode-switch">
+          <button class="mode-btn active" id="btn-modo-op" onclick="setModo('operador')">Operador</button>
+          <button class="mode-btn inactive" id="btn-modo-tec" onclick="setModo('tecnico')">Técnico</button>
+        </div>
+      </div>
+
+      <div class="hdr-sep"></div>
+
+      <div class="header-actions">
+        <button class="header-btn btn-procesar" onclick="procesarPendientes()" data-tooltip="Ejecutar ahora">
+          <i data-feather="play-circle"></i>
+        </button>
+        <button class="header-btn btn-sync" onclick="sincronizar()" data-tooltip="Sincronizar">
+          <i data-feather="refresh-cw"></i>
+        </button>
+        <button class="header-btn btn-config" onclick="abrirConfig()" data-tooltip="Ajustes">
+          <i data-feather="settings"></i>
+        </button>
+        <button class="header-btn btn-salir" onclick="cerrarApp()" data-tooltip="Cerrar">
+          <i data-feather="power"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================================================
+       NAV TABS
+       ================================================ -->
+  <nav class="nav-tabs">
+    <button class="tab-item active" data-page="dashboard">
+      <i data-feather="grid"></i> Dashboard
+    </button>
+    <button class="tab-item" data-page="flujo">
+      <i data-feather="git-merge"></i> Flujo operacional
+    </button>
+    <button class="tab-item" data-page="entregas">
+      <i data-feather="send"></i> Entregas
+    </button>
+    <button class="tab-item" data-page="pendientes">
+      <i data-feather="clock"></i> Pendientes
+      <span class="badge badge-warn" id="badge-pendientes" style="display:none;">0</span>
+    </button>
+    <button class="tab-item" data-page="eventos">
+      <i data-feather="list"></i> Eventos
+      <span class="badge badge-error" id="badge-eventos" style="display:none;">0</span>
+    </button>
+    <button class="tab-item only-tecnico" data-page="diagnostico">
+      <i data-feather="activity"></i> Diagnóstico
+    </button>
+    <button class="tab-item" data-page="ajustes">
+      <i data-feather="sliders"></i> Ajustes
+    </button>
+  </nav>
+
+  <!-- ================================================
+       MAIN CONTENT
+       ================================================ -->
+  <main class="main-content">
+
+    <!-- DASHBOARD -->
+    <div class="content-page active" id="page-dashboard">
+      <div class="dashboard-layout">
+        <div class="dashboard-main">
+
+          <!-- Stats -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon primary"><i data-feather="database"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">Detectados</span>
+                <span class="stat-value" id="stat-pendientes">0</span>
+                <span class="stat-delta" id="delta-pendientes"></span>
+              </div>
             </div>
-            <div class="header-datetime">
-                <i data-feather="clock"></i>
-                <span id="fecha-hora">—</span>
+            <div class="stat-card">
+              <div class="stat-icon success"><i data-feather="check-circle"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">Entregados</span>
+                <span class="stat-value" id="stat-remitidos">0</span>
+                <span class="stat-delta pos" id="delta-remitidos"></span>
+              </div>
             </div>
-            <div class="header-actions">
-                <button class="header-btn btn-procesar" onclick="procesarPendientes()" data-tooltip="Procesar">
-                    <i data-feather="play-circle"></i>
+            <div class="stat-card">
+              <div class="stat-icon warning"><i data-feather="clock"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">En espera</span>
+                <span class="stat-value" id="stat-ignorados">0</span>
+                <span class="stat-delta" id="delta-ignorados"></span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon error"><i data-feather="alert-circle"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">Con problema</span>
+                <span class="stat-value" id="stat-errores">0</span>
+                <span class="stat-delta neg" id="delta-errores"></span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon error"><i data-feather="alert-octagon"></i></div>
+              <div class="stat-content">
+                <span class="stat-label">No procesados</span>
+                <span class="stat-value" id="stat-abandonados">0</span>
+                <span class="stat-delta" id="delta-abandonados"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumen + Pipeline -->
+          <div class="resumen-card">
+            <div class="estado-col">
+              <div class="estado-ring ok" id="estado-ring">
+                <div class="estado-ring-inner">
+                  <svg viewBox="0 0 16 16"><polyline points="3,8 6,11 13,5"/></svg>
+                </div>
+              </div>
+              <div class="estado-title ok" id="estado-title">Flujo estable</div>
+              <div class="estado-sub" id="estado-sub">Todos los procesos operando correctamente</div>
+            </div>
+            <div class="pipeline-row">
+              <div class="pipe-step">
+                <div class="pipe-box">
+                  <div class="pipe-icon origen">
+                    <svg viewBox="0 0 14 14"><ellipse cx="7" cy="5" rx="4.5" ry="1.8"/><path d="M2.5 5v4c0 1 2 1.8 4.5 1.8s4.5-.8 4.5-1.8V5"/><path d="M2.5 7c0 1 2 1.8 4.5 1.8s4.5-.8 4.5-1.8"/></svg>
+                  </div>
+                  <span class="pipe-name">Origen</span>
+                  <span class="pipe-sub">Sistema DBF</span>
+                  <span class="pipe-count" id="pipe-origen">0</span>
+                  <span class="pipe-status">Activo</span>
+                  <div class="pipe-spark" id="spark-origen"></div>
+                </div>
+              </div>
+              <div class="pipe-arrow">›</div>
+              <div class="pipe-step">
+                <div class="pipe-box">
+                  <div class="pipe-icon lectura">
+                    <svg viewBox="0 0 14 14"><path d="M7 2v10M3 6l4-4 4 4"/></svg>
+                  </div>
+                  <span class="pipe-name">Lectura</span>
+                  <span class="pipe-sub">Registros detect.</span>
+                  <span class="pipe-count" id="pipe-lectura">0</span>
+                  <span class="pipe-status">Activo</span>
+                  <div class="pipe-spark" id="spark-lectura"></div>
+                </div>
+              </div>
+              <div class="pipe-arrow">›</div>
+              <div class="pipe-step">
+                <div class="pipe-box">
+                  <div class="pipe-icon transform">
+                    <svg viewBox="0 0 14 14"><path d="M2 7h2l2-4 2 8 2-4h2"/></svg>
+                  </div>
+                  <span class="pipe-name">Transform.</span>
+                  <span class="pipe-sub">Normalización</span>
+                  <span class="pipe-count" id="pipe-transform">0</span>
+                  <span class="pipe-status">Activo</span>
+                  <div class="pipe-spark" id="spark-transform"></div>
+                </div>
+              </div>
+              <div class="pipe-arrow">›</div>
+              <div class="pipe-step">
+                <div class="pipe-box">
+                  <div class="pipe-icon generado">
+                    <svg viewBox="0 0 14 14"><rect x="3" y="2" width="8" height="10" rx="1"/><path d="M5 5h4M5 7h4M5 9h2"/></svg>
+                  </div>
+                  <span class="pipe-name">TXT / JSON</span>
+                  <span class="pipe-sub">Preparados</span>
+                  <span class="pipe-count" id="pipe-generado">0</span>
+                  <span class="pipe-status">Activo</span>
+                  <div class="pipe-spark" id="spark-generado"></div>
+                </div>
+              </div>
+              <div class="pipe-arrow">›</div>
+              <div class="pipe-step">
+                <div class="pipe-box">
+                  <div class="pipe-icon entrega">
+                    <svg viewBox="0 0 14 14"><path d="M2 7l9-5v10L2 7z"/></svg>
+                  </div>
+                  <span class="pipe-name">Entrega</span>
+                  <span class="pipe-sub">Enviados</span>
+                  <span class="pipe-count" id="pipe-entrega">0</span>
+                  <span class="pipe-status">Activo</span>
+                  <div class="pipe-spark" id="spark-entrega"></div>
+                </div>
+              </div>
+              <div class="pipe-arrow">›</div>
+              <div class="pipe-step">
+                <div class="pipe-box">
+                  <div class="pipe-icon respuesta">
+                    <svg viewBox="0 0 14 14"><polyline points="2,7 5,10 12,4"/></svg>
+                  </div>
+                  <span class="pipe-name">Respuesta</span>
+                  <span class="pipe-sub">Confirmados</span>
+                  <span class="pipe-count success" id="pipe-respuesta">0</span>
+                  <span class="pipe-status">Exitosas</span>
+                  <div class="pipe-spark" id="spark-respuesta"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feed + Donut -->
+          <div class="dashboard-row2">
+            <div class="feed-card">
+              <div class="card-header">
+                <h3>Actividad reciente</h3>
+                <a class="card-header-link" onclick="irA('eventos')">Ver todos en Eventos</a>
+              </div>
+              <div id="feed-actividad"></div>
+            </div>
+            <div class="donut-card">
+              <div class="card-header" style="width:100%;padding:0;border:none;margin-bottom:var(--space-3)">
+                <h3>Resumen hoy</h3>
+              </div>
+              <svg id="donut-svg" width="130" height="130" viewBox="0 0 130 130">
+                <circle cx="65" cy="65" r="50" fill="none" stroke="var(--gray-100)" stroke-width="18"/>
+                <circle id="donut-entregado" cx="65" cy="65" r="50" fill="none" stroke="var(--success-light)" stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
+                <circle id="donut-espera"    cx="65" cy="65" r="50" fill="none" stroke="var(--warning-light)"  stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
+                <circle id="donut-problema"  cx="65" cy="65" r="50" fill="none" stroke="var(--error-light)"    stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
+                <text id="donut-total" x="65" y="60" text-anchor="middle" font-size="18" font-weight="700" fill="var(--text-primary)" font-family="Segoe UI,sans-serif">0</text>
+                <text x="65" y="75" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="Segoe UI,sans-serif">Total hoy</text>
+              </svg>
+              <div class="donut-legend">
+                <div class="legend-row"><div class="legend-left"><div class="legend-dot" style="background:var(--success-light)"></div>Entregados</div><span class="legend-val" id="leg-entregado">0</span><span class="legend-pct" id="leg-pct-entregado">0%</span></div>
+                <div class="legend-row"><div class="legend-left"><div class="legend-dot" style="background:var(--warning-light)"></div>En espera</div><span class="legend-val" id="leg-espera">0</span><span class="legend-pct" id="leg-pct-espera">0%</span></div>
+                <div class="legend-row"><div class="legend-left"><div class="legend-dot" style="background:var(--error-light)"></div>Con problema</div><span class="legend-val" id="leg-problema">0</span><span class="legend-pct" id="leg-pct-problema">0%</span></div>
+                <div class="legend-row"><div class="legend-left"><div class="legend-dot" style="background:var(--gray-300)"></div>Omitidos</div><span class="legend-val" id="leg-omitido">0</span><span class="legend-pct" id="leg-pct-omitido">0%</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scheduler -->
+          <div class="sched-card">
+            <div class="card-header">
+              <h3>Ciclo de procesamiento</h3>
+              <div style="display:flex;gap:var(--space-3)">
+                <button class="btn btn-sm btn-primary" onclick="procesarPendientes()">
+                  <i data-feather="play-circle"></i> Ejecutar ahora
                 </button>
-                <button class="header-btn btn-sync" onclick="sincronizar()" data-tooltip="Sincronizar">
-                    <i data-feather="refresh-cw"></i>
+                <button class="btn btn-sm btn-outline-warning" id="btn-sched-toggle" onclick="toggleScheduler()">
+                  <i data-feather="pause-circle"></i> Pausar ciclo
                 </button>
-                <button class="header-btn btn-config" onclick="abrirConfig()" data-tooltip="Configuración">
-                    <i data-feather="settings"></i>
-                </button>
-                <button class="header-btn btn-salir" onclick="cerrarApp()" data-tooltip="Cerrar">
-                    <i data-feather="power"></i>
-                </button>
+              </div>
             </div>
-        </div>
-    </header>
-
-    <!-- NAV TABS -->
-    <nav class="nav-tabs">
-        <button class="tab-item active" data-page="dashboard">
-            <i data-feather="activity"></i> Dashboard
-        </button>
-        <button class="tab-item" data-page="procesar">
-            <i data-feather="send"></i> Procesar
-            <span class="badge" id="badge-pendientes" style="display:none;">0</span>
-        </button>
-        <button class="tab-item" data-page="historial">
-            <i data-feather="file-text"></i> Historial
-        </button>
-        <button class="tab-item" data-page="logs">
-            <i data-feather="list"></i> Logs
-        </button>
-        <button class="tab-item" data-page="config">
-            <i data-feather="settings"></i> Configuración
-        </button>
-    </nav>
-
-    <!-- MAIN CONTENT -->
-    <main class="main-content">
-
-        <!-- DASHBOARD -->
-        <div class="content-page active" id="page-dashboard">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon primary"><i data-feather="clock"></i></div>
-                    <div class="stat-content">
-                        <span class="stat-label">Pendientes en Fuente</span>
-                        <span class="stat-value" id="stat-pendientes">0</span>
-                    </div>
+            <div class="sched-grid">
+              <div class="sched-item">
+                <div class="sched-icon" style="background:var(--success-bg)">
+                  <svg viewBox="0 0 15 15" stroke="var(--success)" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M7.5 4.5v3l2 2"/></svg>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon success"><i data-feather="send"></i></div>
-                    <div class="stat-content">
-                        <span class="stat-label">Remitidos al API</span>
-                        <span class="stat-value" id="stat-remitidos">0</span>
-                    </div>
+                <span class="sched-label">Ciclo automático</span>
+                <div class="sched-value success" id="sched-estado">Activo</div>
+                <span class="sched-sub" id="sched-estado-sub">Corriendo</span>
+                <div class="sched-bar"><div class="sched-bar-fill" style="width:100%;background:var(--success)"></div></div>
+              </div>
+              <div class="sched-item">
+                <div class="sched-icon" style="background:var(--info-bg)">
+                  <svg viewBox="0 0 15 15" stroke="var(--info)" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M7.5 4v3.5l2.5 2.5"/></svg>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon error"><i data-feather="alert-circle"></i></div>
-                    <div class="stat-content">
-                        <span class="stat-label">Errores de Envío</span>
-                        <span class="stat-value" id="stat-errores">0</span>
-                    </div>
+                <span class="sched-label">Última ejecución</span>
+                <div class="sched-value" id="sched-ultimo">—</div>
+                <span class="sched-sub" id="sched-ultimo-sub">—</span>
+                <div class="sched-bar"><div class="sched-bar-fill" style="width:60%;background:var(--info)"></div></div>
+              </div>
+              <div class="sched-item">
+                <div class="sched-icon" style="background:var(--warning-bg)">
+                  <svg viewBox="0 0 15 15" stroke="var(--warning)" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M7.5 4v3.5l2.5 2.5"/></svg>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon warning"><i data-feather="skip-forward"></i></div>
-                    <div class="stat-content">
-                        <span class="stat-label">Ignorados</span>
-                        <span class="stat-value" id="stat-ignorados">0</span>
-                    </div>
+                <span class="sched-label">Próxima ejecución</span>
+                <div class="sched-value warning" id="sched-proximo">—</div>
+                <span class="sched-sub" id="sched-intervalo">Intervalo: 5 min</span>
+                <div class="sched-bar"><div class="sched-bar-fill" id="sched-bar" style="width:0%;background:var(--warning)"></div></div>
+              </div>
+              <div class="sched-item">
+                <div class="sched-icon" style="background:var(--prepared-bg)">
+                  <svg viewBox="0 0 15 15" stroke="var(--prepared)" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M2 7.5h11M8.5 3l4.5 4.5-4.5 4.5"/></svg>
                 </div>
-                <!-- FIX-UI-02: Abandonados — criticos, requieren revision manual -->
-                <div class="stat-card">
-                    <div class="stat-icon error"><i data-feather="alert-octagon"></i></div>
-                    <div class="stat-content">
-                        <span class="stat-label">Abandonados</span>
-                        <span class="stat-value" id="stat-abandonados">0</span>
-                    </div>
-                </div>
+                <span class="sched-label">Procesados hoy</span>
+                <div class="sched-value" id="sched-procesados">0</div>
+                <span class="sched-sub" id="sched-ciclos">en 0 ciclos</span>
+                <div class="sched-bar"><div class="sched-bar-fill" id="sched-bar-procesados" style="width:0%;background:var(--prepared)"></div></div>
+              </div>
             </div>
+          </div>
 
-            <div class="card">
-                <div class="card-header"><h3>Envíos Últimos 7 Días</h3></div>
-                <div class="card-body">
-                    <canvas id="chart-envios" height="80"></canvas>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h3>Comprobantes Recientes</h3>
-                    <button class="btn btn-sm btn-ghost" onclick="verTodos()">Ver todos</button>
-                </div>
-                <div class="card-body" style="padding:0;">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Comprobante</th>
-                                <th>Fecha</th>
-                                <th>Cliente</th>
-                                <th style="text-align:right;">Total</th>
-                                <th style="text-align:center;">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-recientes"></tbody>
-                    </table>
-                </div>
-            </div>
         </div>
 
-        <!-- PROCESAR -->
-        <div class="content-page" id="page-procesar">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Procesamiento de Comprobantes</h3>
-                    <span id="proc-cliente-info" style="font-size:0.8rem;color:var(--text-muted);"></span>
+        <!-- RIGHT PANEL -->
+        <div class="dashboard-panel">
+
+          <div class="panel-card">
+            <div class="panel-title">
+              Atención requerida
+              <span class="panel-badge" id="panel-badge-alertas" style="display:none">0</span>
+            </div>
+            <div class="alert-list" id="panel-alertas">
+              <div class="alert-item">
+                <div class="alert-icon"><i data-feather="check-circle" style="stroke:var(--success);width:16px;height:16px;"></i></div>
+                <div class="alert-body">
+                  <div class="alert-title">Sin alertas activas</div>
+                  <div class="alert-detail">Todo operando correctamente</div>
                 </div>
-                <div class="card-body" style="position:relative;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:1rem;">
-                        <div style="flex:1;display:flex;align-items:center;gap:0.75rem;padding:0.55rem 1rem;background:var(--bg-table-head);border:1px solid var(--border-light);border-radius:var(--radius-md);">
-                            <i data-feather="database" style="width:14px;height:14px;color:var(--text-muted);flex-shrink:0;"></i>
-                            <div style="min-width:0;">
-                                <div style="font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:1px;">Fuente configurada</div>
-                                <div id="archivo-seleccionado" style="font-size:0.82rem;color:var(--text-muted);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" onclick="cargarPendientes()" id="btn-cargar">
-                            <i data-feather="refresh-cw"></i> Cargar
-                        </button>
-                    </div>
-                    <div id="proc-spinner" style="display:none;position:absolute;inset:0;background:rgba(247,248,252,0.88);z-index:50;border-radius:var(--radius-lg);flex-direction:column;align-items:center;justify-content:center;gap:0.75rem;">
-                        <div class="proc-spinner-ring"></div>
-                        <div id="proc-spinner-msg" style="font-size:0.82rem;color:var(--text-muted);font-weight:500;">—</div>
-                    </div>
-                    <div id="proc-status" style="display:none;padding:0.5rem 0.75rem;border-radius:var(--radius-md);margin-bottom:1rem;font-size:0.875rem;"></div>
-                    <div id="preview-container" style="display:none;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-                            <div style="display:flex;align-items:center;gap:1rem;">
-                                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.875rem;">
-                                    <input type="checkbox" id="select-all" onchange="toggleAll(this)"> Seleccionar todos
-                                </label>
-                                <span id="proc-count" style="font-size:0.8rem;color:var(--text-muted);"></span>
-                            </div>
-                            <button class="btn btn-primary" onclick="procesarConMotor()" id="btn-procesar">
-                                <i data-feather="play-circle"></i> Procesar con Motor
-                            </button>
-                        </div>
-                        <div style="max-height:400px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-md);">
-                            <table class="table" style="margin:0;">
-                                <thead style="position:sticky;top:0;background:var(--bg-table-head);z-index:1;">
-                                    <tr>
-                                        <th style="width:40px;"></th>
-                                        <th>Comprobante</th>
-                                        <th>Cliente</th>
-                                        <th style="text-align:right;">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="preview-tbody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div id="proc-resultado" style="display:none;"></div>
-                </div>
+              </div>
             </div>
-        </div>
+          </div>
 
-        <!-- HISTORIAL -->
-        <div class="content-page" id="page-historial">
-            <div class="card">
-                <div class="card-header"><h3>Historial de Comprobantes</h3></div>
-                <div class="card-body"><p class="text-muted">—</p></div>
-            </div>
-        </div>
+          <div class="panel-card">
+            <div class="panel-title">Estado del servicio</div>
+            <div class="panel-stat"><span class="panel-stat-label">Última respuesta</span><span class="panel-stat-value ok" id="ps-respuesta">—</span></div>
+            <div class="panel-stat"><span class="panel-stat-label">Hace</span><span class="panel-stat-value" id="ps-hace">—</span></div>
+            <div class="panel-stat only-tecnico"><span class="panel-stat-label">Tiempo promedio</span><span class="panel-stat-value" id="ps-tiempo">—</span></div>
+            <div class="panel-stat"><span class="panel-stat-label">Cola actual</span><span class="panel-stat-value warning" id="ps-cola">—</span></div>
+            <div class="panel-stat only-tecnico"><span class="panel-stat-label">Reintentos activos</span><span class="panel-stat-value warning" id="ps-reintentos">—</span></div>
+            <div class="panel-stat"><span class="panel-stat-label">Modo conexión</span><span class="panel-stat-value ok" id="ps-modo">Híbrido</span></div>
+          </div>
 
-        <!-- LOGS -->
-        <div class="content-page" id="page-logs">
-            <div class="card">
-                <div class="card-header"><h3>Registro de Eventos</h3></div>
-                <div class="card-body"><p class="text-muted">—</p></div>
+          <div class="panel-card">
+            <div class="panel-title">Acciones rápidas</div>
+            <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+              <button class="btn btn-primary btn-full btn-sm" onclick="procesarPendientes()">
+                <i data-feather="play-circle"></i> Ejecutar ahora
+              </button>
+              <button class="btn btn-sm btn-full" onclick="reprocesarErrores()" id="btn-reprocesar">
+                <i data-feather="refresh-cw"></i> Reprocesar con problema
+              </button>
+              <button class="btn btn-outline-warning btn-sm btn-full" onclick="toggleScheduler()" id="btn-pausa">
+                <i data-feather="pause-circle"></i> Pausar ciclo
+              </button>
             </div>
-        </div>
+          </div>
 
-        <!-- CONFIG -->
-        <div class="content-page" id="page-config">
-            <div class="card">
-                <div class="card-header"><h3>Configuración del Sistema</h3></div>
-                <div class="card-body"><p class="text-muted">—</p></div>
-            </div>
         </div>
+      </div>
+    </div>
 
-    </main>
+    <!-- FLUJO OPERACIONAL -->
+    <div class="content-page" id="page-flujo">
+      <div class="card">
+        <div class="card-header"><h3>Flujo operacional</h3></div>
+        <div class="card-body"><p class="text-muted">Próximamente — visualización detallada del pipeline de integración.</p></div>
+      </div>
+    </div>
 
-    <!-- FOOTER -->
-    <footer class="app-footer">
-        <div class="footer-left">
-            <div class="footer-status">
-                <span class="status-dot"></span>
-                <span>Conectado</span>
-            </div>
-            <span>|</span>
-            <div class="footer-status">
-                <i data-feather="shield" style="width:13px;height:13px;" id="lic-footer-icon"></i>
-                <span id="lic-footer-label">Licencia —</span>
-            </div>
+    <!-- ENTREGAS -->
+    <div class="content-page" id="page-entregas">
+      <div class="card">
+        <div class="card-header"><h3>Entregas</h3></div>
+        <div class="card-body" style="padding:0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Comprobante</th>
+                <th>Tipo</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th class="right">Total</th>
+                <th style="text-align:center">Estado</th>
+                <th style="text-align:center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-entregas"></tbody>
+          </table>
         </div>
-        <div class="footer-right">
-            <span>Última sincronización: <strong id="ultima-sync">—</strong></span>
-            <span>|</span>
-            <span>DisateQ™ Motor CPE v5.0</span>
-            <span>|</span>
-            <span>@fhertejada™</span>
+      </div>
+    </div>
+
+    <!-- PENDIENTES -->
+    <div class="content-page" id="page-pendientes">
+      <div class="card">
+        <div class="card-header">
+          <h3>Pendientes en cola</h3>
+          <button class="btn btn-primary btn-sm" onclick="procesarPendientes()">
+            <i data-feather="play-circle"></i> Ejecutar ahora
+          </button>
         </div>
-    </footer>
+        <div class="card-body" style="padding:0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Comprobante</th>
+                <th>Tipo</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th class="right">Total</th>
+                <th style="text-align:center">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-pendientes"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- EVENTOS -->
+    <div class="content-page" id="page-eventos">
+      <div class="toolbar">
+        <div class="search-box" style="max-width:260px">
+          <i data-feather="search"></i>
+          <input type="text" id="eventos-search" placeholder="Buscar comprobante, cliente..." oninput="filtrarEventos()">
+        </div>
+        <span class="toolbar-label">Tipo:</span>
+        <div class="filter-chips" id="chips-tipo">
+          <div class="chip active" data-tipo="todos" onclick="setChip('tipo',this)">Todos</div>
+          <div class="chip default" data-tipo="boleta" onclick="setChip('tipo',this)">Boleta</div>
+          <div class="chip default" data-tipo="factura" onclick="setChip('tipo',this)">Factura</div>
+          <div class="chip default" data-tipo="nc" onclick="setChip('tipo',this)">N. Crédito</div>
+          <div class="chip default" data-tipo="nd" onclick="setChip('tipo',this)">N. Débito</div>
+        </div>
+        <span class="toolbar-label">Estado:</span>
+        <div class="filter-chips" id="chips-estado">
+          <div class="chip active" data-estado="todos" onclick="setChip('estado',this)">Todos</div>
+          <div class="chip success" data-estado="entregado" onclick="setChip('estado',this)">Entregado</div>
+          <div class="chip warning" data-estado="espera" onclick="setChip('estado',this)">En espera</div>
+          <div class="chip error" data-estado="problema" onclick="setChip('estado',this)">Con problema</div>
+          <div class="chip default" data-estado="omitido" onclick="setChip('estado',this)">Omitido</div>
+        </div>
+        <div class="toolbar-right">
+          <select class="btn btn-sm" id="eventos-periodo" onchange="filtrarEventos()">
+            <option value="hoy">Hoy</option>
+            <option value="7dias">Últimos 7 días</option>
+            <option value="mes">Este mes</option>
+          </select>
+          <button class="btn btn-sm" onclick="sincronizar()">
+            <i data-feather="refresh-cw"></i> Actualizar
+          </button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Comprobante</th>
+                <th>Tipo</th>
+                <th>Evento</th>
+                <th class="right">Total</th>
+                <th style="text-align:center">Estado</th>
+                <th style="text-align:center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-eventos"></tbody>
+          </table>
+          <div class="pagination" id="eventos-paginacion" style="display:none">
+            <div class="pagination-info" id="eventos-pag-info">—</div>
+            <div class="pagination-btns" id="eventos-pag-btns"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIAGNOSTICO (solo tecnico) -->
+    <div class="content-page only-tecnico" id="page-diagnostico">
+      <div class="card">
+        <div class="card-header"><h3>Diagnóstico del sistema</h3></div>
+        <div class="card-body"><p class="text-muted">Vista técnica — logs en tiempo real, payloads, tiempos de respuesta.</p></div>
+      </div>
+    </div>
+
+    <!-- AJUSTES -->
+    <div class="content-page" id="page-ajustes">
+      <div class="card">
+        <div class="card-header"><h3>Ajustes</h3></div>
+        <div class="card-body" id="ajustes-body">
+          <p class="text-muted">Cargando configuración...</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================================================
+       FOOTER / STATUS BAR
+       ================================================ -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <div class="footer-item">
+        <div class="status-dot ok" id="footer-dot"></div>
+        <span id="footer-conexion">Conectado</span>
+      </div>
+      <div class="footer-sep"></div>
+      <div class="footer-item">
+        <i data-feather="shield" style="width:11px;height:11px;margin-right:3px;" id="lic-footer-icon"></i>
+        <span id="lic-footer-label">Licencia —</span>
+      </div>
+      <div class="footer-sep"></div>
+      <div class="footer-item">
+        <span>Última sync: <strong id="ultima-sync">—</strong></span>
+      </div>
+      <div class="footer-sep"></div>
+      <div class="footer-item">
+        <span>Próxima ejecución: <strong id="footer-proximo">—</strong></span>
+      </div>
+    </div>
+    <div class="footer-right">
+      <span class="footer-datetime" id="footer-datetime">—</span>
+      <div class="footer-sep"></div>
+      <span>DisateQ CPE™ v5.0</span>
+      <div class="footer-sep"></div>
+      <span>@fhertejada</span>
+    </div>
+  </footer>
 
 </div>
 
@@ -273,6 +572,51 @@
 <script src="js/app.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/processor.js"></script>
-<script>feather.replace();</script>
+<script>
+  feather.replace();
+  // Reloj en footer
+  function tickClock() {
+    const now = new Date();
+    const s = now.toLocaleDateString('es-PE', {day:'2-digit',month:'short',year:'numeric'})
+            + ' · '
+            + now.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const el = document.getElementById('footer-datetime');
+    if (el) el.textContent = s;
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // Modo operador/tecnico
+  function setModo(modo) {
+    document.body.classList.toggle('modo-tecnico', modo === 'tecnico');
+    document.getElementById('btn-modo-op').className  = 'mode-btn ' + (modo === 'operador' ? 'active' : 'inactive');
+    document.getElementById('btn-modo-tec').className = 'mode-btn ' + (modo === 'tecnico'  ? 'active' : 'inactive');
+    feather.replace();
+  }
+
+  // Navegación entre tabs
+  function irA(page) {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.content-page').forEach(p => p.classList.remove('active'));
+    const tab = document.querySelector('[data-page="' + page + '"]');
+    const pag = document.getElementById('page-' + page);
+    if (tab) tab.classList.add('active');
+    if (pag) pag.classList.add('active');
+    feather.replace();
+  }
+
+  // Chips de filtro
+  function setChip(grupo, el) {
+    el.closest('.filter-chips').querySelectorAll('.chip').forEach(c => {
+      c.className = c.className.replace(' active','').replace('active','').trim();
+      if (!c.classList.contains('success') && !c.classList.contains('warning') && !c.classList.contains('error')) {
+        c.classList.add('default');
+      }
+    });
+    el.classList.remove('default');
+    el.classList.add('active');
+    if (typeof filtrarEventos === 'function') filtrarEventos();
+  }
+</script>
 </body>
 </html>
