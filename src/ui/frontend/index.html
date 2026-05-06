@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/x-icon" href="assets/icons/DisateQ_Favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DisateQ CPE™ — Motor de Integración v5.0</title>
+  <title>DisateQ Integrador CPE™ v5.0</title>
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
@@ -22,15 +22,15 @@
       <div class="app-logo">
         <img src="assets/icons/cpe_disateq.ico" alt="DisateQ">
         <div class="app-title">
-          <h1>DisateQ CPE™</h1>
-          <span class="tagline">Motor generador y de envío de formato de comprobantes SUNAT</span>
+          <h1>DisateQ Integrador CPE™</h1>
+          <span class="tagline">Conversión y normalización de formatos CPE SUNAT</span>
         </div>
       </div>
       <div class="hdr-sep"></div>
       <div class="header-status">
         <div class="status-pill ok" id="status-pill">
           <div class="status-pulse"></div>
-          <span id="status-label">Sistema operativo</span>
+          <span id="status-label">Flujo estable</span>
         </div>
       </div>
     </div>
@@ -69,15 +69,7 @@
       <div class="hdr-sep"></div>
 
       <div class="header-actions">
-        <button class="header-btn btn-procesar" onclick="procesarPendientes()" data-tooltip="Ejecutar ahora">
-          <i data-feather="play-circle"></i>
-        </button>
-        <button class="header-btn btn-sync" onclick="sincronizar()" data-tooltip="Sincronizar">
-          <i data-feather="refresh-cw"></i>
-        </button>
-        <button class="header-btn btn-config" onclick="abrirConfig()" data-tooltip="Ajustes">
-          <i data-feather="settings"></i>
-        </button>
+
         <button class="header-btn btn-salir" onclick="cerrarApp()" data-tooltip="Cerrar">
           <i data-feather="power"></i>
         </button>
@@ -275,9 +267,9 @@
               </div>
               <svg id="donut-svg" width="130" height="130" viewBox="0 0 130 130">
                 <circle cx="65" cy="65" r="50" fill="none" stroke="var(--gray-100)" stroke-width="18"/>
-                <circle id="donut-entregado" cx="65" cy="65" r="50" fill="none" stroke="var(--success-light)" stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
-                <circle id="donut-espera"    cx="65" cy="65" r="50" fill="none" stroke="var(--warning-light)"  stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
-                <circle id="donut-problema"  cx="65" cy="65" r="50" fill="none" stroke="var(--error-light)"    stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
+                <circle id="donut-entregado" cx="65" cy="65" r="50" fill="none" stroke="transparent" stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
+                <circle id="donut-espera"    cx="65" cy="65" r="50" fill="none" stroke="transparent" stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
+                <circle id="donut-problema"  cx="65" cy="65" r="50" fill="none" stroke="transparent" stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round"/>
                 <text id="donut-total" x="65" y="60" text-anchor="middle" font-size="18" font-weight="700" fill="var(--text-primary)" font-family="Segoe UI,sans-serif">0</text>
                 <text x="65" y="75" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="Segoe UI,sans-serif">Total hoy</text>
               </svg>
