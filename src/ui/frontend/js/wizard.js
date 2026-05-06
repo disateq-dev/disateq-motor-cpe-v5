@@ -104,8 +104,8 @@ function goBack() {
 }
 
 function cancelar() {
-  if (confirm('¿Cancelar la configuración? Los datos no serán guardados.')) {
-    window.location.href = 'index.html';
+  if (confirm('Cancelar la configuracion? Sin un cliente configurado el motor no puede operar. Se cerrara la aplicacion.')) {
+    window.pywebview.api.cerrar_sistema();
   }
 }
 
@@ -766,3 +766,4 @@ function irDashboard() {
 function nuevoCliente() {
   window.location.reload();
 }
+
